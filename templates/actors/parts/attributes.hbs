@@ -1,31 +1,42 @@
-{{!-- Блок атрибутов --}}
+{{!-- Атрибуты + Магические таланты --}}
 <section class="attributes-section">
   <h3 class="section-title">Атрибуты</h3>
   <div class="attributes-grid">
-
     {{#each system.attributes as |attr key|}}
     <div class="attribute-row">
       <label class="attr-label">{{lookup ../attributeLabels key}}</label>
-      <div class="attr-controls">
-        <span class="die-badge rollable-attribute" data-attribute="{{key}}"
-              title="Бросить {{lookup ../attributeLabels key}}">
-          d{{attr.die}}
-        </span>
-        <select name="system.attributes.{{key}}.die" class="die-select">
-          <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
-          <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
-          <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
-          <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
-          <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
-          <option value="20" {{#if (eq attr.die 20)}}selected{{/if}}>d20</option>
-        </select>
-        <span class="wild-die-hint">+ d6</span>
-        <span class="mod-label">Мод.</span>
-        <input type="number" name="system.attributes.{{key}}.modifier"
-               value="{{attr.modifier}}" class="mod-input" />
-      </div>
+      <span class="die-badge rollable-attribute" data-attribute="{{key}}" title="Бросить">d{{attr.die}}</span>
+      <select name="system.attributes.{{key}}.die" class="die-select">
+        <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
+        <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
+        <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
+        <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
+        <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
+        <option value="20" {{#if (eq attr.die 20)}}selected{{/if}}>d20</option>
+      </select>
+      <span class="wild-die-hint">+d6</span>
+      <span class="mod-label">Мод.</span>
+      <input type="number" name="system.attributes.{{key}}.modifier" value="{{attr.modifier}}" class="mod-input" />
     </div>
     {{/each}}
-
   </div>
+</section>
+
+{{!-- Магические таланты --}}
+<section class="magic-talents-section" data-drop-zone="magicTalents">
+  <h3 class="section-title magic-title">✦ Магические таланты</h3>
+  <p class="drop-hint">Перетащи заклинания или абилки с категорией «магия»</p>
+  {{#each system.magicTalents as |talent|}}
+  <div class="talent-row">
+    <span class="talent-name">{{talent.name}}</span>
+    <select name="system.magicTalents.{{@index}}.level" class="talent-level">
+      <option value="weak"        {{#if (eq talent.level "weak")}}selected{{/if}}>Слабо</option>
+      <option value="strong"      {{#if (eq talent.level "strong")}}selected{{/if}}>Крепко</option>
+      <option value="exceptional" {{#if (eq talent.level "exceptional")}}selected{{/if}}>Небывалый талант</option>
+    </select>
+    <button type="button" class="delete-talent btn-delete" data-index="{{@index}}">✕</button>
+  </div>
+  {{else}}
+  <p class="empty-hint">Нет магических талантов</p>
+  {{/each}}
 </section>

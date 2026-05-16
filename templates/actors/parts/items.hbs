@@ -1,109 +1,101 @@
-{{!-- Блок снаряжения и способностей --}}
+{{!-- Снаряжение --}}
 <section class="items-section">
+
+  {{#each (array "artifacts:Артефакты:artifact" "spells:Заклинания:spell" "demons:Призывные демоны:demon" "abilities:Уникальные абилки:ability" "companions:Спутники:companion" "vehicles:Транспорт:companion" "languages:Языки:language") as |group|}}
+  {{/each}}
 
   {{!-- Артефакты --}}
   <div class="item-group">
     <div class="item-group-header">
-      <h4>Артефакты</h4>
-      <button type="button" class="item-create btn-add" data-type="artifact" title="Добавить артефакт">+</button>
+      <span class="item-group-title">Артефакты</span>
+      <button type="button" class="item-create btn-add-sm" data-type="artifact">+</button>
     </div>
     {{#each artifacts}}
-    <div class="item item-row" data-item-id="{{this.id}}">
+    <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
-      <span class="item-name item-edit">{{this.name}}</span>
+      <span class="item-name item-name-click">{{this.name}}</span>
       <span class="item-badge rarity-{{this.system.rarity}}">{{this.system.rarity}}</span>
-      <div class="item-controls">
-        <a class="item-edit" title="Редактировать"><i class="fas fa-edit"></i></a>
-        <a class="item-delete" title="Удалить"><i class="fas fa-trash"></i></a>
-      </div>
+      <button type="button" class="item-delete btn-delete-sm">✕</button>
     </div>
-    {{else}}
-    <p class="empty-hint">Нет артефактов</p>
-    {{/each}}
+    {{else}}<p class="empty-hint">Нет артефактов</p>{{/each}}
   </div>
 
   {{!-- Заклинания --}}
   <div class="item-group">
     <div class="item-group-header">
-      <h4>Заклинания</h4>
-      <button type="button" class="item-create btn-add" data-type="spell" title="Добавить заклинание">+</button>
+      <span class="item-group-title">Заклинания</span>
+      <button type="button" class="item-create btn-add-sm" data-type="spell">+</button>
     </div>
     {{#each spells}}
-    <div class="item item-row" data-item-id="{{this.id}}">
+    <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
-      <span class="item-name item-edit">{{this.name}}</span>
-      <span class="item-meta">Стоимость: {{this.system.cost}} | {{this.system.range}}</span>
-      <div class="item-controls">
-        <a class="item-edit" title="Редактировать"><i class="fas fa-edit"></i></a>
-        <a class="item-delete" title="Удалить"><i class="fas fa-trash"></i></a>
-      </div>
+      <span class="item-name item-name-click">{{this.name}}</span>
+      <span class="item-meta">{{this.system.range}} · {{this.system.cost}} энергии</span>
+      <button type="button" class="item-delete btn-delete-sm">✕</button>
     </div>
-    {{else}}
-    <p class="empty-hint">Нет заклинаний</p>
-    {{/each}}
+    {{else}}<p class="empty-hint">Нет заклинаний</p>{{/each}}
   </div>
 
   {{!-- Демоны --}}
   <div class="item-group">
     <div class="item-group-header">
-      <h4>Призывные демоны</h4>
-      <button type="button" class="item-create btn-add" data-type="demon" title="Добавить демона">+</button>
+      <span class="item-group-title">Призывные демоны</span>
+      <button type="button" class="item-create btn-add-sm" data-type="demon">+</button>
     </div>
     {{#each demons}}
-    <div class="item item-row" data-item-id="{{this.id}}">
+    <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
-      <span class="item-name item-edit">{{this.name}}</span>
-      {{#if this.system.summoned}}<span class="item-badge badge-active">Призван</span>{{/if}}
-      <div class="item-controls">
-        <a class="item-edit" title="Редактировать"><i class="fas fa-edit"></i></a>
-        <a class="item-delete" title="Удалить"><i class="fas fa-trash"></i></a>
-      </div>
+      <span class="item-name item-name-click">{{this.name}}</span>
+      {{#if this.system.summoned}}<span class="item-badge badge-summoned">Призван</span>{{/if}}
+      <button type="button" class="item-delete btn-delete-sm">✕</button>
     </div>
-    {{else}}
-    <p class="empty-hint">Нет демонов</p>
-    {{/each}}
+    {{else}}<p class="empty-hint">Нет демонов</p>{{/each}}
   </div>
 
-  {{!-- Уникальные абилки --}}
+  {{!-- Абилки --}}
   <div class="item-group">
     <div class="item-group-header">
-      <h4>Уникальные абилки</h4>
-      <button type="button" class="item-create btn-add" data-type="ability" title="Добавить абилку">+</button>
+      <span class="item-group-title">Уникальные абилки</span>
+      <button type="button" class="item-create btn-add-sm" data-type="ability">+</button>
     </div>
     {{#each abilities}}
-    <div class="item item-row" data-item-id="{{this.id}}">
+    <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
-      <span class="item-name item-edit">{{this.name}}</span>
+      <span class="item-name item-name-click">{{this.name}}</span>
       <span class="item-badge badge-{{this.system.type}}">{{this.system.type}}</span>
-      <div class="item-controls">
-        <a class="item-edit" title="Редактировать"><i class="fas fa-edit"></i></a>
-        <a class="item-delete" title="Удалить"><i class="fas fa-trash"></i></a>
-      </div>
+      <button type="button" class="item-delete btn-delete-sm">✕</button>
     </div>
-    {{else}}
-    <p class="empty-hint">Нет абилок</p>
-    {{/each}}
+    {{else}}<p class="empty-hint">Нет абилок</p>{{/each}}
   </div>
 
   {{!-- Спутники --}}
   <div class="item-group">
     <div class="item-group-header">
-      <h4>Спутники / Транспорт</h4>
-      <button type="button" class="item-create btn-add" data-type="companion" title="Добавить спутника">+</button>
+      <span class="item-group-title">Спутники</span>
+      <button type="button" class="item-create btn-add-sm" data-type="companion">+</button>
     </div>
     {{#each companions}}
-    <div class="item item-row" data-item-id="{{this.id}}">
+    <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
-      <span class="item-name item-edit">{{this.name}}</span>
-      <span class="item-meta">{{this.system.companion_type}}</span>
-      <div class="item-controls">
-        <a class="item-edit" title="Редактировать"><i class="fas fa-edit"></i></a>
-        <a class="item-delete" title="Удалить"><i class="fas fa-trash"></i></a>
-      </div>
+      <span class="item-name item-name-click">{{this.name}}</span>
+      <button type="button" class="item-delete btn-delete-sm">✕</button>
     </div>
-    {{else}}
-    <p class="empty-hint">Нет спутников</p>
-    {{/each}}
+    {{else}}<p class="empty-hint">Нет спутников</p>{{/each}}
+  </div>
+
+  {{!-- Транспорт --}}
+  <div class="item-group">
+    <div class="item-group-header">
+      <span class="item-group-title">Транспорт</span>
+      <button type="button" class="item-create btn-add-sm" data-type="companion">+</button>
+    </div>
+    {{#each vehicles}}
+    <div class="item-row" data-item-id="{{this.id}}">
+      <img src="{{this.img}}" class="item-img" />
+      <span class="item-name item-name-click">{{this.name}}</span>
+      <button type="button" class="item-delete btn-delete-sm">✕</button>
+    </div>
+    {{else}}<p class="empty-hint">Нет транспорта</p>{{/each}}
   </div>
 
 </section>

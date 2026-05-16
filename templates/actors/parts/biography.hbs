@@ -1,0 +1,66 @@
+{{!-- Биография --}}
+<section class="biography-section">
+
+  {{!-- Общежитие --}}
+  <div class="bio-field-row">
+    <label class="bio-label">Общежитие</label>
+    <input type="text" name="system.dormitory" value="{{system.dormitory}}" class="bio-input" placeholder="—" />
+  </div>
+
+  {{!-- Короткие текстовые поля --}}
+  <div class="bio-fields-grid">
+    <div class="bio-field-row">
+      <label class="bio-label">Гендер</label>
+      <input type="text" name="system.gender" value="{{system.gender}}" class="bio-input" placeholder="—" />
+    </div>
+    <div class="bio-field-row">
+      <label class="bio-label">Рост</label>
+      <input type="text" name="system.height" value="{{system.height}}" class="bio-input" placeholder="—" />
+    </div>
+    <div class="bio-field-row">
+      <label class="bio-label">Сложение</label>
+      <input type="text" name="system.build" value="{{system.build}}" class="bio-input" placeholder="—" />
+    </div>
+    <div class="bio-field-row">
+      <label class="bio-label">Аллергии</label>
+      <input type="text" name="system.allergies" value="{{system.allergies}}" class="bio-input" placeholder="—" />
+    </div>
+  </div>
+
+  {{!-- Языки --}}
+  <div class="bio-languages-block" data-drop-zone="languages">
+    <div class="section-header-row">
+      <label class="bio-label">Языки</label>
+      <span class="drop-hint-sm">Перетащи из Items</span>
+    </div>
+    <div class="languages-list">
+      {{#each system.languages as |lang|}}
+      <div class="language-tag">
+        <span>{{lang.name}}</span>
+        <button type="button" class="delete-language btn-delete-xs" data-index="{{@index}}">✕</button>
+      </div>
+      {{else}}
+      <p class="empty-hint">Нет языков</p>
+      {{/each}}
+    </div>
+  </div>
+
+  {{!-- Слабости --}}
+  <div class="bio-field-block">
+    <label class="bio-label">Слабости</label>
+    <textarea name="system.weaknesses" rows="3" placeholder="Слабости персонажа...">{{system.weaknesses}}</textarea>
+  </div>
+
+  {{!-- Биография --}}
+  <div class="bio-field-block">
+    <label class="bio-label">Биография</label>
+    {{editor system.biography target="system.biography" button=true editable=editable}}
+  </div>
+
+  {{!-- Заметки --}}
+  <div class="bio-field-block">
+    <label class="bio-label">Заметки</label>
+    <textarea name="system.notes" rows="4" placeholder="Заметки игрока...">{{system.notes}}</textarea>
+  </div>
+
+</section>

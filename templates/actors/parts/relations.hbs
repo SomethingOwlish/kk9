@@ -1,26 +1,22 @@
-{{!-- Блок связей с НПС --}}
+{{!-- Связи с НПС --}}
 <section class="relations-section">
-  <div class="section-header">
-    <h3 class="section-title">{{localize "KK9.relations.title"}}</h3>
-    <button type="button" class="add-relation btn-add">
-      + {{localize "KK9.relations.add"}}
-    </button>
+  <div class="section-header-row">
+    <h3 class="section-title">Связи с НПС</h3>
+    <button type="button" class="add-relation btn-add-sm">+</button>
   </div>
 
-  {{#if system.relations.length}}
-  <div class="relations-list">
+  <div class="relations-list" data-drop-zone="relations">
+    {{#if system.relations.length}}
     {{#each system.relations as |rel|}}
     <div class="relation-row">
-      <span class="relation-status-icon">{{relationStatusIcon rel.status}}</span>
-
       <input type="text" name="system.relations.{{@index}}.name"
-             value="{{rel.name}}" class="relation-name" placeholder="Имя НПС" />
+             value="{{rel.name}}" class="relation-name" placeholder="Имя НПС..." />
 
       <select name="system.relations.{{@index}}.status" class="relation-status">
-        <option value="ally"    {{#if (eq rel.status "ally")}}selected{{/if}}>{{localize "KK9.relations.ally"}}</option>
-        <option value="enemy"   {{#if (eq rel.status "enemy")}}selected{{/if}}>{{localize "KK9.relations.enemy"}}</option>
-        <option value="neutral" {{#if (eq rel.status "neutral")}}selected{{/if}}>{{localize "KK9.relations.neutral"}}</option>
-        <option value="unknown" {{#if (eq rel.status "unknown")}}selected{{/if}}>{{localize "KK9.relations.unknown"}}</option>
+        <option value="ally"    {{#if (eq rel.status "ally")}}selected{{/if}}>Союзник</option>
+        <option value="enemy"   {{#if (eq rel.status "enemy")}}selected{{/if}}>Враг</option>
+        <option value="neutral" {{#if (eq rel.status "neutral")}}selected{{/if}}>Нейтрал</option>
+        <option value="unknown" {{#if (eq rel.status "unknown")}}selected{{/if}}>Неизвестно</option>
       </select>
 
       <div class="relation-level-wrap">
@@ -29,14 +25,14 @@
         <span class="relation-level-val">{{rel.level}}</span>
       </div>
 
-      <input type="text" name="system.relations.{{@index}}.notes"
-             value="{{rel.notes}}" class="relation-notes" placeholder="Заметки..." />
+      <textarea name="system.relations.{{@index}}.notes"
+                class="relation-notes" placeholder="Заметки...">{{rel.notes}}</textarea>
 
-      <button type="button" class="delete-relation btn-delete" data-index="{{@index}}" title="Удалить">✕</button>
+      <button type="button" class="delete-relation btn-delete-xs" data-index="{{@index}}">✕</button>
     </div>
     {{/each}}
+    {{else}}
+    <p class="empty-hint">Нет связей. Нажми «+» или перетащи карточку НПС.</p>
+    {{/if}}
   </div>
-  {{else}}
-  <p class="empty-hint">Нет связей. Нажмите «+» чтобы добавить НПС.</p>
-  {{/if}}
 </section>

@@ -1,175 +1,59 @@
 {
   "KK9": {
     "system": { "name": "КК9 — Кризисный Комитет №9" },
-
     "actor": {
       "types": {
-        "character": "Персонаж",
-        "npc-light":  "НПС (лёгкий)",
-        "npc-hard":   "НПС (сложный)",
-        "npc-boss":   "Босс / Непобедимый"
+        "character": "Персонаж", "npc-light": "НПС (лёгкий)",
+        "npc-hard": "НПС (сложный)", "npc-boss": "Босс / Непобедимый"
       }
     },
-
     "item": {
       "types": {
-        "artifact":  "Артефакт",
-        "spell":     "Заклинание",
-        "demon":     "Призывной демон",
-        "ability":   "Уникальная абилка",
-        "companion": "Спутник"
+        "artifact": "Артефакт", "spell": "Заклинание", "demon": "Призывной демон",
+        "ability": "Уникальная абилка", "companion": "Спутник", "language": "Язык"
       }
     },
-
     "attributes": {
-      "agility":  "Ловкость",
-      "smarts":   "Смекалка",
-      "spirit":   "Дух",
-      "strength": "Сила",
-      "vigor":    "Живучесть"
+      "agility": "Ловкость", "smarts": "Смекалка",
+      "spirit": "Дух", "strength": "Сила", "magic": "Магия"
     },
-
     "skills": {
-      "athletics":     "Атлетика",
-      "notice":        "Внимание",
-      "stealth":       "Скрытность",
-      "persuasion":    "Убеждение",
-      "fighting":      "Рукопашный бой",
-      "shooting":      "Стрельба",
-      "magic":         "Магия",
-      "occult":        "Оккультизм",
-      "investigation": "Расследование",
-      "intimidation":  "Запугивание",
-      "survival":      "Выживание",
-      "driving":       "Вождение",
-      "hacking":       "Взлом",
-      "ritual":        "Ритуалистика"
+      "athletics": "Атлетика", "notice": "Внимание", "stealth": "Скрытность",
+      "persuasion": "Убеждение", "fighting": "Рукопашный бой",
+      "deception": "Обман", "navigation": "Ориентирование на местности",
+      "memory": "Память", "knowledge": "Знания",
+      "intimidation": "Запугивание", "survival": "Выживание", "driving": "Вождение"
     },
-
     "health": {
-      "physical":  "Физическое состояние",
-      "will":      "Воля",
-      "toughness": "Стойкость",
-      "states": {
-        "0": "Здоров",
-        "1": "Царапина",
-        "2": "Ранен",
-        "3": "Тяжело ранен",
-        "4": "Критически ранен",
-        "5": "Без сознания"
-      }
+      "physical": "Физическое состояние", "mental": "Ментальное состояние",
+      "will": "Воля", "toughness": "Стойкость",
+      "physStates": { "0":"Здоров","1":"Царапина","2":"Ранен","3":"Тяжело ранен","4":"Критически","5":"Без сознания" },
+      "mentStates": { "0":"Стабилен","1":"Тревога","2":"Потрясён","3":"Сломлен","4":"Кризис","5":"Диссоциация" }
     },
-
     "faculty": {
-      "label":     "Факультет",
-      "none":      "— не выбран —",
-      "white":     "Белый",
-      "black":     "Чёрный",
-      "blue":      "Синий",
-      "green":     "Зелёный",
-      "purple":    "Фиолетовый",
-      "red":       "Красный",
-      "brown":     "Бурый",
-      "mercury":   "Ртутный",
-      "invisible": "Незримый"
+      "label":"Факультет","none":"— не выбран —","white":"Белый","black":"Чёрный",
+      "blue":"Синий","green":"Зелёный","purple":"Фиолетовый","red":"Красный",
+      "brown":"Бурый","mercury":"Ртутный","invisible":"Незримый"
     },
-
     "relations": {
-      "title":   "Связи с НПС",
-      "name":    "Имя",
-      "status":  "Статус",
-      "level":   "Уровень",
-      "notes":   "Заметки",
-      "add":     "Добавить связь",
-      "ally":    "Союзник",
-      "enemy":   "Враг",
-      "neutral": "Нейтрал",
-      "unknown": "Неизвестно"
+      "title":"Связи с НПС","name":"Имя","status":"Статус","level":"Уровень",
+      "notes":"Заметки","add":"Добавить связь",
+      "ally":"Союзник","enemy":"Враг","neutral":"Нейтрал","unknown":"Неизвестно"
     },
-
     "sheet": {
       "tabs": {
-        "main":      "Основное",
-        "skills":    "Навыки",
-        "items":     "Снаряжение",
-        "relations": "Связи",
-        "biography": "Биография"
+        "main":"Основное","skills":"Навыки","items":"Снаряжение",
+        "relations":"Связи","biography":"Биография","gmnotes":"🔒 Мастер"
       },
-      "biography":      "Биография",
-      "age":            "Возраст",
-      "academy_year":   "Курс",
-      "faculty":        "Факультет",
-      "pace":           "Скорость",
-      "parry":          "Парирование",
-      "bennies":        "Жетоны судьбы",
-      "wildCard":       "Wild Card",
-      "notes":          "Заметки",
-      "modifier":       "Мод.",
-      "addCustomSkill": "+ Добавить навык",
-      "customSkills":   "Особые навыки"
-    },
-
-    "artifact": {
-      "rarity": {
-        "common":   "Обычный",
-        "uncommon": "Необычный",
-        "rare":     "Редкий",
-        "unique":   "Уникальный"
-      },
-      "bonuses":  "Бонусы к атрибутам",
-      "active":   "Требует активации",
-      "damage":   "Урон",
-      "equipped": "Экипирован"
-    },
-
-    "spell": {
-      "cost":      "Стоимость",
-      "range":     "Дальность",
-      "damage":    "Урон",
-      "duration":  "Длительность",
-      "school":    "Школа магии",
-      "rollSkill": "Навык броска"
-    },
-
-    "demon": {
-      "abilities":       "Способности",
-      "summonCondition": "Условие призыва",
-      "summonCost":      "Стоимость призыва",
-      "summoned":        "Сейчас призван"
-    },
-
-    "ability": {
-      "type": { "passive": "Пассивная", "active": "Активная" },
-      "activation": "Условие активации"
-    },
-
-    "companion": {
-      "type": {
-        "pet":     "Питомец",
-        "vehicle": "Транспорт",
-        "device":  "Устройство",
-        "other":   "Прочее"
-      },
-      "speed":     "Скорость",
-      "toughness": "Стойкость"
-    },
-
-    "roll": {
-      "attribute":  "Бросок атрибута",
-      "skill":      "Бросок навыка",
-      "damage":     "Урон",
-      "difficulty": "Сложность",
-      "failure":    "Провал",
-      "success":    "Успех",
-      "critical":   "Критический успех",
-      "wildDie":    "Wild Die (d6)",
-      "rollDamage": "Бросить урон"
-    },
-
-    "npc": {
-      "role":             "Роль",
-      "threatLevel":      "Уровень угрозы",
-      "specialMechanics": "Особые механики"
+      "age":"Возраст","academy_year":"Курс","birthplace":"Страна рождения",
+      "faculty":"Факультет","dormitory":"Общежитие","gender":"Гендер",
+      "height":"Рост","build":"Сложение","allergies":"Аллергии",
+      "weaknesses":"Слабости","biography":"Биография","notes":"Заметки",
+      "gm_notes":"Мастерские заметки","money":"Деньги","experience":"Опыт",
+      "bennies":"Жетоны судьбы","energy":"Энергия",
+      "initiative":"Инициатива","toughness":"Стойкость",
+      "languages":"Языки","magicTalents":"Магические таланты",
+      "customSkills":"Индивидуальные навыки"
     }
   }
 }

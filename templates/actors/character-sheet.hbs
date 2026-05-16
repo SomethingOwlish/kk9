@@ -1,33 +1,34 @@
-{{!-- КК9 | Карточка персонажа — тёмный дизайн --}}
-<form class="kk9-sheet character-sheet" autocomplete="off">
+{{!-- КК9 | Карточка персонажа v0.4 --}}
+<form class="kk9-sheet character-sheet {{system.faculty}}" autocomplete="off">
 
-  {{!-- ЛЕВАЯ КОЛОНКА: портрет + базовая инфа --}}
+  {{!-- ЛЕВАЯ КОЛОНКА --}}
   <div class="sheet-sidebar">
-
-    <div class="portrait-wrap">
+    <div class="portrait-wrap faculty-border-{{system.faculty}}">
       <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
-      <div class="portrait-overlay">
-        <span class="wild-card-badge">⭐ Wild Card</span>
+      <div class="portrait-name-overlay">
+        <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="Имя" />
       </div>
     </div>
 
-    <div class="sidebar-info">
-      <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="Имя" />
-
-      <div class="sidebar-row">
-        <label>Возраст</label>
-        <input type="number" name="system.age" value="{{system.age}}" min="0" />
+    <div class="sidebar-fields">
+      <div class="sfield-row">
+        <span class="sfield-label">Возраст</span>
+        <input type="number" name="system.age" value="{{system.age}}" class="sfield-val" min="0" />
       </div>
-      <div class="sidebar-row">
-        <label>Курс</label>
-        <input type="text" name="system.academy_year" value="{{system.academy_year}}" />
+      <div class="sfield-row">
+        <span class="sfield-label">Курс</span>
+        <input type="text" name="system.academy_year" value="{{system.academy_year}}" class="sfield-val" />
+      </div>
+      <div class="sfield-row">
+        <span class="sfield-label">Страна</span>
+        <input type="text" name="system.birthplace" value="{{system.birthplace}}" class="sfield-val" placeholder="—" />
       </div>
 
-      {{!-- ФАКУЛЬТЕТ --}}
-      <div class="sidebar-row faculty-row">
-        <label>Факультет</label>
+      {{!-- Факультет --}}
+      <div class="sfield-row faculty-row">
+        <span class="sfield-label">Факультет</span>
         <select name="system.faculty" class="faculty-select faculty-{{system.faculty}}">
-          <option value="" {{#if (eq system.faculty "")}}selected{{/if}}>— не выбран —</option>
+          <option value="">— —</option>
           <option value="white"     {{#if (eq system.faculty "white")}}selected{{/if}}>Белый</option>
           <option value="black"     {{#if (eq system.faculty "black")}}selected{{/if}}>Чёрный</option>
           <option value="blue"      {{#if (eq system.faculty "blue")}}selected{{/if}}>Синий</option>
@@ -40,57 +41,57 @@
         </select>
       </div>
 
-      {{!-- Жетоны судьбы --}}
-      <div class="bennies-row">
-        <label>Жетоны судьбы</label>
+      {{!-- Деньги и Опыт --}}
+      <div class="sfield-row">
+        <span class="sfield-label">Деньги</span>
+        <input type="number" name="system.money" value="{{system.money}}" class="sfield-val" min="0" />
+      </div>
+      <div class="sfield-row">
+        <span class="sfield-label">Опыт</span>
+        <input type="number" name="system.experience" value="{{system.experience}}" class="sfield-val" min="0" />
+      </div>
+
+      {{!-- Жетоны судьбы — пипы по клику, макс 9 --}}
+      <div class="bennies-block">
+        <span class="sfield-label">Жетоны судьбы</span>
         <div class="bennies-pips">
-          {{#times 5}}
-          <div class="bennie {{#if (gt this ../system.bennies)}}bennie-empty{{else}}bennie-full{{/if}}">◆</div>
+          {{#times 9}}
+          <div class="bennie-pip {{#if (gte ../system.bennies this)}}bennie-on{{else}}bennie-off{{/if}}"
+               data-index="{{this}}" title="Жетон {{this}}">◆</div>
           {{/times}}
-          <input type="number" name="system.bennies" value="{{system.bennies}}" min="0" class="bennies-input" />
         </div>
       </div>
     </div>
 
-    {{!-- Производные --}}
-    <div class="derived-block">
-      <div class="derived-item">
-        <span class="derived-label">Скорость</span>
-        <input type="number" name="system.pace" value="{{system.pace}}" class="derived-val" />
+    {{!-- Производные внизу сайдбара --}}
+    <div class="derived-bar">
+      <div class="derived-btn roll-initiative" title="Бросить инициативу (Лов+Смек)">
+        <span class="derived-lbl">Инициатива</span>
+        <span class="derived-ico">🎲</span>
       </div>
-      <div class="derived-item">
-        <span class="derived-label">Парир.</span>
-        <span class="derived-val derived-static">{{system.parry}}</span>
+      <div class="derived-btn roll-toughness" title="Бросить стойкость (Дух + навык)">
+        <span class="derived-lbl">Стойкость</span>
+        <span class="derived-ico">🛡</span>
       </div>
-      <div class="derived-item">
-        <span class="derived-label">Стойкость</span>
-        <span class="derived-val derived-static">{{system.health.physical.toughness}}</span>
+      <div class="derived-energy">
+        <span class="derived-lbl">Энергия</span>
+        <input type="number" name="system.energy.value" value="{{system.energy.value}}" class="energy-cur" min="0" />
+        <span class="energy-sep">/</span>
+        <span class="energy-max">{{system.energy.max}}</span>
       </div>
     </div>
-
   </div>
 
-  {{!-- ПРАВАЯ КОЛОНКА: основной контент --}}
+  {{!-- ПРАВАЯ КОЛОНКА --}}
   <div class="sheet-main">
 
-    {{!-- ШКАЛА ЗДОРОВЬЯ --}}
-    <div class="health-block">
-      <div class="health-title">
-        <span>Физическое состояние</span>
-        <span class="health-state-badge state-{{system.health.physical.value}}">
-          {{healthLabel system.health.physical.value}}
-        </span>
-      </div>
-      <div class="health-pips">
-        {{#times 5}}
-        <div class="health-pip {{#if (gt this ../system.health.physical.value)}}pip-empty{{else}}pip-filled pip-lvl-{{this}}{{/if}}"
-             data-value="{{add this 1}}"
-             title="{{healthLabel (add this 1)}}">
-          <span class="pip-label">{{healthLabel (add this 1)}}</span>
-        </div>
-        {{/times}}
-      </div>
+    {{!-- Wild Card badge --}}
+    <div class="wildcard-bar">
+      <span class="wild-card-badge">⭐ Wild Card</span>
     </div>
+
+    {{!-- ШКАЛЫ ЗДОРОВЬЯ --}}
+    {{> "systems/kk9/templates/actors/parts/health.hbs"}}
 
     {{!-- ВКЛАДКИ --}}
     <nav class="sheet-tabs" data-group="primary">
@@ -99,17 +100,14 @@
       <a class="item" data-tab="items">Снаряжение</a>
       <a class="item" data-tab="relations">Связи</a>
       <a class="item" data-tab="biography">Биография</a>
+      {{#if isGM}}<a class="item gm-tab" data-tab="gmnotes">🔒 Мастер</a>{{/if}}
     </nav>
 
     <div class="sheet-body">
 
-      {{!-- ОСНОВНОЕ: атрибуты --}}
+      {{!-- ОСНОВНОЕ --}}
       <div class="tab" data-group="primary" data-tab="main">
         {{> "systems/kk9/templates/actors/parts/attributes.hbs"}}
-        <div class="notes-block">
-          <label class="block-label">Заметки</label>
-          <textarea name="system.notes" rows="4" placeholder="Заметки о персонаже...">{{system.notes}}</textarea>
-        </div>
       </div>
 
       {{!-- НАВЫКИ --}}
@@ -129,10 +127,19 @@
 
       {{!-- БИОГРАФИЯ --}}
       <div class="tab" data-group="primary" data-tab="biography">
-        {{editor system.biography target="system.biography" button=true editable=editable}}
+        {{> "systems/kk9/templates/actors/parts/biography.hbs"}}
       </div>
+
+      {{!-- МАСТЕРСКИЕ ЗАМЕТКИ (только GM) --}}
+      {{#if isGM}}
+      <div class="tab gm-notes-tab" data-group="primary" data-tab="gmnotes">
+        <div class="gm-notes-block">
+          <div class="section-title">🔒 Мастерские заметки</div>
+          <textarea name="system.gm_notes" rows="20" placeholder="Только для мастера...">{{system.gm_notes}}</textarea>
+        </div>
+      </div>
+      {{/if}}
 
     </div>
   </div>
-
 </form>

@@ -1,0 +1,42 @@
+{{!-- Шкалы здоровья --}}
+<div class="health-tracks">
+
+  {{!-- Физическое --}}
+  <div class="health-track">
+    <div class="track-header">
+      <span class="track-label">Физическое состояние</span>
+      <span class="health-state-badge state-{{system.health.physical.value}}">
+        {{healthLabel system.health.physical.value}}
+      </span>
+    </div>
+    <div class="track-pips">
+      {{#times 5}}
+      <div class="health-pip {{#if (gte ../system.health.physical.value this)}}pip-filled pip-phys-{{this}}{{else}}pip-empty{{/if}}"
+           data-track="physical" data-value="{{this}}"
+           title="{{healthLabel this}}">
+        <span class="pip-txt">{{healthLabel this}}</span>
+      </div>
+      {{/times}}
+    </div>
+  </div>
+
+  {{!-- Ментальное --}}
+  <div class="health-track">
+    <div class="track-header">
+      <span class="track-label">Ментальное состояние</span>
+      <span class="health-state-badge state-mental-{{system.health.mental.value}}">
+        {{mentalLabel system.health.mental.value}}
+      </span>
+    </div>
+    <div class="track-pips">
+      {{#times 5}}
+      <div class="health-pip {{#if (gte ../system.health.mental.value this)}}pip-filled pip-ment-{{this}}{{else}}pip-empty{{/if}}"
+           data-track="mental" data-value="{{this}}"
+           title="{{mentalLabel this}}">
+        <span class="pip-txt">{{mentalLabel this}}</span>
+      </div>
+      {{/times}}
+    </div>
+  </div>
+
+</div>
