@@ -263,8 +263,12 @@ export class KK9CharacterSheet extends ActorSheet {
   async _onItemCreate(event) {
     event.preventDefault();
     const type = event.currentTarget.dataset.type;
+    const subtype = event.currentTarget.dataset.subtype; // для транспорта
     const names = { artifact:"Артефакт", spell:"Заклинание", demon:"Демон", ability:"Абилка", companion:"Спутник", language:"Язык" };
-    await Item.create({ name:`Новый ${names[type]||type}`, type }, { parent: this.actor });
+    const itemData = { name:`Новый ${names[type]||type}`, type };
+    // Если создаём транспорт — сразу ставим нужный подтип
+    if (subtype) itemData["system.companion_type"] = subtype;
+    await Item.create(itemData, { parent: this.actor });
   }
 
   async _onItemDelete(event) {

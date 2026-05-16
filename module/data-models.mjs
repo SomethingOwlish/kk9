@@ -23,7 +23,8 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       // --- Биография / личное ---
-      biography:    new fields.HTMLField({ initial: "" }),
+      biography:      new fields.HTMLField({ initial: "" }),
+      biography_text: new fields.StringField({ initial: "" }), // простое текстовое поле
       age:          new fields.NumberField({ required: true, initial: 18, min: 0, integer: true }),
       academy_year: new fields.StringField({ initial: "1" }),
       birthplace:   new fields.StringField({ initial: "" }),   // страна рождения
@@ -146,7 +147,7 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
         new fields.SchemaField({
           name:   new fields.StringField({ required: true, initial: "" }),
           status: new fields.StringField({ initial: "neutral", choices: ["ally","enemy","neutral","unknown"] }),
-          level:  new fields.NumberField({ initial: 0, min: -5, max: 5, integer: true }),
+          level:  new fields.NumberField({ initial: 0, min: -15, max: 15, integer: true }),
           notes:  new fields.StringField({ initial: "" })
         })
       )
@@ -209,7 +210,7 @@ export class NpcHardDataModel extends foundry.abstract.TypeDataModel {
         new fields.SchemaField({
           name:   new fields.StringField({ initial: "" }),
           status: new fields.StringField({ initial: "neutral" }),
-          level:  new fields.NumberField({ initial: 0, min: -5, max: 5, integer: true }),
+          level:  new fields.NumberField({ initial: 0, min: -15, max: 15, integer: true }),
           notes:  new fields.StringField({ initial: "" })
         })
       ),

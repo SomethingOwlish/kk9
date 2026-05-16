@@ -10,6 +10,10 @@
   {{!-- Короткие текстовые поля --}}
   <div class="bio-fields-grid">
     <div class="bio-field-row">
+      <label class="bio-label">Возраст</label>
+      <input type="number" name="system.age" value="{{system.age}}" class="bio-input" min="0" />
+    </div>
+    <div class="bio-field-row">
       <label class="bio-label">Гендер</label>
       <input type="text" name="system.gender" value="{{system.gender}}" class="bio-input" placeholder="—" />
     </div>
@@ -54,6 +58,7 @@
   {{!-- Биография --}}
   <div class="bio-field-block">
     <label class="bio-label">Биография</label>
+    <textarea name="system.biography_text" rows="5" placeholder="История персонажа...">{{system.biography_text}}</textarea>
     {{editor system.biography target="system.biography" button=true editable=editable}}
   </div>
 

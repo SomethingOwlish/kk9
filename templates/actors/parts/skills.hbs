@@ -31,15 +31,17 @@
     {{#each system.skills as |skill key|}}
     <div class="skill-row">
       <span class="skill-name rollable-skill" data-skill="{{key}}">{{lookup ../skillLabels key}}</span>
-      <select name="system.skills.{{key}}.die" class="die-select-sm">
-        <option value="4"  {{#if (eq skill.die 4)}}selected{{/if}}>d4</option>
-        <option value="6"  {{#if (eq skill.die 6)}}selected{{/if}}>d6</option>
-        <option value="8"  {{#if (eq skill.die 8)}}selected{{/if}}>d8</option>
-        <option value="10" {{#if (eq skill.die 10)}}selected{{/if}}>d10</option>
-        <option value="12" {{#if (eq skill.die 12)}}selected{{/if}}>d12</option>
-        <option value="20" {{#if (eq skill.die 20)}}selected{{/if}}>d20</option>
-      </select>
-      <input type="number" name="system.skills.{{key}}.modifier" value="{{skill.modifier}}" class="mod-input-sm" />
+      <div class="skill-controls">
+        <select name="system.skills.{{key}}.die" class="die-select-sm">
+          <option value="4"  {{#if (eq skill.die 4)}}selected{{/if}}>d4</option>
+          <option value="6"  {{#if (eq skill.die 6)}}selected{{/if}}>d6</option>
+          <option value="8"  {{#if (eq skill.die 8)}}selected{{/if}}>d8</option>
+          <option value="10" {{#if (eq skill.die 10)}}selected{{/if}}>d10</option>
+          <option value="12" {{#if (eq skill.die 12)}}selected{{/if}}>d12</option>
+          <option value="20" {{#if (eq skill.die 20)}}selected{{/if}}>d20</option>
+        </select>
+        <input type="number" name="system.skills.{{key}}.modifier" value="{{skill.modifier}}" class="mod-input-sm" />
+      </div>
     </div>
     {{/each}}
   </div>
@@ -52,17 +54,19 @@
   <div class="skills-list">
     {{#each system.customSkills as |skill|}}
     <div class="skill-row">
-      <input type="text" name="system.customSkills.{{@index}}.name" value="{{skill.name}}" class="skill-name-input" />
-      <select name="system.customSkills.{{@index}}.die" class="die-select-sm">
-        <option value="4"  {{#if (eq skill.die 4)}}selected{{/if}}>d4</option>
-        <option value="6"  {{#if (eq skill.die 6)}}selected{{/if}}>d6</option>
-        <option value="8"  {{#if (eq skill.die 8)}}selected{{/if}}>d8</option>
-        <option value="10" {{#if (eq skill.die 10)}}selected{{/if}}>d10</option>
-        <option value="12" {{#if (eq skill.die 12)}}selected{{/if}}>d12</option>
-        <option value="20" {{#if (eq skill.die 20)}}selected{{/if}}>d20</option>
-      </select>
-      <input type="number" name="system.customSkills.{{@index}}.modifier" value="{{skill.modifier}}" class="mod-input-sm" />
-      <button type="button" class="delete-custom-skill btn-delete" data-index="{{@index}}">✕</button>
+      <input type="text" name="system.customSkills.{{@index}}.name" value="{{skill.name}}" class="skill-name-input" placeholder="Название навыка..." />
+      <div class="skill-controls">
+        <select name="system.customSkills.{{@index}}.die" class="die-select-sm">
+          <option value="4"  {{#if (eq skill.die 4)}}selected{{/if}}>d4</option>
+          <option value="6"  {{#if (eq skill.die 6)}}selected{{/if}}>d6</option>
+          <option value="8"  {{#if (eq skill.die 8)}}selected{{/if}}>d8</option>
+          <option value="10" {{#if (eq skill.die 10)}}selected{{/if}}>d10</option>
+          <option value="12" {{#if (eq skill.die 12)}}selected{{/if}}>d12</option>
+          <option value="20" {{#if (eq skill.die 20)}}selected{{/if}}>d20</option>
+        </select>
+        <input type="number" name="system.customSkills.{{@index}}.modifier" value="{{skill.modifier}}" class="mod-input-sm" />
+        <button type="button" class="delete-custom-skill btn-delete-xs" data-index="{{@index}}">✕</button>
+      </div>
     </div>
     {{else}}
     <p class="empty-hint">Нет индивидуальных навыков</p>

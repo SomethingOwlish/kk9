@@ -1,9 +1,6 @@
 {{!-- Снаряжение --}}
 <section class="items-section">
 
-  {{#each (array "artifacts:Артефакты:artifact" "spells:Заклинания:spell" "demons:Призывные демоны:demon" "abilities:Уникальные абилки:ability" "companions:Спутники:companion" "vehicles:Транспорт:companion" "languages:Языки:language") as |group|}}
-  {{/each}}
-
   {{!-- Артефакты --}}
   <div class="item-group">
     <div class="item-group-header">
@@ -87,7 +84,7 @@
   <div class="item-group">
     <div class="item-group-header">
       <span class="item-group-title">Транспорт</span>
-      <button type="button" class="item-create btn-add-sm" data-type="companion">+</button>
+      <button type="button" class="item-create btn-add-sm" data-type="companion" data-subtype="vehicle">+</button>
     </div>
     {{#each vehicles}}
     <div class="item-row" data-item-id="{{this.id}}">

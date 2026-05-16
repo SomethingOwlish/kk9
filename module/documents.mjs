@@ -9,7 +9,10 @@ export class KK9Actor extends Actor {
   // --- Смена факультета ---
   async _onUpdate(changed, options, userId) {
     await super._onUpdate(changed, options, userId);
-    if (this.type === "character" && changed.system?.faculty !== undefined) {
+    // Только если факультет реально изменился (не просто любое обновление)
+    if (this.type === "character" 
+        && changed.system?.faculty !== undefined 
+        && changed.system.faculty !== null) {
       await this._onFacultyChanged(changed.system.faculty);
     }
   }
