@@ -4,35 +4,43 @@
     <h3 class="section-title">Связи с НПС</h3>
     <button type="button" class="add-relation btn-add-sm">+</button>
   </div>
+  <p class="drop-hint" style="margin-bottom:8px;font-size:0.75em;color:var(--text-dim);font-style:italic">Перетащи карточку НПС или игрока</p>
 
   <div class="relations-list" data-drop-zone="relations">
     {{#if system.relations.length}}
     {{#each system.relations as |rel|}}
-    <div class="relation-row">
-      <input type="text" name="system.relations.{{@index}}.name"
-             value="{{rel.name}}" class="relation-name" placeholder="Имя НПС..." />
+    <div class="relation-row {{#if rel.love}}relation-love{{/if}}">
 
-      <select name="system.relations.{{@index}}.status" class="relation-status">
-        <option value="ally"    {{#if (eq rel.status "ally")}}selected{{/if}}>Союзник</option>
-        <option value="enemy"   {{#if (eq rel.status "enemy")}}selected{{/if}}>Враг</option>
-        <option value="neutral" {{#if (eq rel.status "neutral")}}selected{{/if}}>Нейтрал</option>
-        <option value="unknown" {{#if (eq rel.status "unknown")}}selected{{/if}}>Неизвестно</option>
-      </select>
+      {{!-- ВЕРХНЯЯ СТРОКА: сердце | имя | статус | шкала | крестик --}}
+      <div class="relation-top-row">
+        <button type="button" class="love-toggle {{#if rel.love}}love-active{{/if}}"
+                data-index="{{@index}}" title="Любовь">♥</button>
 
-      <div class="relation-level-wrap">
+        <input type="text" name="system.relations.{{@index}}.name"
+               value="{{rel.name}}" class="relation-name" placeholder="Имя..." />
+
+        <select name="system.relations.{{@index}}.status" class="relation-status">
+          <option value="ally"    {{#if (eq rel.status "ally")}}selected{{/if}}>Союзник</option>
+          <option value="enemy"   {{#if (eq rel.status "enemy")}}selected{{/if}}>Враг</option>
+          <option value="neutral" {{#if (eq rel.status "neutral")}}selected{{/if}}>Нейтрал</option>
+          <option value="unknown" {{#if (eq rel.status "unknown")}}selected{{/if}}>?</option>
+        </select>
+
         <input type="range" name="system.relations.{{@index}}.level"
                value="{{rel.level}}" min="-15" max="15" class="relation-level-range" />
         <span class="relation-level-val">{{rel.level}}</span>
+
+        <button type="button" class="delete-relation btn-delete-xs" data-index="{{@index}}">✕</button>
       </div>
 
+      {{!-- НИЖНЯЯ СТРОКА: заметки --}}
       <textarea name="system.relations.{{@index}}.notes"
                 class="relation-notes" placeholder="Заметки...">{{rel.notes}}</textarea>
 
-      <button type="button" class="delete-relation btn-delete-xs" data-index="{{@index}}">✕</button>
     </div>
     {{/each}}
     {{else}}
-    <p class="empty-hint">Нет связей. Нажми «+» или перетащи карточку НПС.</p>
+    <p class="empty-hint">Нет связей. Нажми «+» или перетащи карточку.</p>
     {{/if}}
   </div>
 </section>

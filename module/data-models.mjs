@@ -148,7 +148,8 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
           name:   new fields.StringField({ required: true, initial: "" }),
           status: new fields.StringField({ initial: "neutral", choices: ["ally","enemy","neutral","unknown"] }),
           level:  new fields.NumberField({ initial: 0, min: -15, max: 15, integer: true }),
-          notes:  new fields.StringField({ initial: "" })
+          notes:  new fields.StringField({ initial: "" }),
+          love:   new fields.BooleanField({ initial: false })
         })
       )
     };

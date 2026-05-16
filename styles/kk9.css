@@ -79,19 +79,19 @@
   aspect-ratio: 3/4;
   overflow: hidden;
   flex-shrink: 0;
-  border-bottom: 2px solid var(--border);
+  border-bottom: none;
 }
 
-/* Рамка в цвет факультета — вся аватарка */
-.portrait-wrap.faculty-border-white     { box-shadow: 0 0 0 3px #e8e8e8, 0 0 12px rgba(232,232,232,0.3); }
-.portrait-wrap.faculty-border-black     { box-shadow: 0 0 0 3px #555, 0 0 12px rgba(80,80,80,0.3); }
-.portrait-wrap.faculty-border-blue      { box-shadow: 0 0 0 3px #3b82f6, 0 0 12px rgba(59,130,246,0.4); }
-.portrait-wrap.faculty-border-green     { box-shadow: 0 0 0 3px #22c55e, 0 0 12px rgba(34,197,94,0.4); }
-.portrait-wrap.faculty-border-purple    { box-shadow: 0 0 0 3px #a855f7, 0 0 12px rgba(168,85,247,0.4); }
-.portrait-wrap.faculty-border-red       { box-shadow: 0 0 0 3px #ef4444, 0 0 12px rgba(239,68,68,0.4); }
-.portrait-wrap.faculty-border-brown     { box-shadow: 0 0 0 3px #92400e, 0 0 12px rgba(146,64,14,0.3); }
-.portrait-wrap.faculty-border-mercury   { box-shadow: 0 0 0 3px #94a3b8, 0 0 12px rgba(148,163,184,0.3); }
-.portrait-wrap.faculty-border-invisible { box-shadow: 0 0 0 2px #6b7280; }
+/* Рамка в цвет факультета — вся аватарка через outline */
+.portrait-wrap.faculty-border-white     { outline: 3px solid #e8e8e8; outline-offset: -3px; }
+.portrait-wrap.faculty-border-black     { outline: 3px solid #666; outline-offset: -3px; }
+.portrait-wrap.faculty-border-blue      { outline: 3px solid #3b82f6; outline-offset: -3px; }
+.portrait-wrap.faculty-border-green     { outline: 3px solid #22c55e; outline-offset: -3px; }
+.portrait-wrap.faculty-border-purple    { outline: 3px solid #a855f7; outline-offset: -3px; }
+.portrait-wrap.faculty-border-red       { outline: 3px solid #ef4444; outline-offset: -3px; }
+.portrait-wrap.faculty-border-brown     { outline: 3px solid #92400e; outline-offset: -3px; }
+.portrait-wrap.faculty-border-mercury   { outline: 3px solid #94a3b8; outline-offset: -3px; }
+.portrait-wrap.faculty-border-invisible { outline: 2px dashed #6b7280; outline-offset: -2px; }
 
 .profile-img {
   width: 100%;
@@ -719,15 +719,19 @@
 .item-row {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 3px 8px;
+  gap: 8px;
+  padding: 4px 8px;
   border-radius: 3px;
   transition: background 0.1s;
   font-size: 0.84em;
+  flex-wrap: nowrap;
 }
 .item-row:hover { background: var(--bg2); }
+.item-row .item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-row .btn-delete-xs { flex-shrink: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; padding: 0; }
 
-.item-img { width: 20px; height: 20px; object-fit: cover; border-radius: 2px; border: 1px solid var(--border); flex-shrink: 0; }
+.item-row { border: none !important; }
+.item-row input { border: none !important; box-shadow: none !important; }
 
 .item-name { flex: 1; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item-name-click { cursor: pointer; }
@@ -938,3 +942,316 @@
 .sheet-sidebar::-webkit-scrollbar { width: 3px; }
 .sheet-sidebar::-webkit-scrollbar-track { background: var(--bg2); }
 .sheet-sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* Убираем белую рамку окна Foundry */
+.app.sheet { box-shadow: none !important; border: none !important; }
+.app.sheet .window-content { padding: 0 !important; }
+
+/* Подсветка полей в цвет факультета */
+.kk9-sheet.white  input:focus, .kk9-sheet.white  select:focus, .kk9-sheet.white  textarea:focus { border-color: #e8e8e8 !important; box-shadow: 0 0 0 1px rgba(232,232,232,0.3); }
+.kk9-sheet.black  input:focus, .kk9-sheet.black  select:focus, .kk9-sheet.black  textarea:focus { border-color: #888 !important; box-shadow: 0 0 0 1px rgba(136,136,136,0.3); }
+.kk9-sheet.blue   input:focus, .kk9-sheet.blue   select:focus, .kk9-sheet.blue   textarea:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 1px rgba(59,130,246,0.3); }
+.kk9-sheet.green  input:focus, .kk9-sheet.green  select:focus, .kk9-sheet.green  textarea:focus { border-color: #22c55e !important; box-shadow: 0 0 0 1px rgba(34,197,94,0.3); }
+.kk9-sheet.purple input:focus, .kk9-sheet.purple select:focus, .kk9-sheet.purple textarea:focus { border-color: #a855f7 !important; box-shadow: 0 0 0 1px rgba(168,85,247,0.3); }
+.kk9-sheet.red    input:focus, .kk9-sheet.red    select:focus, .kk9-sheet.red    textarea:focus { border-color: #ef4444 !important; box-shadow: 0 0 0 1px rgba(239,68,68,0.3); }
+.kk9-sheet.brown  input:focus, .kk9-sheet.brown  select:focus, .kk9-sheet.brown  textarea:focus { border-color: #92400e !important; box-shadow: 0 0 0 1px rgba(146,64,14,0.3); }
+.kk9-sheet.mercury input:focus,.kk9-sheet.mercury select:focus,.kk9-sheet.mercury textarea:focus { border-color: #94a3b8 !important; box-shadow: 0 0 0 1px rgba(148,163,184,0.3); }
+.kk9-sheet.invisible input:focus,.kk9-sheet.invisible select:focus,.kk9-sheet.invisible textarea:focus { border-color: #6b7280 !important; }
+
+/* Связи — поле комментария больше, крестик не уезжает */
+.relation-row { flex-wrap: nowrap; align-items: flex-start; }
+.relation-row .relation-notes { min-height: 56px; resize: vertical; }
+.relation-row .btn-delete-xs { flex-shrink: 0; margin-top: 4px; align-self: flex-start; }
+
+/* Связи — новая структура: верхняя строка + комментарий под ней */
+.relation-row { flex-direction: column; gap: 4px; }
+.relation-top-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+.relation-notes {
+  width: 100%;
+  min-height: 52px;
+  resize: vertical;
+}
+.item-img { width: 20px; height: 20px; object-fit: cover; border-radius: 2px; border: 1px solid var(--border); flex-shrink: 0; }
+
+/* Убираем подчёркивание имени персонажа */
+.name-input { text-decoration: none !important; }
+
+/* Одинаковые кубики для инициативы и стойкости */
+.derived-btn .derived-ico { font-size: 1.1em; }
+.derived-btn[class*="roll-initiative"] .derived-ico,
+.derived-btn[class*="roll-toughness"]  .derived-ico { content: "🎲"; }
+.roll-initiative .derived-ico::before { content: "🎲"; }
+.roll-initiative .derived-ico,
+.roll-toughness  .derived-ico { font-style: normal; }
+
+/* Подавляем красную рамку Foundry на item-row */
+.kk9-sheet .item-row,
+.kk9-sheet .item-row * { 
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.kk9-sheet .item-row:hover { background: var(--bg2); }
+
+/* === ПАТЧ v4.5 === */
+
+/* 1. Имя персонажа — убираем подчёркивание, рамка снизу ярче */
+.name-input {
+  text-decoration: none !important;
+  border-bottom: 2px solid rgba(200,180,140,0.6) !important;
+}
+.name-input:focus {
+  border-bottom-color: var(--gold) !important;
+}
+
+/* 2. Инициатива и стойкость — одинаковые кубики, убираем лишний эмодзи */
+.derived-btn .derived-ico {
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+/* 3. Снаряжение — гарантированно убираем красную рамку Foundry */
+.kk9-sheet .items-section .item-row,
+.kk9-sheet .items-section .item-row input,
+.kk9-sheet .items-section .item-row select {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* item-name всегда показывает текст */
+.item-row .item-name {
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.86em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none !important;
+}
+.item-row .item-name:hover { color: var(--gold); }
+
+/* Кнопка удаления — маленькая, фиксированный размер */
+.item-row .btn-delete-xs {
+  flex-shrink: 0 !important;
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.75em !important;
+  color: var(--text-dim) !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+.item-row .btn-delete-xs:hover { color: var(--accent2) !important; }
+
+/* === ПАТЧ v4.6 === */
+
+/* Имя персонажа — подчёркивание в цвет факультета */
+.kk9-sheet.white     .name-input { border-bottom-color: #e8e8e8 !important; }
+.kk9-sheet.black     .name-input { border-bottom-color: #888 !important; }
+.kk9-sheet.blue      .name-input { border-bottom-color: #3b82f6 !important; }
+.kk9-sheet.green     .name-input { border-bottom-color: #22c55e !important; }
+.kk9-sheet.purple    .name-input { border-bottom-color: #a855f7 !important; }
+.kk9-sheet.red       .name-input { border-bottom-color: #ef4444 !important; }
+.kk9-sheet.brown     .name-input { border-bottom-color: #92400e !important; }
+.kk9-sheet.mercury   .name-input { border-bottom-color: #94a3b8 !important; }
+.kk9-sheet.invisible .name-input { border-bottom-color: #6b7280 !important; }
+/* Без факультета — золото */
+.name-input { border-bottom: 2px solid var(--gold-dim) !important; text-decoration: none !important; }
+
+/* Кубики инициативы и стойкости — SVG силуэт, без эмодзи */
+.derived-btn .derived-ico {
+  font-size: 0;  /* скрываем текст/эмодзи */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+.derived-btn .derived-ico::before {
+  content: '';
+  display: block;
+  width: 18px;
+  height: 18px;
+  background-color: var(--text-dim);
+  transition: background-color 0.15s;
+  /* SVG кубик d6 как маска */
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5zm3 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm-8 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm-8 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5zm3 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm-8 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm-8 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+.derived-btn:hover .derived-ico::before { background-color: var(--gold); }
+
+/* === ПАТЧ v4.7 === */
+
+/* Relation top-row — фиксируем ширину */
+.relation-top-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Крестик удаления — фиксированный размер, не растягивается */
+.relation-top-row .btn-delete-xs {
+  flex-shrink: 0 !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  padding: 0 !important;
+  font-size: 0.7em !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Кнопка любви */
+.love-toggle {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--border2);
+  font-size: 1em;
+  cursor: pointer;
+  padding: 0 2px;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.love-toggle:hover { color: #f9a8d4; transform: scale(1.2); }
+.love-toggle.love-active { color: #ec4899; text-shadow: 0 0 8px rgba(236,72,153,0.6); }
+
+/* Серебряная рамка для любви */
+.relation-row.relation-love {
+  border-color: #94a3b8 !important;
+  box-shadow: 0 0 0 1px rgba(148,163,184,0.4), 0 0 12px rgba(148,163,184,0.15);
+}
+.relation-row.relation-love .relation-name {
+  color: #e2e8f0;
+}
+
+/* === ПАТЧ v4.8 — связи исправлены === */
+.relation-top-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.love-toggle {
+  flex-shrink: 0;
+  font-size: 0.85em;
+  width: 16px;
+  min-width: 16px;
+  background: transparent;
+  border: none;
+  color: var(--border2);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.love-toggle:hover { color: #f9a8d4; transform: scale(1.2); }
+.love-toggle.love-active { color: #ec4899; text-shadow: 0 0 6px rgba(236,72,153,0.5); }
+
+.relation-name {
+  flex: 2;
+  min-width: 80px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-head);
+  padding: 3px 6px;
+  font-size: 0.84em;
+  font-family: 'Jost', sans-serif;
+}
+
+.relation-status {
+  flex-shrink: 0;
+  width: 72px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 3px 2px;
+  font-size: 0.78em;
+  font-family: 'Jost', sans-serif;
+}
+
+.relation-level-range {
+  flex: 1;
+  min-width: 50px;
+  accent-color: var(--gold);
+}
+
+.relation-level-val {
+  flex-shrink: 0;
+  min-width: 22px;
+  text-align: center;
+  font-weight: 500;
+  color: var(--gold);
+  font-size: 0.82em;
+}
+
+.relation-top-row .btn-delete-xs {
+  flex-shrink: 0 !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  padding: 0 !important;
+  font-size: 0.68em !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--text-dim) !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+.relation-top-row .btn-delete-xs:hover { color: var(--accent2) !important; }
+
+.relation-notes {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 4px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 0.82em;
+  font-family: 'Jost', sans-serif;
+  resize: vertical;
+}
+
+.relation-row {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  padding: 7px 8px !important;
+  background: var(--bg2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px !important;
+  margin-bottom: 5px !important;
+}
+
+.relation-row.relation-love {
+  border-color: #94a3b8 !important;
+  box-shadow: 0 0 0 1px rgba(148,163,184,0.3), 0 0 10px rgba(148,163,184,0.1) !important;
+}

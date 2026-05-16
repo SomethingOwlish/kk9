@@ -34,10 +34,25 @@ export class KK9CharacterSheet extends ActorSheet {
       intimidation:"Запугивание", survival:"Выживание", driving:"Вождение"
     };
 
-    // Факультет
+    // Факультет — всегда пересобираем скиллы из определения
     const fKey = context.system.faculty;
     context.currentFaculty = fKey ? FACULTIES[fKey] : null;
-    context.facultySkills  = context.system.facultySkills || [];
+
+    if (fKey && FACULTIES[fKey]) {
+      const savedSkills = context.system.facultySkills || [];
+      // Берём имена из определения факультета, кубики из сохранённых данных
+      context.facultySkills = FACULTIES[fKey].skills.map((defSkill, idx) => {
+        const saved = savedSkills[idx] || {};
+        return {
+          name: defSkill.name,
+          die: saved.die || defSkill.die,
+          linkedAttribute: defSkill.linkedAttribute,
+          modifier: saved.modifier || 0
+        };
+      });
+    } else {
+      context.facultySkills = [];
+    }
 
     // Предметы по типам
     context.artifacts   = this.actor.items.filter(i => i.type === "artifact");
@@ -89,12 +104,31 @@ export class KK9CharacterSheet extends ActorSheet {
     let data;
     try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch(e) { return; }
 
+    const dropZone = event.currentTarget.closest("[data-drop-zone]")?.dataset.dropZone;
+
+    // Дроп Актёра (НПС или игрок) в связи
+    if (data.type === "Actor") {
+      const actor = await fromUuid(data.uuid);
+      if (!actor || actor.id === this.actor.id) return; // не добавляем себя
+      const relations = this.actor.system.relations || [];
+      if (!relations.find(r => r.name === actor.name)) {
+        await this.actor.update({
+          "system.relations": [...relations, {
+            name: actor.name,
+            status: "neutral",
+            level: 0,
+            notes: actor.type === "character" ? "Игровой персонаж" : "",
+            love: false
+          }]
+        });
+      }
+      return;
+    }
+
     if (data.type !== "Item") return super._onDrop(event);
 
     const item = await fromUuid(data.uuid);
     if (!item) return;
-
-    const dropZone = event.currentTarget.closest("[data-drop-zone]")?.dataset.dropZone;
 
     // Дроп языка
     if (dropZone === "languages" && item.type === "language") {
@@ -118,15 +152,6 @@ export class KK9CharacterSheet extends ActorSheet {
       return;
     }
 
-    // Дроп НПС в связи
-    if (dropZone === "relations" && item.type === "Actor") {
-      const relations = this.actor.system.relations || [];
-      await this.actor.update({
-        "system.relations": [...relations, { name: item.name, status: "neutral", level: 0, notes: "" }]
-      });
-      return;
-    }
-
     // Стандартный дроп предмета
     return super._onDrop(event);
   }
@@ -141,14 +166,17 @@ export class KK9CharacterSheet extends ActorSheet {
       html.find(".relation-level-range").on("input", e => {
         e.currentTarget.closest(".relation-row").querySelector(".relation-level-val").textContent = e.currentTarget.value;
       });
+      // Любовь — только один раз
+      html.find(".love-toggle").click(this._onLoveToggle.bind(this));
 
       // Навыки
       html.find(".add-custom-skill").click(this._onAddCustomSkill.bind(this));
       html.find(".delete-custom-skill").click(this._onDeleteCustomSkill.bind(this));
 
-      // Предметы
-      html.find(".item-create").click(this._onItemCreate.bind(this));
+      // Предметы — удаление
       html.find(".item-delete").click(this._onItemDelete.bind(this));
+      // Предметы — создание
+      html.find(".item-create").click(this._onItemCreate.bind(this));
 
       // Языки
       html.find(".delete-language").click(this._onDeleteLanguage.bind(this));
@@ -174,10 +202,12 @@ export class KK9CharacterSheet extends ActorSheet {
     html.find(".health-pip[data-track='physical']").click(this._onPhysicalPipClick.bind(this));
     html.find(".health-pip[data-track='mental']").click(this._onMentalPipClick.bind(this));
 
-    // Открыть предмет
-    html.find(".item-name-click").click(e => {
-      const id = e.currentTarget.closest("[data-item-id]")?.dataset.itemId;
-      if (id) this.actor.items.get(id)?.sheet.render(true);
+    // Открыть предмет по клику на имя или иконку
+    html.find(".item-name-click, .item-img").click(e => {
+      const row = e.currentTarget.closest("[data-item-id]");
+      if (!row) return;
+      const item = this.actor.items.get(row.dataset.itemId);
+      if (item) item.sheet.render(true);
     });
   }
 
@@ -209,6 +239,20 @@ export class KK9CharacterSheet extends ActorSheet {
     const val = parseInt(event.currentTarget.dataset.value);
     const cur = this.actor.system.health.mental.value;
     await this.actor.update({ "system.health.mental.value": val === cur ? val - 1 : val });
+  }
+
+  // ---- Любовь ----
+  async _onLoveToggle(event) {
+    event.preventDefault();
+    const idx = parseInt(event.currentTarget.dataset.index);
+    const relations = [...(this.actor.system.relations || [])];
+    const isCurrentlyLoved = relations[idx].love;
+
+    // Снимаем love со всех, потом ставим на выбранного (если не был)
+    relations.forEach((r, i) => r.love = false);
+    if (!isCurrentlyLoved) relations[idx].love = true;
+
+    await this.actor.update({ "system.relations": relations });
   }
 
   // ---- Связи ----
