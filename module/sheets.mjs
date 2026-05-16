@@ -64,6 +64,20 @@ export class KK9CharacterSheet extends ActorSheet {
       selected: false
     }));
 
+    // Факультеты
+    context.facultyOptions = [
+      { value: "",          label: "— не выбран —" },
+      { value: "white",     label: "Белый" },
+      { value: "black",     label: "Чёрный" },
+      { value: "blue",      label: "Синий" },
+      { value: "green",     label: "Зелёный" },
+      { value: "purple",    label: "Фиолетовый" },
+      { value: "red",       label: "Красный" },
+      { value: "brown",     label: "Бурый" },
+      { value: "mercury",   label: "Ртутный" },
+      { value: "invisible", label: "Незримый" }
+    ];
+
     // Варианты статуса связи с НПС
     context.relationStatusOptions = [
       { value: "ally",    label: game.i18n.localize("KK9.relations.ally") },
