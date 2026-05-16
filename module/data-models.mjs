@@ -28,6 +28,7 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
       academy_year: new fields.StringField({ initial: "1" }),
       faculty: new fields.StringField({
         initial: "",
+nullable: true,
         choices: ["", "white", "black", "blue", "green", "purple", "red", "brown", "mercury", "invisible"]
       }),
 
