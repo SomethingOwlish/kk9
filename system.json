@@ -60,5 +60,6 @@
   },
   "primaryTokenAttribute": "system.health.physical.value",
   "url": "https://github.com/SomethingOwlish/kk9",
-  "manifest": "https://raw.githubusercontent.com/SomethingOwlish/kk9/main/system.json"
+  "manifest": "https://raw.githubusercontent.com/SomethingOwlish/kk9/main/system.json",
+  "download": "https://github.com/SomethingOwlish/kk9/archive/refs/heads/main.zip"
 }
