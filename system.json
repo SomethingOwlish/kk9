@@ -5,14 +5,14 @@
   "version": "0.3.0",
   "compatibility": {
     "minimum": "12",
-    "verified": "14"
+    "verified": "13"
   },
   "authors": [
     {
       "name": "SomethingOwlish"
     }
   ],
-  "esmodules": ["module/kk9.mjs"],
+  "esmodules": ["kk9.mjs"],
   "styles": ["styles/kk9.css"],
   "languages": [
     {
@@ -60,5 +60,6 @@
   },
   "primaryTokenAttribute": "system.health.physical.value",
   "url": "https://github.com/SomethingOwlish/kk9",
-  "manifest": "https://raw.githubusercontent.com/SomethingOwlish/kk9/main/system.json"
+  "manifest": "https://raw.githubusercontent.com/SomethingOwlish/kk9/main/system.json",
+  "download": "https://github.com/SomethingOwlish/kk9/archive/refs/heads/main.zip"
 }
