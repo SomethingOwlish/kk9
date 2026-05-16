@@ -1,0 +1,53 @@
+{{!-- КК9 | Карточка артефакта --}}
+<form class="kk9-sheet item-sheet artifact-sheet" autocomplete="off">
+  <header class="sheet-header">
+    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="header-fields">
+      <input class="name-input" type="text" name="name" value="{{item.name}}" />
+      <select name="system.rarity" class="rarity-select rarity-{{system.rarity}}">
+        {{#each rarityOptions}}
+        <option value="{{value}}" {{#if (eq value ../system.rarity)}}selected{{/if}}>{{label}}</option>
+        {{/each}}
+      </select>
+    </div>
+  </header>
+
+  <nav class="sheet-tabs" data-group="primary">
+    <a class="item" data-tab="description">Описание</a>
+    <a class="item" data-tab="details">Параметры</a>
+  </nav>
+
+  <div class="sheet-body">
+    <div class="tab" data-group="primary" data-tab="description">
+      {{editor system.description target="system.description" button=true editable=editable}}
+    </div>
+
+    <div class="tab" data-group="primary" data-tab="details">
+      <div class="stat-row">
+        <label>Урон (если оружие):</label>
+        <input type="text" name="system.damage" value="{{system.damage}}" placeholder="напр. Str+d6" />
+        {{#if system.damage}}
+        <button type="button" class="roll-damage btn-roll">🎲 Бросить урон</button>
+        {{/if}}
+      </div>
+      <div class="stat-row">
+        <label>Требует активации:</label>
+        <input type="checkbox" name="system.active" {{#if system.active}}checked{{/if}} />
+      </div>
+      <div class="stat-row">
+        <label>Экипирован:</label>
+        <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
+      </div>
+
+      <h4>Бонусы к атрибутам</h4>
+      <div class="bonuses-grid">
+        {{#each system.bonuses as |val key|}}
+        <div class="bonus-row">
+          <label>{{key}}:</label>
+          <input type="number" name="system.bonuses.{{key}}" value="{{val}}" class="bonus-input" />
+        </div>
+        {{/each}}
+      </div>
+    </div>
+  </div>
+</form>

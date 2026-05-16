@@ -1,0 +1,165 @@
+{
+  "KK9": {
+    "system": {
+      "name": "КК9 — Кризисный Комитет №9"
+    },
+
+    "actor": {
+      "types": {
+        "character": "Персонаж",
+        "npc-light":  "НПС (лёгкий)",
+        "npc-hard":   "НПС (сложный)",
+        "npc-boss":   "Босс / Непобедимый"
+      }
+    },
+
+    "item": {
+      "types": {
+        "artifact":  "Артефакт",
+        "spell":     "Заклинание",
+        "demon":     "Призывной демон",
+        "ability":   "Уникальная абилка",
+        "companion": "Спутник"
+      }
+    },
+
+    "attributes": {
+      "agility":  "Ловкость",
+      "smarts":   "Смекалка",
+      "spirit":   "Дух",
+      "strength": "Сила",
+      "vigor":    "Живучесть"
+    },
+
+    "skills": {
+      "athletics":    "Атлетика",
+      "notice":       "Внимание",
+      "stealth":      "Скрытность",
+      "persuasion":   "Убеждение",
+      "fighting":     "Рукопашный бой",
+      "shooting":     "Стрельба",
+      "magic":        "Магия",
+      "occult":       "Оккультизм",
+      "investigation":"Расследование",
+      "intimidation": "Запугивание",
+      "survival":     "Выживание",
+      "driving":      "Вождение",
+      "hacking":      "Взлом",
+      "ritual":       "Ритуалистика"
+    },
+
+    "health": {
+      "physical":      "Физическое состояние",
+      "will":          "Воля",
+      "toughness":     "Стойкость",
+      "states": {
+        "0": "Здоров",
+        "1": "Царапина",
+        "2": "Ранен",
+        "3": "Тяжело ранен",
+        "4": "Критически ранен",
+        "5": "Без сознания"
+      }
+    },
+
+    "relations": {
+      "title":   "Связи с НПС",
+      "name":    "Имя",
+      "status":  "Статус",
+      "level":   "Уровень",
+      "notes":   "Заметки",
+      "add":     "Добавить связь",
+      "ally":    "Союзник",
+      "enemy":   "Враг",
+      "neutral": "Нейтрал",
+      "unknown": "Неизвестно"
+    },
+
+    "sheet": {
+      "tabs": {
+        "main":      "Основное",
+        "skills":    "Навыки",
+        "items":     "Снаряжение",
+        "relations": "Связи",
+        "biography": "Биография"
+      },
+      "biography":      "Биография",
+      "age":            "Возраст",
+      "academy_year":   "Год обучения",
+      "pace":           "Скорость",
+      "parry":          "Парирование",
+      "bennies":        "Жетоны судьбы",
+      "wildCard":       "Wild Card",
+      "notes":          "Заметки",
+      "modifier":       "Мод.",
+      "addCustomSkill": "Добавить навык",
+      "customSkills":   "Особые навыки"
+    },
+
+    "artifact": {
+      "rarity": {
+        "common":   "Обычный",
+        "uncommon": "Необычный",
+        "rare":     "Редкий",
+        "unique":   "Уникальный"
+      },
+      "bonuses":    "Бонусы",
+      "active":     "Требует активации",
+      "damage":     "Урон",
+      "equipped":   "Экипирован"
+    },
+
+    "spell": {
+      "cost":       "Стоимость",
+      "range":      "Дальность",
+      "damage":     "Урон",
+      "duration":   "Длительность",
+      "school":     "Школа магии",
+      "rollSkill":  "Навык броска"
+    },
+
+    "demon": {
+      "abilities":        "Способности",
+      "summonCondition":  "Условие призыва",
+      "summonCost":       "Стоимость призыва",
+      "summoned":         "Сейчас призван"
+    },
+
+    "ability": {
+      "type": {
+        "passive": "Пассивная",
+        "active":  "Активная"
+      },
+      "activation": "Условие активации"
+    },
+
+    "companion": {
+      "type": {
+        "pet":     "Питомец",
+        "vehicle": "Транспорт",
+        "device":  "Устройство",
+        "other":   "Прочее"
+      },
+      "speed":     "Скорость",
+      "toughness": "Стойкость"
+    },
+
+    "roll": {
+      "attribute":   "Бросок атрибута",
+      "skill":       "Бросок навыка",
+      "damage":      "Урон",
+      "difficulty":  "Сложность",
+      "failure":     "Провал",
+      "success":     "Успех",
+      "critical":    "Критический успех",
+      "wildDie":     "Wild Die (d6)",
+      "rollDamage":  "Бросить урон"
+    },
+
+    "npc": {
+      "role":             "Роль",
+      "threatLevel":      "Уровень угрозы",
+      "specialMechanics": "Особые механики"
+    }
+  }
+}

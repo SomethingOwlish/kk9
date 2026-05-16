@@ -1,0 +1,39 @@
+{{!-- КК9 | Карточка лёгкого НПС --}}
+<form class="kk9-sheet npc-light-sheet" autocomplete="off">
+  <header class="sheet-header compact">
+    <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
+    <div class="header-fields">
+      <input class="name-input" type="text" name="name" value="{{actor.name}}" />
+      <input type="text" name="system.role" value="{{system.role}}" placeholder="Роль в сцене" class="role-input" />
+    </div>
+  </header>
+
+  <div class="sheet-body compact-body">
+    <div class="stat-row">
+      <label>Кубик:</label>
+      <select name="system.die" class="die-select">
+        <option value="4"  {{#if (eq system.die 4)}}selected{{/if}}>d4</option>
+        <option value="6"  {{#if (eq system.die 6)}}selected{{/if}}>d6</option>
+        <option value="8"  {{#if (eq system.die 8)}}selected{{/if}}>d8</option>
+        <option value="10" {{#if (eq system.die 10)}}selected{{/if}}>d10</option>
+        <option value="12" {{#if (eq system.die 12)}}selected{{/if}}>d12</option>
+      </select>
+      <button type="button" class="rollable-die btn-roll">Бросок</button>
+    </div>
+
+    <div class="stat-row">
+      <label>Стойкость:</label>
+      <input type="number" name="system.health.toughness" value="{{system.health.toughness}}" class="small-input" />
+    </div>
+
+    <div class="health-pips compact-pips">
+      <label>Состояние:</label>
+      {{#times 2}}
+      <div class="health-pip-sm {{#if (gt this ../system.health.value)}}pip-empty{{else}}pip-filled{{/if}}"
+           data-value="{{add this 1}}"></div>
+      {{/times}}
+    </div>
+
+    <textarea name="system.notes" rows="3" placeholder="Заметки...">{{system.notes}}</textarea>
+  </div>
+</form>

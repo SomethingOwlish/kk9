@@ -1,0 +1,29 @@
+{{!-- Блок атрибутов с кубиками --}}
+<section class="attributes-section">
+  <h3 class="section-title">Атрибуты</h3>
+  <div class="attributes-grid">
+    {{#each system.attributes as |attr key|}}
+    <div class="attribute-row">
+      <label class="attr-label">{{lookup ../attributeLabels key}}</label>
+      <div class="attr-controls">
+        {{!-- Клик на кубик = бросок атрибута --}}
+        <span class="die-badge rollable-attribute" data-attribute="{{key}}" title="Бросить {{lookup ../attributeLabels key}}">
+          d{{attr.die}}
+        </span>
+        <select name="system.attributes.{{key}}.die" class="die-select">
+          <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
+          <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
+          <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
+          <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
+          <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
+          <option value="20" {{#if (eq attr.die 20)}}selected{{/if}}>d20</option>
+        </select>
+        <span class="wild-die-hint">+ d6</span>
+        <label class="mod-label">Мод.</label>
+        <input type="number" name="system.attributes.{{key}}.modifier"
+               value="{{attr.modifier}}" class="mod-input" />
+      </div>
+    </div>
+    {{/each}}
+  </div>
+</section>

@@ -1,0 +1,33 @@
+{{!-- КК9 | Спутник / Транспорт --}}
+<form class="kk9-sheet item-sheet companion-sheet" autocomplete="off">
+  <header class="sheet-header">
+    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="header-fields">
+      <input class="name-input" type="text" name="name" value="{{item.name}}" />
+      <select name="system.companion_type" class="type-select">
+        <option value="pet"     {{#if (eq system.companion_type "pet")}}selected{{/if}}>Питомец</option>
+        <option value="vehicle" {{#if (eq system.companion_type "vehicle")}}selected{{/if}}>Транспорт</option>
+        <option value="device"  {{#if (eq system.companion_type "device")}}selected{{/if}}>Устройство</option>
+        <option value="other"   {{#if (eq system.companion_type "other")}}selected{{/if}}>Прочее</option>
+      </select>
+    </div>
+  </header>
+  <div class="sheet-body">
+    <div class="stat-row">
+      <label>Скорость:</label>
+      <input type="number" name="system.speed" value="{{system.speed}}" class="small-input" />
+    </div>
+    <div class="stat-row">
+      <label>Стойкость:</label>
+      <input type="number" name="system.toughness" value="{{system.toughness}}" class="small-input" />
+    </div>
+    <div class="form-group">
+      <label>Заметки:</label>
+      <textarea name="system.notes" rows="3">{{system.notes}}</textarea>
+    </div>
+    <div class="form-group">
+      <label>Описание:</label>
+      {{editor system.description target="system.description" button=true editable=editable}}
+    </div>
+  </div>
+</form>

@@ -1,0 +1,42 @@
+{{!-- КК9 | Карточка заклинания --}}
+<form class="kk9-sheet item-sheet spell-sheet" autocomplete="off">
+  <header class="sheet-header">
+    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="header-fields">
+      <input class="name-input" type="text" name="name" value="{{item.name}}" />
+      <input type="text" name="system.school" value="{{system.school}}" placeholder="Школа магии" class="school-input" />
+    </div>
+  </header>
+
+  <div class="sheet-body">
+    <div class="spell-params-grid">
+      <div class="stat-row">
+        <label>Стоимость (Воля):</label>
+        <input type="number" name="system.cost" value="{{system.cost}}" min="0" class="small-input" />
+      </div>
+      <div class="stat-row">
+        <label>Урон:</label>
+        <input type="text" name="system.damage" value="{{system.damage}}" placeholder="напр. 3d6" />
+        {{#if system.damage}}
+        <button type="button" class="roll-damage btn-roll">🎲 Бросить урон</button>
+        {{/if}}
+      </div>
+      <div class="stat-row">
+        <label>Дальность:</label>
+        <input type="text" name="system.range" value="{{system.range}}" />
+      </div>
+      <div class="stat-row">
+        <label>Длительность:</label>
+        <input type="text" name="system.duration" value="{{system.duration}}" />
+      </div>
+      <div class="stat-row">
+        <label>Навык для броска:</label>
+        <input type="text" name="system.roll_skill" value="{{system.roll_skill}}" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Описание:</label>
+      {{editor system.description target="system.description" button=true editable=editable}}
+    </div>
+  </div>
+</form>

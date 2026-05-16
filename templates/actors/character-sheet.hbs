@@ -1,0 +1,106 @@
+{{!-- ============================================================
+     КК9 | Карточка персонажа (Wild Card)
+     Handlebars шаблон. {{переменная}} = данные из getData() в sheets.mjs
+     ============================================================ --}}
+<form class="kk9-sheet character-sheet" autocomplete="off">
+
+  {{!-- ШАПКА --}}
+  <header class="sheet-header">
+    <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
+    <div class="header-fields">
+      <div class="header-name">
+        <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="Имя персонажа" />
+        <span class="wild-card-badge">⭐ Wild Card</span>
+      </div>
+      <div class="header-meta">
+        <label>{{localize "KK9.sheet.age"}}:
+          <input type="number" name="system.age" value="{{system.age}}" min="0" />
+        </label>
+        <label>{{localize "KK9.sheet.academy_year"}}:
+          <input type="text" name="system.academy_year" value="{{system.academy_year}}" />
+        </label>
+        <label>{{localize "KK9.sheet.bennies"}}:
+          <input type="number" name="system.bennies" value="{{system.bennies}}" min="0" />
+        </label>
+      </div>
+    </div>
+  </header>
+
+  {{!-- ШКАЛА ФИЗИЧЕСКОГО ЗДОРОВЬЯ (всегда видна) --}}
+  <div class="health-bar-container">
+    <div class="health-label">
+      <span>{{localize "KK9.health.physical"}}</span>
+      <span class="health-state-label health-state-{{system.health.physical.value}}">
+        {{healthLabel system.health.physical.value}}
+      </span>
+    </div>
+    <div class="health-pips">
+      {{!-- 5 пипов (0=здоров, 1-5=степени урона) --}}
+      {{#times 5}}
+        <div class="health-pip {{#if (gt this ../system.health.physical.value)}}pip-empty{{else}}pip-filled pip-{{this}}{{/if}}"
+             data-value="{{add this 1}}"
+             title="{{healthLabel (add this 1)}}">
+        </div>
+      {{/times}}
+    </div>
+    <div class="health-meta">
+      <span>Стойкость: {{system.health.physical.toughness}}</span>
+    </div>
+  </div>
+
+  {{!-- ВКЛАДКИ --}}
+  <nav class="sheet-tabs" data-group="primary">
+    <a class="item" data-tab="main">{{localize "KK9.sheet.tabs.main"}}</a>
+    <a class="item" data-tab="skills">{{localize "KK9.sheet.tabs.skills"}}</a>
+    <a class="item" data-tab="items">{{localize "KK9.sheet.tabs.items"}}</a>
+    <a class="item" data-tab="relations">{{localize "KK9.sheet.tabs.relations"}}</a>
+    <a class="item" data-tab="biography">{{localize "KK9.sheet.tabs.biography"}}</a>
+  </nav>
+
+  <div class="sheet-body">
+
+    {{!-- ВКЛАДКА: ОСНОВНОЕ (атрибуты + производные) --}}
+    <div class="tab" data-group="primary" data-tab="main">
+      {{> "systems/kk9/templates/actors/parts/attributes.hbs"}}
+
+      <div class="derived-stats">
+        <div class="stat-row">
+          <label>{{localize "KK9.sheet.pace"}}:</label>
+          <input type="number" name="system.pace" value="{{system.pace}}" min="1" />
+        </div>
+        <div class="stat-row">
+          <label>{{localize "KK9.sheet.parry"}}:</label>
+          <span class="derived-value">{{system.parry}}</span>
+        </div>
+      </div>
+
+      <div class="notes-section">
+        <label>{{localize "KK9.sheet.notes"}}</label>
+        <textarea name="system.notes" rows="4">{{system.notes}}</textarea>
+      </div>
+    </div>
+
+    {{!-- ВКЛАДКА: НАВЫКИ --}}
+    <div class="tab" data-group="primary" data-tab="skills">
+      {{> "systems/kk9/templates/actors/parts/skills.hbs"}}
+    </div>
+
+    {{!-- ВКЛАДКА: СНАРЯЖЕНИЕ И СПОСОБНОСТИ --}}
+    <div class="tab" data-group="primary" data-tab="items">
+      {{> "systems/kk9/templates/actors/parts/items.hbs"}}
+    </div>
+
+    {{!-- ВКЛАДКА: СВЯЗИ С НПС --}}
+    <div class="tab" data-group="primary" data-tab="relations">
+      {{> "systems/kk9/templates/actors/parts/relations.hbs"}}
+    </div>
+
+    {{!-- ВКЛАДКА: БИОГРАФИЯ --}}
+    <div class="tab" data-group="primary" data-tab="biography">
+      <div class="biography-section">
+        {{editor system.biography target="system.biography" button=true editable=editable}}
+      </div>
+    </div>
+
+  </div>
+</form>

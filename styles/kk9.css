@@ -1,0 +1,504 @@
+/* ============================================================
+   КК9 — Стили системы
+   Базовое оформление карточек. Можно менять под свой вкус!
+   ============================================================ */
+
+/* --- Шрифты и цвета КК9 --- */
+.kk9-sheet {
+  font-family: "Signika", serif;
+  color: #1a1a2e;
+  background: #faf8f3;
+}
+
+/* --- Шапка карточки --- */
+.kk9-sheet .sheet-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 6px 6px 0 0;
+  margin-bottom: 8px;
+}
+
+.kk9-sheet .profile-img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 2px solid #e94560;
+  cursor: pointer;
+}
+
+.kk9-sheet .header-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kk9-sheet .name-input {
+  font-size: 1.3em;
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(233, 69, 96, 0.5);
+  color: #ffffff;
+  width: 100%;
+}
+
+.kk9-sheet .header-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: #aaa;
+  font-size: 0.85em;
+}
+
+.kk9-sheet .header-meta input {
+  width: 50px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 3px;
+  color: #fff;
+  text-align: center;
+  padding: 2px 4px;
+}
+
+/* --- Бейджи --- */
+.wild-card-badge {
+  display: inline-block;
+  background: #e94560;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: bold;
+}
+
+.boss-badge {
+  display: inline-block;
+  background: #6b21a8;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: bold;
+}
+
+/* --- Шкала здоровья --- */
+.health-bar-container {
+  padding: 8px 12px;
+  background: #f0ece0;
+  border-bottom: 1px solid #ddd;
+}
+
+.health-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85em;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.health-pips {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.health-pip {
+  width: 44px;
+  height: 22px;
+  border-radius: 4px;
+  border: 2px solid #888;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6em;
+  font-weight: bold;
+}
+
+.health-pip:hover { transform: scale(1.08); }
+.health-pip.pip-empty { background: #e8e8e8; }
+
+/* Цвета по степени урона */
+.health-pip.pip-1 { background: #fef3c7; border-color: #f59e0b; color: #92400e; } /* царапина */
+.health-pip.pip-2 { background: #fed7aa; border-color: #f97316; color: #7c2d12; } /* ранен */
+.health-pip.pip-3 { background: #fecaca; border-color: #ef4444; color: #7f1d1d; } /* тяжело */
+.health-pip.pip-4 { background: #f87171; border-color: #b91c1c; color: #fff; }    /* крит */
+.health-pip.pip-5 { background: #1f2937; border-color: #111; color: #fff; }       /* без соз. */
+
+.health-state-label {
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.8em;
+}
+.health-state-0 { background: #d1fae5; color: #065f46; }
+.health-state-1 { background: #fef3c7; color: #92400e; }
+.health-state-2 { background: #fed7aa; color: #7c2d12; }
+.health-state-3 { background: #fecaca; color: #7f1d1d; }
+.health-state-4 { background: #f87171; color: #fff; }
+.health-state-5 { background: #1f2937; color: #fff; }
+
+.health-meta { font-size: 0.8em; color: #666; margin-top: 3px; }
+
+/* --- Вкладки --- */
+.kk9-sheet .sheet-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px;
+  background: #16213e;
+}
+
+.kk9-sheet .sheet-tabs .item {
+  padding: 5px 12px;
+  color: #aaa;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: all 0.15s;
+}
+
+.kk9-sheet .sheet-tabs .item:hover,
+.kk9-sheet .sheet-tabs .item.active {
+  color: #e94560;
+  border-bottom-color: #e94560;
+}
+
+/* --- Атрибуты --- */
+.attributes-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attribute-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.03);
+}
+
+.attr-label {
+  min-width: 90px;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+.attr-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Кликабельный кубик — выглядит как кнопка */
+.die-badge {
+  display: inline-block;
+  background: #16213e;
+  color: #e94560;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.die-badge:hover {
+  background: #e94560;
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.wild-die-hint {
+  font-size: 0.75em;
+  color: #888;
+  font-style: italic;
+}
+
+.die-select, .die-select-sm {
+  background: #f8f8f8;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 0.85em;
+}
+
+.mod-input, .mod-input-sm {
+  width: 44px;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 0.85em;
+}
+
+.mod-label { font-size: 0.75em; color: #888; }
+
+/* --- Навыки --- */
+.skills-list, .custom-skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.skill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+}
+
+.skill-name {
+  min-width: 140px;
+  font-size: 0.9em;
+  cursor: pointer;
+  color: #16213e;
+  transition: color 0.15s;
+}
+
+.skill-name:hover { color: #e94560; text-decoration: underline; }
+
+.skill-name-input {
+  min-width: 120px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.85em;
+}
+
+/* --- Кнопки --- */
+.btn-add {
+  background: #16213e;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.15s;
+}
+.btn-add:hover { background: #e94560; }
+
+.btn-delete {
+  background: transparent;
+  color: #999;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+.btn-delete:hover { color: #ef4444; background: #fee2e2; }
+
+.btn-roll {
+  background: #e94560;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: background 0.15s;
+}
+.btn-roll:hover { background: #c0392b; }
+
+/* --- Связи с НПС --- */
+.relations-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.relation-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #f8f8f8;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  border: 1px solid #e0e0e0;
+}
+
+.relation-name { flex: 2; }
+.relation-status { flex: 1; }
+.relation-notes { flex: 3; }
+
+.relation-level-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.relation-level-range { flex: 1; }
+.relation-level-val {
+  min-width: 20px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+.relation-status-icon { font-size: 1.1em; }
+
+/* --- Предметы в списке --- */
+.item-group {
+  margin-bottom: 12px;
+}
+
+.item-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #ddd;
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+.item-row:hover { background: #f0ece0; }
+
+.item-img {
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 3px;
+}
+
+.item-name {
+  flex: 1;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+.item-name:hover { color: #e94560; }
+
+.item-meta { font-size: 0.78em; color: #888; }
+
+.item-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.item-controls a {
+  color: #888;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: color 0.15s;
+}
+.item-controls a:hover { color: #e94560; }
+
+/* Бейджи редкости */
+.item-badge {
+  font-size: 0.7em;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: bold;
+}
+.rarity-common   { background: #e2e8f0; color: #475569; }
+.rarity-uncommon { background: #d1fae5; color: #065f46; }
+.rarity-rare     { background: #dbeafe; color: #1e40af; }
+.rarity-unique   { background: #f3e8ff; color: #6b21a8; }
+.badge-active    { background: #fef9c3; color: #854d0e; }
+.badge-passive   { background: #f1f5f9; color: #475569; }
+
+/* --- Заголовки секций --- */
+.section-title {
+  font-size: 0.95em;
+  font-weight: bold;
+  color: #16213e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 10px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --- Производные характеристики --- */
+.derived-stats {
+  display: flex;
+  gap: 16px;
+  padding: 8px;
+  background: #eef2ff;
+  border-radius: 6px;
+  margin: 8px 0;
+}
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9em;
+}
+.derived-value {
+  font-weight: bold;
+  font-size: 1.1em;
+  color: #16213e;
+}
+
+/* --- Прочее --- */
+.empty-hint {
+  font-size: 0.8em;
+  color: #aaa;
+  font-style: italic;
+  padding: 4px 8px;
+}
+
+.sheet-body {
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.notes-section textarea,
+.form-group textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.9em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 6px;
+  resize: vertical;
+}
+
+.small-input { width: 60px; text-align: center; }
+
+.bonuses-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.bonus-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85em;
+}
+
+.bonus-input { width: 44px; text-align: center; }
+
+/* Компактные листы (лёгкий НПС) */
+.compact-body { padding: 10px; }
+.compact-pips { display: flex; align-items: center; gap: 6px; margin: 8px 0; }
+.health-pip-sm {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid #888;
+  cursor: pointer;
+}
+.health-pip-sm.pip-empty { background: #e8e8e8; }
+.health-pip-sm.pip-filled { background: #ef4444; border-color: #b91c1c; }

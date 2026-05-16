@@ -1,0 +1,52 @@
+{{!-- КК9 | Сложный НПС --}}
+<form class="kk9-sheet npc-hard-sheet" autocomplete="off">
+  <header class="sheet-header">
+    <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
+    <div class="header-fields">
+      <input class="name-input" type="text" name="name" value="{{actor.name}}" />
+      <input type="text" name="system.role" value="{{system.role}}" placeholder="Роль" class="role-input" />
+    </div>
+  </header>
+
+  <nav class="sheet-tabs" data-group="primary">
+    <a class="item" data-tab="main">Основное</a>
+    <a class="item" data-tab="biography">Биография</a>
+  </nav>
+
+  <div class="sheet-body">
+    <div class="tab" data-group="primary" data-tab="main">
+      <section class="attributes-section">
+        <h3 class="section-title">Атрибуты</h3>
+        {{#each system.attributes as |attr key|}}
+        <div class="attribute-row">
+          <label>{{lookup ../attributeLabels key}}</label>
+          <span class="die-badge rollable-attribute" data-attribute="{{key}}">d{{attr.die}}</span>
+          <select name="system.attributes.{{key}}.die" class="die-select">
+            <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
+            <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
+            <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
+            <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
+            <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
+          </select>
+        </div>
+        {{/each}}
+      </section>
+
+      <section class="health-section">
+        <h3 class="section-title">Физическое состояние</h3>
+        <div class="health-pips">
+          {{#times 5}}
+          <div class="health-pip {{#if (gt this ../system.health.physical.value)}}pip-empty{{else}}pip-filled pip-{{this}}{{/if}}"
+               data-value="{{add this 1}}">{{healthLabel (add this 1)}}</div>
+          {{/times}}
+        </div>
+      </section>
+
+      <textarea name="system.notes" rows="4" placeholder="Заметки...">{{system.notes}}</textarea>
+    </div>
+
+    <div class="tab" data-group="primary" data-tab="biography">
+      {{editor system.biography target="system.biography" button=true editable=editable}}
+    </div>
+  </div>
+</form>
