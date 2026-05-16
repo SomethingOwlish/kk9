@@ -5,6 +5,8 @@
 // ============================================================
 
 // Импортируем наши модули
+import { FACULTIES } from "./module/faculties.mjs";
+
 import {
   CharacterDataModel,
   NpcLightDataModel,

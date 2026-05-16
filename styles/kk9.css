@@ -799,7 +799,46 @@
   border-color: var(--kk9-gold-dim) !important;
 }
 
-/* --- Размер окна карточки --- */
+/* --- ФАКУЛЬТЕТСКИЕ НАВЫКИ --- */
+.faculty-skills-block {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: rgba(201, 168, 76, 0.05);
+  border: 1px solid rgba(201, 168, 76, 0.2);
+  border-radius: 4px;
+}
+
+.faculty-title {
+  color: var(--kk9-gold) !important;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.faculty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.faculty-dot-white     { background: #e8e8e8; }
+.faculty-dot-black     { background: #888; }
+.faculty-dot-blue      { background: #3b82f6; }
+.faculty-dot-green     { background: #22c55e; }
+.faculty-dot-purple    { background: #a855f7; }
+.faculty-dot-red       { background: #ef4444; }
+.faculty-dot-brown     { background: #92400e; }
+.faculty-dot-mercury   { background: #94a3b8; }
+.faculty-dot-invisible { background: transparent; border: 1px dashed #6b7280; }
+
+.faculty-skill-row .skill-name {
+  color: var(--kk9-gold);
+}
+
+.faculty-skill-row .skill-name:hover { color: #fff; }
+
+/* --- РАЗМЕР ОКНА КАРТОЧКИ --- */
 .app.sheet.actor {
   min-width: 700px;
   min-height: 600px;

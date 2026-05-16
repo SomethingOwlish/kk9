@@ -26,8 +26,6 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
       biography: new fields.HTMLField({ initial: "" }),
       age: new fields.NumberField({ required: true, initial: 18, min: 0, integer: true }),
       academy_year: new fields.StringField({ initial: "1" }),
-
-      // Факультет
       faculty: new fields.StringField({
         initial: "",
         choices: ["", "white", "black", "blue", "green", "purple", "red", "brown", "mercury", "invisible"]
@@ -58,9 +56,19 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
         ritual:        skillField("spirit"),
       }),
 
+      // Скиллы факультета хранятся отдельно от кастомных
+      facultySkills: new fields.ArrayField(
+        new fields.SchemaField({
+          name: new fields.StringField({ required: true, initial: "" }),
+          die: new fields.NumberField({ required: true, initial: 4, choices: [4, 6, 8, 10, 12, 20] }),
+          linkedAttribute: new fields.StringField({ initial: "smarts" }),
+          modifier: new fields.NumberField({ initial: 0, integer: true })
+        })
+      ),
+
       customSkills: new fields.ArrayField(
         new fields.SchemaField({
-          name: new fields.StringField({ required: true, initial: "Новый навык" }),
+          name: new fields.StringField({ required: true, initial: "" }),
           die: new fields.NumberField({ required: true, initial: 4, choices: [4, 6, 8, 10, 12, 20] }),
           linkedAttribute: new fields.StringField({ initial: "smarts" }),
           modifier: new fields.NumberField({ initial: 0, integer: true })
@@ -95,10 +103,10 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
   }
 
   prepareDerivedData() {
-    const fightingDie = this.attributes.agility.die;
-    this.parry = 2 + Math.floor(fightingDie / 2);
     const vigorDie = this.attributes.vigor.die;
     this.health.physical.toughness = 2 + Math.floor(vigorDie / 2);
+    const agilityDie = this.attributes.agility.die;
+    this.parry = 2 + Math.floor(agilityDie / 2);
   }
 }
 
