@@ -12,7 +12,7 @@
       "name": "SomethingOwlish"
     }
   ],
-  "esmodules": ["module/kk9.mjs"],
+  "esmodules": ["kk9.mjs"],
   "styles": ["styles/kk9.css"],
   "languages": [
     {
