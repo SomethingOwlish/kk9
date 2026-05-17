@@ -1,22 +1,71 @@
 // ============================================================
-// КК9 — Дата-модели v0.5
+// КК9 — Дата-модели v0.8
 // ============================================================
 
 const { fields } = foundry.data;
 
 function attributeField() {
   return new fields.SchemaField({
-    die: new fields.NumberField({ required: true, initial: 4, choices: [4, 6, 8, 10, 12, 20] }),
+    die:      new fields.NumberField({ required: true, initial: 4, choices: [4, 6, 8, 10, 12, 20] }),
     modifier: new fields.NumberField({ required: true, initial: 0, integer: true })
   });
 }
 
 function skillField(linkedAttribute = "agility") {
   return new fields.SchemaField({
-    die: new fields.NumberField({ required: true, initial: 4, choices: [4, 6, 8, 10, 12, 20] }),
+    die:             new fields.NumberField({ required: true, initial: 4, choices: [4, 6, 8, 10, 12, 20] }),
     linkedAttribute: new fields.StringField({ required: true, initial: linkedAttribute }),
-    modifier: new fields.NumberField({ required: true, initial: 0, integer: true })
+    modifier:        new fields.NumberField({ required: true, initial: 0, integer: true })
   });
+}
+
+// НПС атрибут — расширен до d100
+function npcAttributeField() {
+  return new fields.SchemaField({
+    die: new fields.NumberField({ required: true, initial: 6, choices: [4, 6, 8, 10, 12, 20, 100], integer: true })
+  });
+}
+
+// Общие поля для всех НПС
+function npcCommonFields() {
+  return {
+    role:           new fields.StringField({ initial: "" }),
+    age:            new fields.StringField({ initial: "" }),
+    race:           new fields.StringField({ initial: "" }),
+    gender:         new fields.StringField({ initial: "" }),
+    world_origin:   new fields.StringField({ initial: "" }),
+    country_origin: new fields.StringField({ initial: "" }),
+    world_home:     new fields.StringField({ initial: "" }),
+    country_home:   new fields.StringField({ initial: "" }),
+    organizations:  new fields.StringField({ initial: "" }),
+    goals:          new fields.StringField({ initial: "" }),
+    motives:        new fields.StringField({ initial: "" }),
+    appearance:     new fields.StringField({ initial: "" }),
+    notes:          new fields.StringField({ initial: "" }),
+    biography:      new fields.HTMLField({ initial: "" }),
+    relations: new fields.ArrayField(
+      new fields.SchemaField({
+        name:   new fields.StringField({ initial: "" }),
+        status: new fields.StringField({ initial: "neutral", choices: ["ally","enemy","neutral","unknown"] }),
+        level:  new fields.NumberField({ initial: 0, min: -15, max: 15, integer: true }),
+        notes:  new fields.StringField({ initial: "" }),
+        love:   new fields.BooleanField({ initial: false })
+      })
+    ),
+    attributes: new fields.SchemaField({
+      agility:  npcAttributeField(),
+      smarts:   npcAttributeField(),
+      spirit:   npcAttributeField(),
+      strength: npcAttributeField(),
+      magic:    npcAttributeField(),
+    }),
+    initiative: new fields.NumberField({ initial: 0, integer: true }),
+    toughness:  new fields.NumberField({ initial: 5, integer: true }),
+    energy: new fields.SchemaField({
+      value: new fields.NumberField({ required: true, initial: 0, min: 0, integer: true }),
+      max:   new fields.NumberField({ required: true, initial: 10, integer: true })
+    }),
+  };
 }
 
 // ============================================================
@@ -42,11 +91,10 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
       gm_notes:       new fields.StringField({ initial: "" }),
 
       // --- Факультет ---
-      // Теперь хранит id faculty item (или null)
       faculty:        new fields.StringField({ initial: null, nullable: true, blank: false }),
-      // Кэш цвета и ключа для оформления (обновляется при смене факультета)
       faculty_color:  new fields.StringField({ initial: "" }),
       faculty_key:    new fields.StringField({ initial: "" }),
+      faculty_name:   new fields.StringField({ initial: "" }),
 
       // --- Атрибуты ---
       attributes: new fields.SchemaField({
@@ -57,10 +105,8 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
         magic:    attributeField(),
       }),
 
-      // Навыки теперь Items типа skill — хардкожен только пустой объект для совместимости
       skills: new fields.SchemaField({}),
 
-      // Индивидуальные навыки
       customSkills: new fields.ArrayField(
         new fields.SchemaField({
           name:            new fields.StringField({ required: true, initial: "" }),
@@ -70,7 +116,6 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
         })
       ),
 
-      // Языки (id items из компендиума/инвентаря)
       languages: new fields.ArrayField(
         new fields.SchemaField({
           name:   new fields.StringField({ required: true, initial: "" }),
@@ -78,8 +123,6 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
         })
       ),
 
-      // Уровни магических способностей (только для magic category)
-      // хранится на персонаже: [{itemId, level: "sparks"|"normal"|"exceptional"}]
       magicLevels: new fields.ArrayField(
         new fields.SchemaField({
           itemId: new fields.StringField({ required: true, initial: "" }),
@@ -127,78 +170,65 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
   }
 
   prepareDerivedData() {
-    // Стойкость = 2 + половина кубика Духа
     this.health.physical.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
-    // Энергия max = возраст + кубик Магии
     this.energy.max = this.age + this.attributes.magic.die;
   }
 }
 
+// ============================================================
+// ЛЁГКИЙ НПС — 2 ячейки + KO на каждой шкале. Только свои кубики.
+// ============================================================
 export class NpcLightDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
-      role:  new fields.StringField({ initial: "" }),
-      die:   new fields.NumberField({ required: true, initial: 6, choices: [4,6,8,10,12] }),
-      health: new fields.SchemaField({
-        value:     new fields.NumberField({ required: true, initial: 0, min: 0, max: 2, integer: true }),
-        toughness: new fields.NumberField({ required: true, initial: 5, integer: true })
-      }),
-      notes: new fields.StringField({ initial: "" })
-    };
-  }
-}
-
-export class NpcHardDataModel extends foundry.abstract.TypeDataModel {
-  static defineSchema() {
-    return {
-      biography: new fields.HTMLField({ initial: "" }),
-      role:      new fields.StringField({ initial: "" }),
-      attributes: new fields.SchemaField({
-        agility:  attributeField(),
-        smarts:   attributeField(),
-        spirit:   attributeField(),
-        strength: attributeField(),
-        magic:    attributeField(),
-      }),
-      skills: new fields.SchemaField({
-        athletics: skillField("agility"),
-        notice:    skillField("smarts"),
-        fighting:  skillField("agility"),
-        magic:     skillField("magic"),
-      }),
+      ...npcCommonFields(),
       health: new fields.SchemaField({
         physical: new fields.SchemaField({
-          value:     new fields.NumberField({ required: true, initial: 0, min: 0, max: 5, integer: true }),
-          toughness: new fields.NumberField({ required: true, initial: 4, integer: true })
+          value:    new fields.NumberField({ required: true, initial: 0, min: 0, max: 2, integer: true }),
+          knockout: new fields.BooleanField({ initial: false })
         }),
         mental: new fields.SchemaField({
-          value: new fields.NumberField({ initial: 0, min: 0, max: 5, integer: true })
+          value:    new fields.NumberField({ required: true, initial: 0, min: 0, max: 2, integer: true }),
+          knockout: new fields.BooleanField({ initial: false })
         })
       }),
-      relations: new fields.ArrayField(
-        new fields.SchemaField({
-          name:   new fields.StringField({ initial: "" }),
-          status: new fields.StringField({ initial: "neutral" }),
-          level:  new fields.NumberField({ initial: 0, min: -15, max: 15, integer: true }),
-          notes:  new fields.StringField({ initial: "" }),
-          love:   new fields.BooleanField({ initial: false })
-        })
-      ),
-      notes: new fields.StringField({ initial: "" })
     };
   }
   prepareDerivedData() {
-    this.health.physical.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
+    this.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
   }
 }
 
+// ============================================================
+// СЛОЖНЫЙ НПС — 5 ячеек на каждой шкале как у игрока. Только свои кубики.
+// ============================================================
+export class NpcHardDataModel extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    return {
+      ...npcCommonFields(),
+      health: new fields.SchemaField({
+        physical: new fields.SchemaField({
+          value: new fields.NumberField({ required: true, initial: 0, min: 0, max: 5, integer: true })
+        }),
+        mental: new fields.SchemaField({
+          value: new fields.NumberField({ required: true, initial: 0, min: 0, max: 5, integer: true })
+        })
+      }),
+    };
+  }
+  prepareDerivedData() {
+    this.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
+  }
+}
+
+// ============================================================
+// НЕПОБЕДИМЫЙ НПС — нет шкал здоровья. Бросает д6 + свой атрибут.
+// ============================================================
 export class NpcBossDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
-      description:       new fields.HTMLField({ initial: "" }),
-      threat_level:      new fields.StringField({ initial: "высокая" }),
-      special_mechanics: new fields.StringField({ initial: "" }),
-      notes:             new fields.StringField({ initial: "" })
+      ...npcCommonFields(),
+      special_mechanics: new fields.HTMLField({ initial: "" }),
     };
   }
 }
@@ -207,20 +237,13 @@ export class NpcBossDataModel extends foundry.abstract.TypeDataModel {
 // ПРЕДМЕТЫ
 // ============================================================
 
-/**
- * Факультет — содержит цвет, учителя и список способностей
- * Способности добавляются перетаскиванием ability items
- */
 export class FacultyDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       description: new fields.HTMLField({ initial: "" }),
-      // Свободный hex цвет — можно любой, хоть #ff69b4
       color:       new fields.StringField({ initial: "#888888" }),
-      // Ключ для CSS класса (вычисляется автоматически или задаётся)
       color_key:   new fields.StringField({ initial: "" }),
       teacher:     new fields.StringField({ initial: "" }),
-      // Способности факультета — ability items перетащенные сюда
       abilities: new fields.ArrayField(
         new fields.SchemaField({
           name:     new fields.StringField({ required: true, initial: "" }),
@@ -232,11 +255,6 @@ export class FacultyDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-/**
- * Навык — Item типа skill
- * linkedAttribute: agility | smarts | spirit | strength | magic
- * die не может превышать кубик linkedAttribute на персонаже
- */
 export class SkillDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
@@ -245,20 +263,13 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
         required: true, initial: "smarts",
         choices: ["agility","smarts","spirit","strength","magic"]
       }),
-      // "Неумелый" = d4 с modifier -2
       die:      new fields.NumberField({ required: true, initial: 4, choices: [4,6,8,10,12,20] }),
       modifier: new fields.NumberField({ initial: -2, integer: true }),
-      // Базовый навык (из компендиума) или индивидуальный
-      isBase: new fields.BooleanField({ initial: false })
+      isBase:   new fields.BooleanField({ initial: false })
     };
   }
 }
 
-/**
- * Способность
- * category: common | personal | learned | magic
- * faculty_id: id faculty item (null если личная)
- */
 export class AbilityDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
@@ -267,27 +278,21 @@ export class AbilityDataModel extends foundry.abstract.TypeDataModel {
         initial: "personal",
         choices: ["common", "personal", "learned", "magic"]
       }),
-      // К какому факультету относится (null = личная)
       faculty_id: new fields.StringField({ initial: null, nullable: true, blank: false }),
-      // Кубик для броска (как навык)
-      // "Неумелый" = d4 с modifier -2
-      die: new fields.NumberField({ required: true, initial: 4, choices: [4, 6, 8, 10, 12, 20] }),
-      modifier: new fields.NumberField({ initial: -2, integer: true })
+      die:        new fields.NumberField({ required: true, initial: 4, choices: [4,6,8,10,12,20] }),
+      modifier:   new fields.NumberField({ initial: -2, integer: true })
     };
   }
 }
 
-/**
- * Оружие
- */
 export class WeaponDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       description: new fields.HTMLField({ initial: "" }),
-      damage:      new fields.StringField({ initial: "" }),       // "Str+d6", "2d8"
-      range:       new fields.StringField({ initial: "" }),       // "Ближний", "12/24/48"
-      ap:          new fields.NumberField({ initial: 0, integer: true }), // Бронепробивание
-      rof:         new fields.NumberField({ initial: 1, integer: true }), // Скорострельность
+      damage:      new fields.StringField({ initial: "" }),
+      range:       new fields.StringField({ initial: "" }),
+      ap:          new fields.NumberField({ initial: 0, integer: true }),
+      rof:         new fields.NumberField({ initial: 1, integer: true }),
       weight:      new fields.NumberField({ initial: 0 }),
       equipped:    new fields.BooleanField({ initial: false }),
       notes:       new fields.StringField({ initial: "" })
@@ -295,9 +300,6 @@ export class WeaponDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-/**
- * Снаряжение — обычные немагические предметы
- */
 export class GearDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
@@ -310,17 +312,11 @@ export class GearDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-/**
- * Артефакт — магический предмет с бонусами
- */
 export class ArtifactDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       description: new fields.HTMLField({ initial: "" }),
-      rarity: new fields.StringField({
-        initial: "common",
-        choices: ["common", "uncommon", "rare", "unique"]
-      }),
+      rarity: new fields.StringField({ initial: "common", choices: ["common","uncommon","rare","unique"] }),
       bonuses: new fields.SchemaField({
         agility:   new fields.NumberField({ initial: 0, integer: true }),
         smarts:    new fields.NumberField({ initial: 0, integer: true }),
@@ -336,9 +332,6 @@ export class ArtifactDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-/**
- * Заклинание
- */
 export class SpellDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
@@ -353,9 +346,6 @@ export class SpellDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-/**
- * Даймон — призывное существо (важно: не демон, а даймон)
- */
 export class DaemonDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
@@ -379,9 +369,6 @@ export class DaemonDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-/**
- * Спутник — существо/питомец
- */
 export class CompanionDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
@@ -394,16 +381,13 @@ export class CompanionDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-/**
- * Транспорт
- */
 export class VehicleDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       description: new fields.HTMLField({ initial: "" }),
       vehicle_type: new fields.StringField({
         initial: "ground",
-        choices: ["ground", "air", "water", "space", "magical", "other"]
+        choices: ["ground","air","water","space","magical","other"]
       }),
       speed:     new fields.NumberField({ initial: 60, integer: true }),
       toughness: new fields.NumberField({ initial: 8, integer: true }),
@@ -413,50 +397,38 @@ export class VehicleDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-/**
- * Техническое устройство
- */
 export class DeviceDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       description: new fields.HTMLField({ initial: "" }),
       device_type: new fields.StringField({
         initial: "gadget",
-        choices: ["gadget", "weapon", "drone", "computer", "medical", "other"]
+        choices: ["gadget","weapon","drone","computer","medical","other"]
       }),
-      // Бонус который даёт устройство
       bonus_skill:  new fields.StringField({ initial: "" }),
       bonus_value:  new fields.NumberField({ initial: 0, integer: true }),
-      charges:      new fields.NumberField({ initial: -1, integer: true }), // -1 = неограничено
+      charges:      new fields.NumberField({ initial: -1, integer: true }),
       equipped:     new fields.BooleanField({ initial: false }),
       notes:        new fields.StringField({ initial: "" })
     };
   }
 }
 
-/**
- * Контакт — организация или структура
- */
 export class ContactDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       description: new fields.HTMLField({ initial: "" }),
       org_type: new fields.StringField({
         initial: "other",
-        choices: ["academic", "criminal", "government", "magical", "corporate", "underground", "other"]
+        choices: ["academic","criminal","government","magical","corporate","underground","other"]
       }),
-      // Уровень доступа который даёт контакт (1-5)
-      access_level: new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
-      // Куратор/представитель в организации
+      access_level:   new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
       representative: new fields.StringField({ initial: "" }),
       notes:          new fields.StringField({ initial: "" })
     };
   }
 }
 
-/**
- * Язык
- */
 export class LanguageDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {

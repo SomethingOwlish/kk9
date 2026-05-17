@@ -1,52 +1,194 @@
-{{!-- КК9 | Сложный НПС --}}
+{{!-- КК9 | Сложный НПС v2.3 --}}
 <form class="kk9-sheet npc-hard-sheet" autocomplete="off">
-  <header class="sheet-header">
-    <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
-    <div class="header-fields">
-      <input class="name-input" type="text" name="name" value="{{actor.name}}" />
-      <input type="text" name="system.role" value="{{system.role}}" placeholder="Роль" class="role-input" />
-    </div>
-  </header>
 
-  <nav class="sheet-tabs" data-group="primary">
-    <a class="item" data-tab="main">Основное</a>
-    <a class="item" data-tab="biography">Биография</a>
-  </nav>
+  {{!-- ЛЕВАЯ КОЛОНКА --}}
+  <div class="npc-sidebar">
 
-  <div class="sheet-body">
-    <div class="tab" data-group="primary" data-tab="main">
-      <section class="attributes-section">
-        <h3 class="section-title">Атрибуты</h3>
-        {{#each system.attributes as |attr key|}}
-        <div class="attribute-row">
-          <label>{{lookup ../attributeLabels key}}</label>
-          <span class="die-badge rollable-attribute" data-attribute="{{key}}">d{{attr.die}}</span>
-          <select name="system.attributes.{{key}}.die" class="die-select">
-            <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
-            <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
-            <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
-            <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
-            <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
-          </select>
-        </div>
-        {{/each}}
-      </section>
-
-      <section class="health-section">
-        <h3 class="section-title">Физическое состояние</h3>
-        <div class="health-pips">
-          {{#times 5}}
-          <div class="health-pip {{#if (gt this ../system.health.physical.value)}}pip-empty{{else}}pip-filled pip-{{this}}{{/if}}"
-               data-value="{{add this 1}}">{{healthLabel (add this 1)}}</div>
-          {{/times}}
-        </div>
-      </section>
-
-      <textarea name="system.notes" rows="4" placeholder="Заметки...">{{system.notes}}</textarea>
+    <div class="portrait-wrap">
+      <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
+      <div class="portrait-name-overlay">
+        <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="Имя" />
+      </div>
     </div>
 
-    <div class="tab" data-group="primary" data-tab="biography">
-      {{editor system.biography target="system.biography" button=true editable=editable}}
+    <div class="npc-sidebar-body">
+      <input type="text" name="system.role" value="{{system.role}}"
+             placeholder="краткое описание..." class="npc-role-input" />
+
+      {{!-- Связи — точно как у персонажа --}}
+      <section class="relations-section">
+        <div class="section-header-row">
+          <h3 class="section-title">Связи</h3>
+          <button type="button" class="add-relation btn-add-sm">+</button>
+        </div>
+        <p class="drop-hint" style="margin-bottom:6px;font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи карточку актора</p>
+        <div class="relations-list" data-drop-zone="relations">
+          {{#if system.relations.length}}
+          {{#each system.relations as |rel|}}
+          <div class="relation-row {{#if rel.love}}relation-love{{/if}}">
+            <div class="relation-top-row">
+              <button type="button" class="love-toggle {{#if rel.love}}love-active{{/if}}"
+                      data-index="{{@index}}" title="Избранное">♥</button>
+              <input type="text" name="system.relations.{{@index}}.name"
+                     value="{{rel.name}}" class="relation-name" placeholder="Имя..." />
+              <select name="system.relations.{{@index}}.status" class="relation-status">
+                <option value="ally"    {{#if (eq rel.status "ally")}}selected{{/if}}>Союзник</option>
+                <option value="enemy"   {{#if (eq rel.status "enemy")}}selected{{/if}}>Враг</option>
+                <option value="neutral" {{#if (eq rel.status "neutral")}}selected{{/if}}>Нейтрал</option>
+                <option value="unknown" {{#if (eq rel.status "unknown")}}selected{{/if}}>?</option>
+              </select>
+              <input type="range" name="system.relations.{{@index}}.level"
+                     value="{{rel.level}}" min="-15" max="15" class="relation-level-range" />
+              <span class="relation-level-val">{{rel.level}}</span>
+              <button type="button" class="delete-relation btn-delete-xs" data-index="{{@index}}">✕</button>
+            </div>
+            <textarea name="system.relations.{{@index}}.notes"
+                      class="relation-notes" placeholder="Заметки...">{{rel.notes}}</textarea>
+          </div>
+          {{/each}}
+          {{else}}
+          <p class="empty-hint">Нет связей. Нажми «+» или перетащи карточку.</p>
+          {{/if}}
+        </div>
+      </section>
+    </div>
+
+    {{!-- Производные внизу сайдбара --}}
+    <div class="derived-bar">
+      <div class="derived-btn roll-npc-initiative" title="Бросить инициативу (Лов+Смек)">
+        <span class="derived-lbl">Инициатива</span>
+        <span class="derived-ico">🎲</span>
+      </div>
+      <div class="derived-btn roll-npc-toughness" title="Стойкость (2 + Дух/2)">
+        <span class="derived-lbl">Стойкость {{system.toughness}}</span>
+        <span class="derived-ico">🎲</span>
+      </div>
+      <div class="derived-energy">
+        <span class="derived-lbl">Энергия</span>
+        <input type="number" name="system.energy.value" value="{{system.energy.value}}" class="energy-cur" min="0" />
+        <span class="energy-sep">/</span>
+        <input type="number" name="system.energy.max" value="{{system.energy.max}}" class="energy-max-input" min="0"
+               style="width:30px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);text-align:center;font-size:0.85em;font-family:'Jost',sans-serif" />
+      </div>
+    </div>
+  </div>
+
+  {{!-- ПРАВАЯ КОЛОНКА --}}
+  <div class="npc-main">
+    <nav class="sheet-tabs" data-group="primary">
+      <a class="item" data-tab="main">Основное</a>
+      <a class="item" data-tab="conflict">⚔ Конфликт</a>
+    </nav>
+
+    <div class="sheet-body">
+
+      {{!-- ОСНОВНОЕ --}}
+      <div class="tab" data-group="primary" data-tab="main">
+
+        <div class="npc-fields-grid3">
+          <div class="npc-field"><label>Возраст</label>
+            <input type="text" name="system.age" value="{{system.age}}" /></div>
+          <div class="npc-field"><label>Раса</label>
+            <input type="text" name="system.race" value="{{system.race}}" /></div>
+          <div class="npc-field"><label>Гендер</label>
+            <input type="text" name="system.gender" value="{{system.gender}}" /></div>
+        </div>
+
+        <div class="npc-fields-grid2">
+          <div class="npc-field"><label>Мир происхождения</label>
+            <input type="text" name="system.world_origin" value="{{system.world_origin}}" placeholder="—" /></div>
+          <div class="npc-field"><label>Страна происхождения</label>
+            <input type="text" name="system.country_origin" value="{{system.country_origin}}" placeholder="—" /></div>
+          <div class="npc-field"><label>Мир проживания</label>
+            <input type="text" name="system.world_home" value="{{system.world_home}}" placeholder="—" /></div>
+          <div class="npc-field"><label>Страна проживания</label>
+            <input type="text" name="system.country_home" value="{{system.country_home}}" placeholder="—" /></div>
+        </div>
+
+        <div class="npc-field" style="margin-bottom:8px"><label>Организации</label>
+          <input type="text" name="system.organizations" value="{{system.organizations}}" placeholder="—" /></div>
+
+        <div class="npc-field" style="margin-bottom:8px"><label>Цели</label>
+          <textarea name="system.goals" rows="3" placeholder="чего хочет достичь...">{{system.goals}}</textarea></div>
+
+        <div class="npc-field" style="margin-bottom:8px"><label>Мотивы</label>
+          <textarea name="system.motives" rows="3" placeholder="что движет изнутри...">{{system.motives}}</textarea></div>
+
+        <div class="npc-field" style="margin-bottom:8px"><label>Внешние особенности</label>
+          <textarea name="system.appearance" rows="2" placeholder="внешность, особые приметы...">{{system.appearance}}</textarea></div>
+
+        <div class="section-title">Заметки</div>
+        <textarea name="system.notes" rows="4" class="npc-textarea-lg" placeholder="заметки мастера...">{{system.notes}}</textarea>
+
+        <div class="section-title" style="margin-top:10px">Биография</div>
+        {{editor system.biography target="system.biography" button=true editable=editable}}
+
+      </div>
+
+      {{!-- КОНФЛИКТ --}}
+      <div class="tab" data-group="primary" data-tab="conflict">
+
+        <div class="section-title">Характеристики</div>
+        <div class="npc-attributes-grid">
+          {{#each system.attributes as |attr key|}}
+          <div class="npc-attr-box rollable-npc-attr" data-attribute="{{key}}" title="Бросить {{lookup ../attributeLabels key}}">
+            <span class="npc-attr-label">{{lookup ../attributeLabels key}}</span>
+            <span class="npc-attr-die">d{{attr.die}}</span>
+            <select name="system.attributes.{{key}}.die" class="npc-die-select" onclick="event.stopPropagation()">
+              <option value="4"   {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
+              <option value="6"   {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
+              <option value="8"   {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
+              <option value="10"  {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
+              <option value="12"  {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
+              <option value="20"  {{#if (eq attr.die 20)}}selected{{/if}}>d20</option>
+              <option value="100" {{#if (eq attr.die 100)}}selected{{/if}}>d100</option>
+            </select>
+          </div>
+          {{/each}}
+        </div>
+
+        {{!-- Состояние — 5 пипов как у игрока --}}
+        <div class="section-title" style="margin-top:10px">Состояние</div>
+        <div class="health-tracks npc-tracks">
+          <div class="health-track">
+            <div class="track-header">
+              <span class="track-label">Физическое состояние</span>
+              <span class="health-state-badge state-{{system.health.physical.value}}">{{healthLabel system.health.physical.value}}</span>
+            </div>
+            <div class="track-pips">
+              {{#times 5}}
+              <div class="health-pip {{#if (gte ../system.health.physical.value this)}}pip-filled pip-phys-{{this}}{{else}}pip-empty{{/if}}"
+                   data-track="npc-physical" data-value="{{this}}" title="{{healthLabel this}}">
+                <span class="pip-txt">{{healthLabel this}}</span>
+              </div>
+              {{/times}}
+            </div>
+          </div>
+          <div class="health-track" style="margin-top:8px">
+            <div class="track-header">
+              <span class="track-label">Ментальное состояние</span>
+              <span class="health-state-badge state-mental-{{system.health.mental.value}}">{{mentalLabel system.health.mental.value}}</span>
+            </div>
+            <div class="track-pips">
+              {{#times 5}}
+              <div class="health-pip {{#if (gte ../system.health.mental.value this)}}pip-filled pip-ment-{{this}}{{else}}pip-empty{{/if}}"
+                   data-track="npc-mental" data-value="{{this}}" title="{{mentalLabel this}}">
+                <span class="pip-txt">{{mentalLabel this}}</span>
+              </div>
+              {{/times}}
+            </div>
+          </div>
+        </div>
+
+        {{!-- Навыки — тот же партиал что у персонажа --}}
+        <div class="section-title" style="margin-top:12px">Навыки и способности</div>
+        {{> "systems/kk9/templates/actors/parts/skills.hbs"}}
+
+        {{!-- Снаряжение — тот же партиал что у персонажа --}}
+        <div class="section-title" style="margin-top:12px">Снаряжение</div>
+        {{> "systems/kk9/templates/actors/parts/items.hbs"}}
+
+      </div>
     </div>
   </div>
 </form>

@@ -1,5 +1,5 @@
 // ============================================================
-// КК9 — Главный файл v0.5
+// КК9 — Главный файл v0.8
 // ============================================================
 
 import {
@@ -17,7 +17,7 @@ import {
 } from "./module/sheets.mjs";
 
 Hooks.once("init", function () {
-  console.log("КК9 | Инициализация v0.5");
+  console.log("КК9 | Инициализация v0.8");
 
   CONFIG.Actor.documentClass = KK9Actor;
   CONFIG.Item.documentClass  = KK9Item;
@@ -91,6 +91,12 @@ function _registerHelpers() {
     academic:"Академическая", criminal:"Криминальная", government:"Правительственная",
     magical:"Магическая", corporate:"Корпоративная", underground:"Подпольная", other:"Прочая"
   })[v] || v);
+
+  Handlebars.registerHelper("typeIcon", (type) => ({
+    weapon:"⚔", gear:"🎒", artifact:"✨", spell:"🔮",
+    daemon:"👁", companion:"🐾", vehicle:"🚗", device:"⚙",
+    contact:"📇", language:"🗣", skill:"📖", ability:"⚡"
+  })[type] || "📦");
 }
 
 async function _preloadTemplates() {
@@ -122,9 +128,8 @@ async function _preloadTemplates() {
 }
 
 // ============================================================
-// Хук ready — компендиум и готовность системы
+// Хук createActor — добавляем базовые навыки новому персонажу
 // ============================================================
-// При создании нового персонажа — добавляем базовые навыки
 Hooks.on("createActor", async (actor, options, userId) => {
   if (actor.type !== "character") return;
   if (game.userId !== userId) return;
@@ -146,6 +151,9 @@ Hooks.on("createActor", async (actor, options, userId) => {
   if (toCreate.length) await Item.createDocuments(toCreate, { parent: actor });
 });
 
+// ============================================================
+// Хук ready
+// ============================================================
 Hooks.once("ready", async function() {
   console.log("КК9 | Система готова");
   if (!game.user.isGM) return;
@@ -153,15 +161,13 @@ Hooks.once("ready", async function() {
 });
 
 async function _ensureCompendiums() {
-  // Проверяем основной компендиум навыков
   const skillPack = game.packs.get("kk9.kk9-skills");
   if (!skillPack) { console.warn("КК9 | Компендиум навыков не найден"); return; }
   await skillPack.getIndex();
-  if (skillPack.index.size > 0) return; // уже заполнен
+  if (skillPack.index.size > 0) return;
 
   console.log("КК9 | Наполняем компендиумы...");
 
-  // Разблокируем все паки системы (Foundry блокирует их по умолчанию)
   const packNames = ["kk9-skills","kk9-faculties","kk9-abilities","kk9-languages",
     "kk9-weapons","kk9-gear","kk9-artifacts","kk9-spells","kk9-daemons",
     "kk9-companions","kk9-vehicles","kk9-devices","kk9-contacts",
@@ -172,18 +178,18 @@ async function _ensureCompendiums() {
   }
 
   const SKILLS_DATA = [
-    {name:"Атлетика",                   attr:"agility" },
-    {name:"Внимание",                   attr:"smarts"  },
-    {name:"Скрытность",                 attr:"agility" },
-    {name:"Убеждение",                  attr:"spirit"  },
-    {name:"Рукопашный бой",             attr:"agility" },
-    {name:"Обман",                      attr:"smarts"  },
-    {name:"Ориентирование на местности",attr:"smarts"  },
-    {name:"Память",                     attr:"smarts"  },
-    {name:"Знания",                     attr:"smarts"  },
-    {name:"Запугивание",                attr:"spirit"  },
-    {name:"Выживание",                  attr:"smarts"  },
-    {name:"Вождение",                   attr:"agility" },
+    {name:"Атлетика",                    attr:"agility" },
+    {name:"Внимание",                    attr:"smarts"  },
+    {name:"Скрытность",                  attr:"agility" },
+    {name:"Убеждение",                   attr:"spirit"  },
+    {name:"Рукопашный бой",              attr:"agility" },
+    {name:"Обман",                       attr:"smarts"  },
+    {name:"Ориентирование на местности", attr:"smarts"  },
+    {name:"Память",                      attr:"smarts"  },
+    {name:"Знания",                      attr:"smarts"  },
+    {name:"Запугивание",                 attr:"spirit"  },
+    {name:"Выживание",                   attr:"smarts"  },
+    {name:"Вождение",                    attr:"agility" },
   ];
 
   const FACULTIES_DATA = [
@@ -210,7 +216,6 @@ async function _ensureCompendiums() {
   const LANGUAGES = ["Русский","Английский","Немецкий","Французский","Испанский",
     "Латынь","Древний","Магический","Демонический","Технический","Жестовый","Азбука морзе"];
 
-  // --- Навыки ---
   await Item.createDocuments(
     SKILLS_DATA.map(sk => ({
       name:sk.name, type:"skill", img:"icons/svg/sword.svg",
@@ -219,11 +224,8 @@ async function _ensureCompendiums() {
     { pack:"kk9.kk9-skills" }
   );
 
-  // --- Факультеты и их способности ---
   const abPack = game.packs.get("kk9.kk9-abilities");
-
   for (const fac of FACULTIES_DATA) {
-    // Создаём ability items в компендиуме способностей
     const abilityRefs = [];
     if (abPack) {
       for (const ab of fac.abilities) {
@@ -234,15 +236,12 @@ async function _ensureCompendiums() {
         abilityRefs.push({name:ab.name, itemId:created.id, category:ab.cat});
       }
     }
-
-    // Faculty item
     await Item.createDocuments([{
       name:fac.name, type:"faculty", img:"icons/svg/academies.svg",
       system:{description:"", color:fac.color, color_key:"", teacher:fac.teacher, abilities:abilityRefs}
     }], { pack:"kk9.kk9-faculties" });
   }
 
-  // --- Языки ---
   await Item.createDocuments(
     LANGUAGES.map(lang => ({name:lang, type:"language", img:"icons/svg/book.svg", system:{description:"",region:""}})),
     { pack:"kk9.kk9-languages" }
