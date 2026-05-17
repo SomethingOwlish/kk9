@@ -1,9 +1,7 @@
-{{!-- КК9 | Непобедимый НПС v2.3 --}}
+{{!-- КК9 | Непобедимый НПС v2.4 --}}
 <form class="kk9-sheet npc-boss-sheet" autocomplete="off">
 
-  {{!-- ЛЕВАЯ КОЛОНКА --}}
   <div class="npc-sidebar">
-
     <div class="portrait-wrap">
       <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
       <div class="portrait-name-overlay">
@@ -15,7 +13,6 @@
       <input type="text" name="system.role" value="{{system.role}}"
              placeholder="краткое описание..." class="npc-role-input" />
 
-      {{!-- Связи — точно как у персонажа --}}
       <section class="relations-section">
         <div class="section-header-row">
           <h3 class="section-title">Связи</h3>
@@ -27,57 +24,33 @@
           {{#each system.relations as |rel|}}
           <div class="relation-row {{#if rel.love}}relation-love{{/if}}">
             <div class="relation-top-row">
-              <button type="button" class="love-toggle {{#if rel.love}}love-active{{/if}}"
-                      data-index="{{@index}}" title="Избранное">♥</button>
-              <input type="text" name="system.relations.{{@index}}.name"
-                     value="{{rel.name}}" class="relation-name" placeholder="Имя..." />
+              <button type="button" class="love-toggle {{#if rel.love}}love-active{{/if}}" data-index="{{@index}}" title="Избранное">♥</button>
+              <input type="text" name="system.relations.{{@index}}.name" value="{{rel.name}}" class="relation-name" placeholder="Имя..." />
               <select name="system.relations.{{@index}}.status" class="relation-status">
                 <option value="ally"    {{#if (eq rel.status "ally")}}selected{{/if}}>Союзник</option>
                 <option value="enemy"   {{#if (eq rel.status "enemy")}}selected{{/if}}>Враг</option>
                 <option value="neutral" {{#if (eq rel.status "neutral")}}selected{{/if}}>Нейтрал</option>
                 <option value="unknown" {{#if (eq rel.status "unknown")}}selected{{/if}}>?</option>
               </select>
-              <input type="range" name="system.relations.{{@index}}.level"
-                     value="{{rel.level}}" min="-15" max="15" class="relation-level-range" />
+              <input type="range" name="system.relations.{{@index}}.level" value="{{rel.level}}" min="-15" max="15" class="relation-level-range" />
               <span class="relation-level-val">{{rel.level}}</span>
               <button type="button" class="delete-relation btn-delete-xs" data-index="{{@index}}">✕</button>
             </div>
-            <textarea name="system.relations.{{@index}}.notes"
-                      class="relation-notes" placeholder="Заметки...">{{rel.notes}}</textarea>
+            <textarea name="system.relations.{{@index}}.notes" class="relation-notes" placeholder="Заметки...">{{rel.notes}}</textarea>
           </div>
           {{/each}}
           {{else}}
-          <p class="empty-hint">Нет связей. Нажми «+» или перетащи карточку.</p>
+          <p class="empty-hint">Нет связей. Нажми «+» или перетащи.</p>
           {{/if}}
         </div>
       </section>
     </div>
-
-    {{!-- Производные внизу сайдбара --}}
-    <div class="derived-bar">
-      <div class="derived-btn roll-npc-initiative" title="Бросить инициативу (д6 + Лов+Смек)">
-        <span class="derived-lbl">Инициатива</span>
-        <span class="derived-ico">🎲</span>
-      </div>
-      <div class="derived-btn roll-npc-toughness" title="Стойкость (2 + Дух/2)">
-        <span class="derived-lbl">Стойкость {{system.toughness}}</span>
-        <span class="derived-ico">🎲</span>
-      </div>
-      <div class="derived-energy">
-        <span class="derived-lbl">Энергия</span>
-        <input type="number" name="system.energy.value" value="{{system.energy.value}}" class="energy-cur" min="0" />
-        <span class="energy-sep">/</span>
-        <input type="number" name="system.energy.max" value="{{system.energy.max}}" class="energy-max-input" min="0"
-               style="width:30px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text);text-align:center;font-size:0.85em;font-family:'Jost',sans-serif" />
-      </div>
-    </div>
   </div>
 
-  {{!-- ПРАВАЯ КОЛОНКА --}}
   <div class="npc-main">
     <nav class="sheet-tabs" data-group="primary">
       <a class="item" data-tab="main">Основное</a>
-      <a class="item" data-tab="conflict">⚔ Конфликт</a>
+      <a class="item" data-tab="conflict">Конфликт</a>
     </nav>
 
     <div class="sheet-body">
@@ -86,23 +59,16 @@
       <div class="tab" data-group="primary" data-tab="main">
 
         <div class="npc-fields-grid3">
-          <div class="npc-field"><label>Возраст</label>
-            <input type="text" name="system.age" value="{{system.age}}" /></div>
-          <div class="npc-field"><label>Раса</label>
-            <input type="text" name="system.race" value="{{system.race}}" /></div>
-          <div class="npc-field"><label>Гендер</label>
-            <input type="text" name="system.gender" value="{{system.gender}}" /></div>
+          <div class="npc-field"><label>Возраст</label><input type="text" name="system.age" value="{{system.age}}" /></div>
+          <div class="npc-field"><label>Раса</label><input type="text" name="system.race" value="{{system.race}}" /></div>
+          <div class="npc-field"><label>Гендер</label><input type="text" name="system.gender" value="{{system.gender}}" /></div>
         </div>
 
         <div class="npc-fields-grid2">
-          <div class="npc-field"><label>Мир происхождения</label>
-            <input type="text" name="system.world_origin" value="{{system.world_origin}}" placeholder="—" /></div>
-          <div class="npc-field"><label>Страна происхождения</label>
-            <input type="text" name="system.country_origin" value="{{system.country_origin}}" placeholder="—" /></div>
-          <div class="npc-field"><label>Мир проживания</label>
-            <input type="text" name="system.world_home" value="{{system.world_home}}" placeholder="—" /></div>
-          <div class="npc-field"><label>Страна проживания</label>
-            <input type="text" name="system.country_home" value="{{system.country_home}}" placeholder="—" /></div>
+          <div class="npc-field"><label>Мир происхождения</label><input type="text" name="system.world_origin" value="{{system.world_origin}}" placeholder="—" /></div>
+          <div class="npc-field"><label>Страна происхождения</label><input type="text" name="system.country_origin" value="{{system.country_origin}}" placeholder="—" /></div>
+          <div class="npc-field"><label>Мир проживания</label><input type="text" name="system.world_home" value="{{system.world_home}}" placeholder="—" /></div>
+          <div class="npc-field"><label>Страна проживания</label><input type="text" name="system.country_home" value="{{system.country_home}}" placeholder="—" /></div>
         </div>
 
         <div class="npc-field" style="margin-bottom:8px"><label>Организации</label>
@@ -117,18 +83,18 @@
         <div class="npc-field" style="margin-bottom:8px"><label>Внешние особенности</label>
           <textarea name="system.appearance" rows="2" placeholder="внешность, особые приметы...">{{system.appearance}}</textarea></div>
 
-        <div class="section-title">Заметки</div>
-        <textarea name="system.notes" rows="4" class="npc-textarea-lg" placeholder="заметки мастера...">{{system.notes}}</textarea>
+        <div class="section-title">Биография</div>
+        <textarea name="system.biography" rows="6" class="npc-textarea-lg" placeholder="история персонажа...">{{system.biography}}</textarea>
 
-        <div class="section-title" style="margin-top:10px">Биография</div>
-        {{editor system.biography target="system.biography" button=true editable=editable}}
+        <div class="section-title" style="margin-top:10px">Заметки</div>
+        <textarea name="system.notes" rows="4" class="npc-textarea-lg" placeholder="заметки мастера...">{{system.notes}}</textarea>
 
       </div>
 
       {{!-- КОНФЛИКТ --}}
       <div class="tab" data-group="primary" data-tab="conflict">
 
-        {{!-- Характеристики — с диким кубиком д6 --}}
+        {{!-- Характеристики с диким кубиком --}}
         <div class="section-title">Характеристики <span style="font-size:0.75em;color:#a855f7;font-weight:400">✦ дикий кубик д6</span></div>
         <div class="npc-attributes-grid">
           {{#each system.attributes as |attr key|}}
@@ -148,17 +114,52 @@
           {{/each}}
         </div>
 
-        {{!-- Особая механика — вместо шкал здоровья --}}
-        <div class="section-title" style="margin-top:10px">Особая механика</div>
-        {{editor system.special_mechanics target="system.special_mechanics" button=true editable=editable}}
+        <div class="derived-bar" style="margin:10px 0;">
+          <div class="derived-btn roll-npc-initiative" title="Инициатива (дикий кубик)">
+            <span class="derived-lbl">Инициатива</span>
+            <span class="derived-ico">🎲</span>
+          </div>
+          <div class="derived-btn roll-npc-toughness" title="Стойкость {{system.toughness}}">
+            <span class="derived-lbl">Стойкость {{system.toughness}}</span>
+            <span class="derived-ico">🎲</span>
+          </div>
+          <div class="derived-energy">
+            <span class="derived-lbl">Энергия</span>
+            <input type="number" name="system.energy.value" value="{{system.energy.value}}" class="energy-cur" min="0" />
+            <span class="energy-sep">/</span>
+            <span class="energy-max">{{system.energy.max}}</span>
+          </div>
+        </div>
 
-        {{!-- Навыки — тот же партиал что у персонажа --}}
+        {{!-- Особая механика — большое текстовое поле, НЕТ шкал --}}
+        <div class="section-title">Особая механика</div>
+        <textarea name="system.special_mechanics" rows="6" class="npc-textarea-lg"
+                  placeholder="опишите уникальную механику: фазы, условия победы, особые правила...">{{system.special_mechanics}}</textarea>
+
         <div class="section-title" style="margin-top:12px">Навыки и способности</div>
-        {{> "systems/kk9/templates/actors/parts/skills.hbs"}}
+        <div class="npc-unified-list" style="min-height:40px;border:1px dashed var(--border);border-radius:4px;padding:4px">
+          {{#each npcAllItems}}
+          <div class="skill-row" data-item-id="{{id}}">
+            <span class="skill-name npc-rollable" data-item-id="{{id}}" style="cursor:pointer">{{name}}</span>
+            {{#if system.die}}<span class="npc-attr-die" style="font-size:0.8em;color:var(--gold)">d{{system.die}}</span>{{/if}}
+            <button type="button" class="npc-item-delete btn-delete-xs" data-item-id="{{id}}">✕</button>
+          </div>
+          {{else}}
+          <p class="drop-hint" style="padding:6px">Перетащи навыки или способности</p>
+          {{/each}}
+        </div>
 
-        {{!-- Снаряжение — тот же партиал что у персонажа --}}
         <div class="section-title" style="margin-top:12px">Снаряжение</div>
-        {{> "systems/kk9/templates/actors/parts/items.hbs"}}
+        <div class="npc-unified-list" style="min-height:40px;border:1px dashed var(--border);border-radius:4px;padding:4px">
+          {{#each npcGear}}
+          <div class="skill-row" data-item-id="{{id}}">
+            <span class="skill-name item-name-click" data-item-id="{{id}}" style="cursor:pointer">{{name}}</span>
+            <button type="button" class="npc-item-delete btn-delete-xs" data-item-id="{{id}}">✕</button>
+          </div>
+          {{else}}
+          <p class="drop-hint" style="padding:6px">Перетащи предметы</p>
+          {{/each}}
+        </div>
 
       </div>
     </div>

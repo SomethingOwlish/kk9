@@ -1,32 +1,21 @@
 // ============================================================
-// КК9 — Документы v0.5
+// КК9 — Документы v0.9
 // ============================================================
 
 export class KK9Actor extends Actor {
 
-  // ----------------------------------------------------------
-  // Дроп предмета на актёра — перехватываем faculty
-  // ----------------------------------------------------------
   async _onDropItem(event, data) {
     const item = await Item.fromDropData(data);
     if (!item) return super._onDropItem(event, data);
-
-    // Если дропнули faculty item — применяем факультет
     if (item.type === "faculty") {
       await this._applyFaculty(item);
       return;
     }
-
     return super._onDropItem(event, data);
   }
 
-  /**
-   * Применяем факультет по имени (из выпадашки) — ищем в компендиуме
-   * @param {string} facultyName
-   */
   async applyFacultyByName(facultyName) {
     if (!facultyName) {
-      // Сбрасываем факультет
       await this.update({
         "system.faculty": null,
         "system.faculty_color": "",
@@ -35,8 +24,6 @@ export class KK9Actor extends Actor {
       });
       return;
     }
-
-    // Ищем faculty item в компендиуме
     const pack = game.packs.get("kk9.kk9-faculties");
     if (pack) {
       await pack.getIndex();
@@ -46,53 +33,48 @@ export class KK9Actor extends Actor {
         if (item) { await this._applyFaculty(item); return; }
       }
     }
-
-    // Ищем в world items
     const worldItem = game.items.find(i => i.type === "faculty" && i.name === facultyName);
     if (worldItem) { await this._applyFaculty(worldItem); return; }
-
     ui.notifications.warn(`Факультет "${facultyName}" не найден в компендиуме.`);
   }
 
-  /**
-   * Применяем факультет из faculty item
-   * @param {Item} facultyItem
-   */
   async _applyFaculty(facultyItem) {
     if (this.type !== "character") return;
 
     const oldFacultyId = this.system.faculty;
 
-    // --- Убираем старый факультет ---
+    // --- БАГ 1 + 2: убираем старый факультет ---
     if (oldFacultyId) {
       const toRemove = this.items.filter(i =>
         i.type === "ability" && i.system.faculty_id === oldFacultyId
       );
-      // Только magic остаётся (теряет привязку к факультету)
-      // common/learned/personal — удаляются при смене факультета
-      const toKeep = toRemove.filter(i => i.system.category === "magic");
-      const toDelete = toRemove.filter(i => i.system.category !== "magic");
 
-      // magic → убираем привязку, остаются на карточке
-      for (const item of toKeep) {
-        await item.update({ "system.faculty_id": null });
-      }
-      // всё остальное (включая common/learned) → удаляем
-      for (const item of toDelete) {
-        await item.delete();
+      for (const item of toRemove) {
+        const isLeveled = item.system.die > 4 || item.system.modifier !== -2;
+
+        if (item.system.category === "magic") {
+          // magic всегда остаётся, только снимаем привязку к факультету
+          await item.update({ "system.faculty_id": null });
+        } else if (isLeveled) {
+          // БАГ 2: прокачанная — не удалять, перемещать по категории
+          // common/learned → в baseSkills (убрать faculty_id)
+          // personal → остаётся personal
+          await item.update({ "system.faculty_id": null });
+        } else {
+          // неумелая (d4, -2) — удаляем
+          await item.delete();
+        }
       }
     }
 
-    // --- Добавляем новый факультет ---
     const fData = facultyItem.system;
     const updateData = {
       "system.faculty":       facultyItem.id,
       "system.faculty_color": fData.color || "#888888",
       "system.faculty_key":   facultyItem.id,
-      "system.faculty_name":  facultyItem.name
+      "system.faculty_name":  facultyItem.name  // БАГ 1: кэшируем имя
     };
 
-    // Добавляем учителя в связи
     const relations = [...(this.system.relations || [])];
     const teacherName = fData.teacher;
     if (teacherName && !relations.find(r => r.name === teacherName)) {
@@ -102,10 +84,18 @@ export class KK9Actor extends Actor {
 
     await this.update(updateData);
 
-    // Создаём копии ability items факультета на персонаже
     if (fData.abilities?.length) {
       for (const abilityRef of fData.abilities) {
-        // Ищем оригинал в компендиумах или world items
+        // Не добавляем если уже есть (учитываем сохранённые прокачанные)
+        const alreadyHas = this.items.find(i =>
+          (i.type === "ability" || i.type === "skill") && i.name === abilityRef.name
+        );
+        if (alreadyHas) {
+          // если есть — просто обновляем faculty_id
+          await alreadyHas.update({ "system.faculty_id": facultyItem.id });
+          continue;
+        }
+
         let sourceItem = game.items.get(abilityRef.itemId);
         if (!sourceItem) {
           for (const pack of game.packs) {
@@ -120,7 +110,6 @@ export class KK9Actor extends Actor {
           itemData.system.faculty_id = facultyItem.id;
           await Item.create(itemData, { parent: this });
         } else {
-          // Если оригинала нет — создаём по данным из faculty
           await Item.create({
             name: abilityRef.name,
             type: "ability",
@@ -134,7 +123,6 @@ export class KK9Actor extends Actor {
       }
     }
 
-    // Уведомление
     ChatMessage.create({
       content: `<div style="font-family:serif;padding:4px 8px;border-left:3px solid ${fData.color || '#c9a84c'}">
         <strong>${this.name}</strong> зачислен на <strong>${facultyItem.name}</strong>.<br>
@@ -144,9 +132,6 @@ export class KK9Actor extends Actor {
     });
   }
 
-  // ----------------------------------------------------------
-  // Бросок атрибута
-  // ----------------------------------------------------------
   async rollAttribute(attributeName, modifier = 0) {
     const attr = this.system.attributes?.[attributeName];
     if (!attr) return;
@@ -166,9 +151,6 @@ export class KK9Actor extends Actor {
     return { roll, degree };
   }
 
-  // ----------------------------------------------------------
-  // Бросок инициативы: Ловкость + Смекалка
-  // ----------------------------------------------------------
   async rollInitiative() {
     const ag = this.system.attributes.agility;
     const sm = this.system.attributes.smarts;
@@ -185,19 +167,14 @@ export class KK9Actor extends Actor {
     return roll;
   }
 
-  // ----------------------------------------------------------
-  // Бросок стойкости с диалогом
-  // ----------------------------------------------------------
   async rollToughness() {
     const allSkills = [
       ...Object.entries(this.system.skills || {}).map(([k,v]) => ({ key:k, name:k, ...v })),
       ...(this.system.customSkills || []).map(s => ({ key:s.name, ...s })),
       ...(this.items?.filter(i => i.type === "ability") || []).map(i => ({ key:i.name, name:i.name, die:4 }))
     ];
-
     const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выживание","Выжидание"];
     const available = allSkills.filter(s => resistNames.includes(s.name) || resistNames.includes(s.key));
-
     const options = available.map(s =>
       `<option value="${s.name||s.key}|${s.die||4}">${s.name||s.key} (d${s.die||4})</option>`
     ).join("");
@@ -207,8 +184,7 @@ export class KK9Actor extends Actor {
       content: `<div style="padding:8px">
         <p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>
         ${available.length ? `<select id="resist-skill" style="width:100%">
-          <option value="">— только Дух —</option>
-          ${options}
+          <option value="">— только Дух —</option>${options}
         </select>` : "<em>Нет доступных навыков сопротивления</em>"}
       </div>`,
       label: "Бросить",
@@ -224,7 +200,6 @@ export class KK9Actor extends Actor {
     } else {
       formula = isWC ? `{1d${spiritDie}, 1d6}kh` : `1d${spiritDie}`;
     }
-
     const roll = new Roll(formula);
     await roll.evaluate();
     const degree = this._getSuccessDegree(roll.total, 4);
@@ -235,9 +210,6 @@ export class KK9Actor extends Actor {
     return { roll, degree };
   }
 
-  // ----------------------------------------------------------
-  // Бросок навыка
-  // ----------------------------------------------------------
   async rollSkill(skillName, modifier = 0, difficulty = 4) {
     const skillLabels = {
       athletics:"Атлетика", notice:"Внимание", stealth:"Скрытность",
@@ -246,27 +218,21 @@ export class KK9Actor extends Actor {
       knowledge:"Знания", intimidation:"Запугивание",
       survival:"Выживание", driving:"Вождение"
     };
-
     let skill = this.system.skills?.[skillName];
     let label = skillLabels[skillName] || skillName;
-
     if (!skill) {
       const cs = this.system.customSkills?.find(s => s.name === skillName);
       if (cs) { skill = cs; label = cs.name; }
     }
-
     if (!skill) { ui.notifications.warn(`Навык "${skillName}" не найден.`); return; }
-
     const die = skill.die;
     const mod = (skill.modifier || 0) + modifier;
     const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
     const isWC = this.type === "character";
     const formula = isWC ? `{1d${die}${modStr}, 1d6${modStr}}kh` : `1d${die}${modStr}`;
-
     const roll = new Roll(formula);
     await roll.evaluate();
     const degree = this._getSuccessDegree(roll.total, difficulty);
-
     await roll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor: this }),
       flavor: `<strong>${label}</strong> (сложность ${difficulty})<br>${degree.label}`
@@ -274,9 +240,6 @@ export class KK9Actor extends Actor {
     return { roll, degree };
   }
 
-  // ----------------------------------------------------------
-  // Бросок навыка по itemId (skill Item)
-  // ----------------------------------------------------------
   async rollSkillItem(itemId, difficulty = 4) {
     const item = this.items.get(itemId);
     if (!item) { ui.notifications.warn("Навык не найден."); return; }
@@ -295,9 +258,6 @@ export class KK9Actor extends Actor {
     return { roll, degree };
   }
 
-  // ----------------------------------------------------------
-  // Бросок способности по itemId
-  // ----------------------------------------------------------
   async rollAbility(itemId, difficulty = 4) {
     const item = this.items.get(itemId);
     if (!item) { ui.notifications.warn("Способность не найдена."); return; }

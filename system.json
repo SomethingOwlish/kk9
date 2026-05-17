@@ -44,8 +44,7 @@
       },
       "npc-boss": {
         "htmlFields": [
-          "system.biography",
-          "system.special_mechanics"
+          "system.biography"
         ]
       }
     },

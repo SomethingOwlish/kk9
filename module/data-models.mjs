@@ -195,7 +195,10 @@ export class NpcLightDataModel extends foundry.abstract.TypeDataModel {
     };
   }
   prepareDerivedData() {
+    // Стойкость = 2 + половина кубика Духа (как у игрока)
     this.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
+    // Энергия max = max значение кубика Духа (аналог возраст + кубик магии у игрока)
+    this.energy.max = this.attributes.spirit.die;
   }
 }
 
@@ -218,6 +221,7 @@ export class NpcHardDataModel extends foundry.abstract.TypeDataModel {
   }
   prepareDerivedData() {
     this.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
+    this.energy.max = this.attributes.spirit.die;
   }
 }
 
@@ -228,8 +232,12 @@ export class NpcBossDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       ...npcCommonFields(),
-      special_mechanics: new fields.HTMLField({ initial: "" }),
+      special_mechanics: new fields.StringField({ initial: "" }),
     };
+  }
+  prepareDerivedData() {
+    this.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
+    this.energy.max = this.attributes.spirit.die;
   }
 }
 
