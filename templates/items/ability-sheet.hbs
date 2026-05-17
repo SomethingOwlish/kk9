@@ -1,25 +1,20 @@
-{{!-- КК9 | Уникальная абилка --}}
-<form class="kk9-sheet item-sheet ability-sheet" autocomplete="off">
-  <header class="sheet-header">
-    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
-    <div class="header-fields">
-      <input class="name-input" type="text" name="name" value="{{item.name}}" />
-      <select name="system.type" class="type-select">
-        <option value="passive" {{#if (eq system.type "passive")}}selected{{/if}}>Пассивная</option>
-        <option value="active"  {{#if (eq system.type "active")}}selected{{/if}}>Активная</option>
-      </select>
+<form class="kk9-sheet item-sheet" autocomplete="off">
+  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
+    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
+    <div style="flex:1">
+      <input type="text" name="name" value="{{item.name}}"
+             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
+      <div style="display:flex;gap:10px;margin-top:6px;align-items:center">
+        <label style="font-size:0.75em;color:var(--text-dim)">Категория</label>
+        <select name="system.category" style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 6px;font-size:0.82em">
+          {{#each categoryOptions}}
+          <option value="{{value}}" {{#if (eq value ../system.category)}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select>
+      </div>
     </div>
   </header>
-  <div class="sheet-body">
-    {{#if (eq system.type "active")}}
-    <div class="form-group">
-      <label>Условие активации:</label>
-      <input type="text" name="system.activation" value="{{system.activation}}" />
-    </div>
-    {{/if}}
-    <div class="form-group">
-      <label>Описание:</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
-    </div>
+  <div style="padding:12px">
+    {{editor system.description target="system.description" button=true editable=editable}}
   </div>
 </form>

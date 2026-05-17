@@ -1,6 +1,38 @@
 {{!-- Снаряжение --}}
 <section class="items-section">
 
+  {{!-- Оружие --}}
+  <div class="item-group">
+    <div class="item-group-header">
+      <span class="item-group-title">Оружие</span>
+      <button type="button" class="item-create btn-add-sm" data-type="weapon">+</button>
+    </div>
+    {{#each weapons}}
+    <div class="item-row" data-item-id="{{this.id}}">
+      <img src="{{this.img}}" class="item-img" />
+      <span class="item-name item-name-click">{{this.name}}</span>
+      <span class="item-meta">{{this.system.damage}} · {{this.system.range}}</span>
+      <button type="button" class="item-delete btn-delete-xs">✕</button>
+    </div>
+    {{else}}<p class="empty-hint">Нет оружия</p>{{/each}}
+  </div>
+
+  {{!-- Снаряжение --}}
+  <div class="item-group">
+    <div class="item-group-header">
+      <span class="item-group-title">Снаряжение</span>
+      <button type="button" class="item-create btn-add-sm" data-type="gear">+</button>
+    </div>
+    {{#each gear}}
+    <div class="item-row" data-item-id="{{this.id}}">
+      <img src="{{this.img}}" class="item-img" />
+      <span class="item-name item-name-click">{{this.name}}</span>
+      {{#if (gt this.system.quantity 1)}}<span class="item-meta">×{{this.system.quantity}}</span>{{/if}}
+      <button type="button" class="item-delete btn-delete-xs">✕</button>
+    </div>
+    {{else}}<p class="empty-hint">Нет снаряжения</p>{{/each}}
+  </div>
+
   {{!-- Артефакты --}}
   <div class="item-group">
     <div class="item-group-header">
@@ -27,42 +59,57 @@
     <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <span class="item-meta">{{this.system.range}}</span>
+      <span class="item-meta">{{this.system.cost}} энергии</span>
       <button type="button" class="item-delete btn-delete-xs">✕</button>
     </div>
     {{else}}<p class="empty-hint">Нет заклинаний</p>{{/each}}
   </div>
 
-  {{!-- Демоны --}}
+  {{!-- Даймоны --}}
   <div class="item-group">
     <div class="item-group-header">
-      <span class="item-group-title">Призывные демоны</span>
-      <button type="button" class="item-create btn-add-sm" data-type="demon">+</button>
+      <span class="item-group-title">Даймоны</span>
+      <button type="button" class="item-create btn-add-sm" data-type="daemon">+</button>
     </div>
-    {{#each demons}}
+    {{#each daemons}}
     <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
       {{#if this.system.summoned}}<span class="item-badge badge-summoned">Призван</span>{{/if}}
       <button type="button" class="item-delete btn-delete-xs">✕</button>
     </div>
-    {{else}}<p class="empty-hint">Нет демонов</p>{{/each}}
+    {{else}}<p class="empty-hint">Нет даймонов</p>{{/each}}
   </div>
 
-  {{!-- Абилки --}}
+  {{!-- Способности (не факультетские) --}}
   <div class="item-group">
     <div class="item-group-header">
-      <span class="item-group-title">Уникальные абилки</span>
+      <span class="item-group-title">Способности</span>
       <button type="button" class="item-create btn-add-sm" data-type="ability">+</button>
     </div>
     {{#each abilities}}
     <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <span class="item-badge badge-{{this.system.type}}">{{this.system.type}}</span>
+      <span class="item-badge cat-{{this.system.category}}">{{categoryLabel this.system.category}}</span>
       <button type="button" class="item-delete btn-delete-xs">✕</button>
     </div>
-    {{else}}<p class="empty-hint">Нет абилок</p>{{/each}}
+    {{else}}<p class="empty-hint">Нет способностей</p>{{/each}}
+  </div>
+
+  {{!-- Тех. устройства --}}
+  <div class="item-group">
+    <div class="item-group-header">
+      <span class="item-group-title">Устройства</span>
+      <button type="button" class="item-create btn-add-sm" data-type="device">+</button>
+    </div>
+    {{#each devices}}
+    <div class="item-row" data-item-id="{{this.id}}">
+      <img src="{{this.img}}" class="item-img" />
+      <span class="item-name item-name-click">{{this.name}}</span>
+      <button type="button" class="item-delete btn-delete-xs">✕</button>
+    </div>
+    {{else}}<p class="empty-hint">Нет устройств</p>{{/each}}
   </div>
 
   {{!-- Спутники --}}
@@ -84,7 +131,7 @@
   <div class="item-group">
     <div class="item-group-header">
       <span class="item-group-title">Транспорт</span>
-      <button type="button" class="item-create btn-add-sm" data-type="companion" data-subtype="vehicle">+</button>
+      <button type="button" class="item-create btn-add-sm" data-type="vehicle">+</button>
     </div>
     {{#each vehicles}}
     <div class="item-row" data-item-id="{{this.id}}">
@@ -93,6 +140,23 @@
       <button type="button" class="item-delete btn-delete-xs">✕</button>
     </div>
     {{else}}<p class="empty-hint">Нет транспорта</p>{{/each}}
+  </div>
+
+
+  {{!-- Контакты --}}
+  <div class="item-group">
+    <div class="item-group-header">
+      <span class="item-group-title">Контакты</span>
+      <button type="button" class="item-create btn-add-sm" data-type="contact">+</button>
+    </div>
+    {{#each contacts}}
+    <div class="item-row" data-item-id="{{this.id}}">
+      <img src="{{this.img}}" class="item-img" />
+      <span class="item-name item-name-click">{{this.name}}</span>
+      <span class="item-meta">Доступ: {{this.system.access_level}}</span>
+      <button type="button" class="item-delete btn-delete-xs">✕</button>
+    </div>
+    {{else}}<p class="empty-hint">Нет контактов. Перетащи или создай.</p>{{/each}}
   </div>
 
 </section>

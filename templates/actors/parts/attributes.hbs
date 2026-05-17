@@ -1,4 +1,4 @@
-{{!-- Атрибуты + Магические таланты --}}
+{{!-- Атрибуты + Факультет + Магические таланты v0.6 --}}
 <section class="attributes-section">
   <h3 class="section-title">Атрибуты</h3>
   <div class="attributes-grid">
@@ -22,21 +22,39 @@
   </div>
 </section>
 
-{{!-- Магические таланты --}}
-<section class="magic-talents-section" data-drop-zone="magicTalents">
-  <h3 class="section-title magic-title">✦ Магические таланты</h3>
-  <p class="drop-hint">Перетащи абилки с категорией «магия»</p>
-  {{#each system.magicTalents as |talent|}}
-  <div class="talent-row">
-    <span class="talent-name">{{talent.name}}</span>
-    <select name="system.magicTalents.{{@index}}.level" class="talent-level">
-      <option value="weak"        {{#if (eq talent.level "weak")}}selected{{/if}}>Слабо</option>
-      <option value="strong"      {{#if (eq talent.level "strong")}}selected{{/if}}>Крепко</option>
-      <option value="exceptional" {{#if (eq talent.level "exceptional")}}selected{{/if}}>Небывалый талант</option>
-    </select>
-    <button type="button" class="delete-talent btn-delete" data-index="{{@index}}">✕</button>
+{{!-- Факультетские способности на основной вкладке --}}
+{{#if facultyItem}}
+<section class="faculty-abilities-section" style="--fcolor:{{facultyColor}};border-color:{{facultyColor}}40;background:{{facultyColor}}08;margin-top:12px;padding:8px;border:1px solid;border-radius:4px">
+  <h3 class="section-title" style="color:{{facultyColor}};border-color:{{facultyColor}}30">
+    <span class="faculty-dot" style="background:{{facultyColor}}"></span>
+    {{facultyName}}
+  </h3>
+  {{#each facultyAbilities as |ab|}}
+  <div class="item-row" data-item-id="{{ab.id}}">
+    <img src="{{ab.img}}" class="item-img" />
+    <span class="item-name item-name-click" style="color:{{../facultyColor}}">{{ab.name}}</span>
+    <span class="item-badge cat-{{ab.system.category}}">{{categoryLabel ab.system.category}}</span>
+    <button type="button" class="item-delete btn-delete-xs">✕</button>
   </div>
   {{else}}
-  <p class="empty-hint">Нет магических талантов</p>
+  <p class="empty-hint">Нет способностей факультета</p>
   {{/each}}
 </section>
+{{/if}}
+
+{{!-- Магические способности на основной: уровень таланта --}}
+{{#if magicAbilities.length}}
+<section class="magic-section" style="margin-top:12px;padding:8px;border:1px solid rgba(168,85,247,0.2);border-radius:4px;background:rgba(168,85,247,0.04)">
+  <h3 class="section-title magic-title">✦ Магические таланты</h3>
+  {{#each magicAbilities as |ab|}}
+  <div class="magic-talent-row" data-item-id="{{ab.id}}">
+    <span class="magic-talent-name item-name-click">{{ab.name}}</span>
+    <select class="magic-level-select" data-item-id="{{ab.id}}">
+      <option value="sparks"      {{#if (eq (lookup ../magicLevelMap ab.id) "sparks")}}selected{{/if}}>Зачатки</option>
+      <option value="normal"      {{#if (eq (lookup ../magicLevelMap ab.id) "normal")}}selected{{/if}}>Обычный</option>
+      <option value="exceptional" {{#if (eq (lookup ../magicLevelMap ab.id) "exceptional")}}selected{{/if}}>Особый талант</option>
+    </select>
+  </div>
+  {{/each}}
+</section>
+{{/if}}

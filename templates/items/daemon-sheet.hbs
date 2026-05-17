@@ -1,0 +1,27 @@
+<form class="kk9-sheet item-sheet daemon-sheet" autocomplete="off">
+  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
+    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:50%;border:2px solid #6b21a8;cursor:pointer;object-fit:cover" />
+    <div style="flex:1">
+      <input type="text" name="name" value="{{item.name}}"
+             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid #6b21a8;color:var(--text-head);width:100%" />
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <label style="font-size:0.75em;color:var(--text-dim)">Призван</label>
+        <input type="checkbox" name="system.summoned" {{#if system.summoned}}checked{{/if}} />
+      </div>
+    </div>
+  </header>
+  <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Условие призыва</label>
+        <input type="text" name="system.summon_condition" value="{{system.summon_condition}}" class="kk9-input" /></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Стоимость призыва</label>
+        <input type="text" name="system.summon_cost" value="{{system.summon_cost}}" class="kk9-input" /></div>
+    </div>
+    <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Способности</label>
+      <textarea name="system.abilities" rows="3" class="kk9-textarea">{{system.abilities}}</textarea></div>
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
+      {{editor system.description target="system.description" button=true editable=editable}}
+    </div>
+  </div>
+</form>

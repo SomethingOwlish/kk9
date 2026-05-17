@@ -1,182 +1,243 @@
 // ============================================================
-// КК9 — Документы v0.4
+// КК9 — Документы v0.5
 // ============================================================
-
-import { FACULTIES } from "./faculties.mjs";
 
 export class KK9Actor extends Actor {
 
-  // --- Смена факультета ---
-  async _onUpdate(changed, options, userId) {
-    await super._onUpdate(changed, options, userId);
-    // Только если факультет реально изменился (не просто любое обновление)
-    if (this.type === "character" 
-        && changed.system?.faculty !== undefined 
-        && changed.system.faculty !== null) {
-      await this._onFacultyChanged(changed.system.faculty);
+  // ----------------------------------------------------------
+  // Дроп предмета на актёра — перехватываем faculty
+  // ----------------------------------------------------------
+  async _onDropItem(event, data) {
+    const item = await Item.fromDropData(data);
+    if (!item) return super._onDropItem(event, data);
+
+    // Если дропнули faculty item — применяем факультет
+    if (item.type === "faculty") {
+      await this._applyFaculty(item);
+      return;
     }
+
+    return super._onDropItem(event, data);
   }
 
-  async _onFacultyChanged(newFaculty) {
-    if (!newFaculty || !FACULTIES[newFaculty]) return;
-    const faculty = FACULTIES[newFaculty];
-    const updateData = {};
+  /**
+   * Применяем факультет по имени (из выпадашки) — ищем в компендиуме
+   * @param {string} facultyName
+   */
+  async applyFacultyByName(facultyName) {
+    if (!facultyName) {
+      // Сбрасываем факультет
+      await this.update({
+        "system.faculty": null,
+        "system.faculty_color": "",
+        "system.faculty_key": "",
+        "system.faculty_name": ""
+      });
+      return;
+    }
 
-    updateData["system.facultySkills"] = faculty.skills.map(s => ({
-      name: s.name, die: s.die, linkedAttribute: s.linkedAttribute, modifier: 0
-    }));
+    // Ищем faculty item в компендиуме
+    const pack = game.packs.get("kk9.kk9-faculties");
+    if (pack) {
+      await pack.getIndex();
+      const entry = pack.index.find(i => i.name === facultyName);
+      if (entry) {
+        const item = await pack.getDocument(entry._id);
+        if (item) { await this._applyFaculty(item); return; }
+      }
+    }
 
-    const existingRelations = this.system.relations || [];
-    const alreadyHasTeacher = existingRelations.some(r => r.name === faculty.teacher);
-    if (!alreadyHasTeacher) {
-      updateData["system.relations"] = [
-        ...existingRelations,
-        { name: faculty.teacher, status: "neutral", level: 0, notes: `Куратор ${faculty.label} факультета` }
-      ];
+    // Ищем в world items
+    const worldItem = game.items.find(i => i.type === "faculty" && i.name === facultyName);
+    if (worldItem) { await this._applyFaculty(worldItem); return; }
+
+    ui.notifications.warn(`Факультет "${facultyName}" не найден в компендиуме.`);
+  }
+
+  /**
+   * Применяем факультет из faculty item
+   * @param {Item} facultyItem
+   */
+  async _applyFaculty(facultyItem) {
+    if (this.type !== "character") return;
+
+    const oldFacultyId = this.system.faculty;
+
+    // --- Убираем старый факультет ---
+    if (oldFacultyId) {
+      const toRemove = this.items.filter(i =>
+        i.type === "ability" && i.system.faculty_id === oldFacultyId
+      );
+      // Только magic остаётся (теряет привязку к факультету)
+      // common/learned/personal — удаляются при смене факультета
+      const toKeep = toRemove.filter(i => i.system.category === "magic");
+      const toDelete = toRemove.filter(i => i.system.category !== "magic");
+
+      // magic → убираем привязку, остаются на карточке
+      for (const item of toKeep) {
+        await item.update({ "system.faculty_id": null });
+      }
+      // всё остальное (включая common/learned) → удаляем
+      for (const item of toDelete) {
+        await item.delete();
+      }
+    }
+
+    // --- Добавляем новый факультет ---
+    const fData = facultyItem.system;
+    const updateData = {
+      "system.faculty":       facultyItem.id,
+      "system.faculty_color": fData.color || "#888888",
+      "system.faculty_key":   facultyItem.id,
+      "system.faculty_name":  facultyItem.name
+    };
+
+    // Добавляем учителя в связи
+    const relations = [...(this.system.relations || [])];
+    const teacherName = fData.teacher;
+    if (teacherName && !relations.find(r => r.name === teacherName)) {
+      relations.push({ name: teacherName, status: "neutral", level: 0, notes: `Куратор факультета ${facultyItem.name}`, love: false });
+      updateData["system.relations"] = relations;
     }
 
     await this.update(updateData);
+
+    // Создаём копии ability items факультета на персонаже
+    if (fData.abilities?.length) {
+      for (const abilityRef of fData.abilities) {
+        // Ищем оригинал в компендиумах или world items
+        let sourceItem = game.items.get(abilityRef.itemId);
+        if (!sourceItem) {
+          for (const pack of game.packs) {
+            if (pack.documentName !== "Item") continue;
+            sourceItem = await pack.getDocument(abilityRef.itemId).catch(() => null);
+            if (sourceItem) break;
+          }
+        }
+
+        if (sourceItem) {
+          const itemData = sourceItem.toObject();
+          itemData.system.faculty_id = facultyItem.id;
+          await Item.create(itemData, { parent: this });
+        } else {
+          // Если оригинала нет — создаём по данным из faculty
+          await Item.create({
+            name: abilityRef.name,
+            type: "ability",
+            system: {
+              category: abilityRef.category || "common",
+              faculty_id: facultyItem.id,
+              description: ""
+            }
+          }, { parent: this });
+        }
+      }
+    }
+
+    // Уведомление
     ChatMessage.create({
-      content: `<div style="font-family:serif;padding:4px 8px;border-left:3px solid #c9a84c">
-        <strong>${this.name}</strong> зачислен на <strong>${faculty.label} факультет</strong>.<br>
-        <em>Добавлены навыки факультета и куратор ${faculty.teacher}.</em>
+      content: `<div style="font-family:serif;padding:4px 8px;border-left:3px solid ${fData.color || '#c9a84c'}">
+        <strong>${this.name}</strong> зачислен на <strong>${facultyItem.name}</strong>.<br>
+        <em>Способности факультета добавлены${teacherName ? `, куратор ${teacherName} добавлен в связи` : ""}.</em>
       </div>`,
       speaker: ChatMessage.getSpeaker({ actor: this })
     });
   }
 
-  // --- Бросок атрибута ---
+  // ----------------------------------------------------------
+  // Бросок атрибута
+  // ----------------------------------------------------------
   async rollAttribute(attributeName, modifier = 0) {
     const attr = this.system.attributes?.[attributeName];
     if (!attr) return;
-
     const die = attr.die;
-    const totalMod = (attr.modifier || 0) + modifier;
-    const modStr = totalMod !== 0 ? (totalMod > 0 ? `+${totalMod}` : `${totalMod}`) : "";
-    const isWildCard = this.type === "character";
-    const rollFormula = isWildCard ? `{1d${die}${modStr}, 1d6${modStr}}kh` : `1d${die}${modStr}`;
-
-    const attrLabels = {
-      agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия"
-    };
-
-    const roll = new Roll(rollFormula);
+    const mod = (attr.modifier || 0) + modifier;
+    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
+    const isWC = this.type === "character";
+    const formula = isWC ? `{1d${die}${modStr}, 1d6${modStr}}kh` : `1d${die}${modStr}`;
+    const labels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+    const roll = new Roll(formula);
     await roll.evaluate();
     const degree = this._getSuccessDegree(roll.total, 4);
-
     await roll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor: this }),
-      flavor: `<strong>${attrLabels[attributeName] || attributeName}</strong>${isWildCard ? " + Wild Die" : ""}<br>${degree.label}`,
-      rollMode: game.settings.get("core", "rollMode")
+      flavor: `<strong>${labels[attributeName] || attributeName}</strong>${isWC ? " + Wild Die" : ""}<br>${degree.label}`
     });
     return { roll, degree };
   }
 
-  // --- Бросок инициативы: Ловкость + Смекалка ---
+  // ----------------------------------------------------------
+  // Бросок инициативы: Ловкость + Смекалка
+  // ----------------------------------------------------------
   async rollInitiative() {
-    const agility = this.system.attributes.agility;
-    const smarts  = this.system.attributes.smarts;
-    const aMod = agility.modifier || 0;
-    const sMod = smarts.modifier  || 0;
-
-    // Wild Card: каждый атрибут + свой Wild Die, берём лучшее по каждому, складываем
-    const isWildCard = this.type === "character";
-    let formula, label;
-    if (isWildCard) {
-      formula = `{1d${agility.die}, 1d6}kh + {1d${smarts.die}, 1d6}kh`;
-      label = `Инициатива (Ловкость d${agility.die} + Смекалка d${smarts.die}) — Wild Card`;
-    } else {
-      formula = `1d${agility.die} + 1d${smarts.die}`;
-      label = `Инициатива (Ловкость + Смекалка)`;
-    }
-
+    const ag = this.system.attributes.agility;
+    const sm = this.system.attributes.smarts;
+    const isWC = this.type === "character";
+    const formula = isWC
+      ? `{1d${ag.die}, 1d6}kh + {1d${sm.die}, 1d6}kh`
+      : `1d${ag.die} + 1d${sm.die}`;
     const roll = new Roll(formula);
     await roll.evaluate();
     await roll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor: this }),
-      flavor: `<strong>${label}</strong><br>Результат: ${roll.total}`
+      flavor: `<strong>Инициатива</strong> (Ловкость + Смекалка)<br>Результат: ${roll.total}`
     });
     return roll;
   }
 
-  // --- Бросок стойкости с диалогом выбора скилла ---
+  // ----------------------------------------------------------
+  // Бросок стойкости с диалогом
+  // ----------------------------------------------------------
   async rollToughness() {
-    // Собираем доступные скиллы сопротивления из карточки
     const allSkills = [
-      ...Object.entries(this.system.skills || {}).map(([k, v]) => ({ key: k, ...v })),
-      ...(this.system.facultySkills || []).map(s => ({ key: s.name, ...s })),
-      ...(this.system.customSkills  || []).map(s => ({ key: s.name, ...s }))
+      ...Object.entries(this.system.skills || {}).map(([k,v]) => ({ key:k, name:k, ...v })),
+      ...(this.system.customSkills || []).map(s => ({ key:s.name, ...s })),
+      ...(this.items?.filter(i => i.type === "ability") || []).map(i => ({ key:i.name, name:i.name, die:4 }))
     ];
 
-    const resistSkillNames = [
-      "Противостояние пыткам",
-      "Противостояние яду",
-      "Противостояние истощению",
-      "Выживание",
-      "Выжидание"
-    ];
+    const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выживание","Выжидание"];
+    const available = allSkills.filter(s => resistNames.includes(s.name) || resistNames.includes(s.key));
 
-    // Находим те что есть в карточке
-    const available = allSkills.filter(s =>
-      resistSkillNames.includes(s.name) || resistSkillNames.includes(s.key)
-    );
-
-    // Показываем диалог
-    const options = available.map(s => {
-      const name = s.name || s.key;
-      const die  = s.die || 4;
-      return `<option value="${name}|${die}">${name} (d${die})</option>`;
-    }).join("");
-
-    const content = `
-      <div style="padding:8px">
-        <p>Бросок Духа + (опционально) навык сопротивления</p>
-        <label>Дополнительный навык:</label>
-        <select id="resist-skill" style="width:100%;margin-top:4px">
-          <option value="">— без навыка —</option>
-          ${options}
-        </select>
-      </div>
-    `;
+    const options = available.map(s =>
+      `<option value="${s.name||s.key}|${s.die||4}">${s.name||s.key} (d${s.die||4})</option>`
+    ).join("");
 
     const result = await Dialog.prompt({
       title: "Бросок Стойкости",
-      content,
+      content: `<div style="padding:8px">
+        <p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>
+        ${available.length ? `<select id="resist-skill" style="width:100%">
+          <option value="">— только Дух —</option>
+          ${options}
+        </select>` : "<em>Нет доступных навыков сопротивления</em>"}
+      </div>`,
       label: "Бросить",
-      callback: html => {
-        const sel = html.find("#resist-skill").val();
-        return sel ? sel.split("|") : null;
-      }
+      callback: html => html.find("#resist-skill").val() || null
     });
 
-    const spiritDie  = this.system.attributes.spirit.die;
-    const spiritMod  = this.system.attributes.spirit.modifier || 0;
-    const isWildCard = this.type === "character";
-
+    const spiritDie = this.system.attributes.spirit.die;
+    const isWC = this.type === "character";
     let formula;
     if (result) {
-      const [skillName, skillDie] = result;
-      if (isWildCard) {
-        formula = `{1d${spiritDie}, 1d6}kh + {1d${skillDie}, 1d6}kh`;
-      } else {
-        formula = `1d${spiritDie} + 1d${skillDie}`;
-      }
+      const [, skillDie] = result.split("|");
+      formula = isWC ? `{1d${spiritDie}, 1d6}kh + {1d${skillDie}, 1d6}kh` : `1d${spiritDie} + 1d${skillDie}`;
     } else {
-      formula = isWildCard ? `{1d${spiritDie}, 1d6}kh` : `1d${spiritDie}`;
+      formula = isWC ? `{1d${spiritDie}, 1d6}kh` : `1d${spiritDie}`;
     }
 
     const roll = new Roll(formula);
     await roll.evaluate();
     const degree = this._getSuccessDegree(roll.total, 4);
-
     await roll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor: this }),
-      flavor: `<strong>Стойкость</strong>${result ? ` + ${result[0]}` : ""}<br>${degree.label}`
+      flavor: `<strong>Стойкость</strong>${result ? ` + ${result.split("|")[0]}` : ""}<br>${degree.label}`
     });
     return { roll, degree };
   }
 
-  // --- Бросок навыка ---
+  // ----------------------------------------------------------
+  // Бросок навыка
+  // ----------------------------------------------------------
   async rollSkill(skillName, modifier = 0, difficulty = 4) {
     const skillLabels = {
       athletics:"Атлетика", notice:"Внимание", stealth:"Скрытность",
@@ -190,20 +251,16 @@ export class KK9Actor extends Actor {
     let label = skillLabels[skillName] || skillName;
 
     if (!skill) {
-      const fs = this.system.facultySkills?.find(s => s.name === skillName);
-      if (fs) { skill = fs; label = fs.name; }
-    }
-    if (!skill) {
       const cs = this.system.customSkills?.find(s => s.name === skillName);
       if (cs) { skill = cs; label = cs.name; }
     }
 
     if (!skill) { ui.notifications.warn(`Навык "${skillName}" не найден.`); return; }
 
-    const die    = skill.die;
-    const mod    = (skill.modifier || 0) + modifier;
+    const die = skill.die;
+    const mod = (skill.modifier || 0) + modifier;
     const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-    const isWC   = this.type === "character";
+    const isWC = this.type === "character";
     const formula = isWC ? `{1d${die}${modStr}, 1d6${modStr}}kh` : `1d${die}${modStr}`;
 
     const roll = new Roll(formula);
@@ -217,33 +274,52 @@ export class KK9Actor extends Actor {
     return { roll, degree };
   }
 
-  _getSuccessDegree(total, difficulty = 4) {
-    if (total < difficulty)          return { type: "failure",  label: `❌ Провал (${total})` };
-    if (total >= difficulty + 4)     return { type: "critical", label: `⭐ Критический успех! (${total})` };
-    return                                  { type: "success",  label: `✅ Успех (${total})` };
+  // ----------------------------------------------------------
+  // Бросок навыка по itemId (skill Item)
+  // ----------------------------------------------------------
+  async rollSkillItem(itemId, difficulty = 4) {
+    const item = this.items.get(itemId);
+    if (!item) { ui.notifications.warn("Навык не найден."); return; }
+    const die = item.system.die || 4;
+    const mod = item.system.modifier || 0;
+    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
+    const isWC = this.type === "character";
+    const formula = isWC ? `{1d${die}${modStr}, 1d6${modStr}}kh` : `1d${die}${modStr}`;
+    const roll = new Roll(formula);
+    await roll.evaluate();
+    const degree = this._getSuccessDegree(roll.total, difficulty);
+    await roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ actor: this }),
+      flavor: `<strong>${item.name}</strong> (d${die}${modStr})<br>${degree.label}`
+    });
+    return { roll, degree };
   }
 
-  // --- Применить физический урон ---
-  async applyDamage(damage) {
-    if (this.type === "npc-light") {
-      const toughness = this.system.health.toughness;
-      if (damage >= toughness) {
-        await this.update({ "system.health.value": Math.min(this.system.health.value + 1, 2) });
-      }
-    } else {
-      const current   = this.system.health.physical.value;
-      const toughness = this.system.health.physical.toughness;
-      if (damage >= toughness) {
-        const wounds   = Math.floor((damage - toughness) / 4) + 1;
-        const newValue = Math.min(current + wounds, 5);
-        await this.update({ "system.health.physical.value": newValue });
-        const labels = ["здоров","царапина","ранен","тяжело ранен","критически ранен","без сознания"];
-        ChatMessage.create({
-          speaker: ChatMessage.getSpeaker({ actor: this }),
-          content: `<strong>${this.name}</strong>: ${labels[newValue]}`
-        });
-      }
-    }
+  // ----------------------------------------------------------
+  // Бросок способности по itemId
+  // ----------------------------------------------------------
+  async rollAbility(itemId, difficulty = 4) {
+    const item = this.items.get(itemId);
+    if (!item) { ui.notifications.warn("Способность не найдена."); return; }
+    const die = item.system.die || 4;
+    const mod = item.system.modifier || 0;
+    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
+    const isWC = this.type === "character";
+    const formula = isWC ? `{1d${die}${modStr}, 1d6${modStr}}kh` : `1d${die}${modStr}`;
+    const roll = new Roll(formula);
+    await roll.evaluate();
+    const degree = this._getSuccessDegree(roll.total, difficulty);
+    await roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ actor: this }),
+      flavor: `<strong>${item.name}</strong> (сложность ${difficulty})<br>${degree.label}`
+    });
+    return { roll, degree };
+  }
+
+  _getSuccessDegree(total, difficulty = 4) {
+    if (total < difficulty)      return { type:"failure",  label:`❌ Провал (${total})` };
+    if (total >= difficulty + 4) return { type:"critical", label:`⭐ Критический успех! (${total})` };
+    return                              { type:"success",  label:`✅ Успех (${total})` };
   }
 }
 

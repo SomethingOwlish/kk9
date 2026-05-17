@@ -1,13 +1,12 @@
 // ============================================================
-// КК9 — Главный файл v0.4
+// КК9 — Главный файл v0.5
 // ============================================================
-
-import { FACULTIES } from "./module/faculties.mjs";
 
 import {
   CharacterDataModel, NpcLightDataModel, NpcHardDataModel, NpcBossDataModel,
-  ArtifactDataModel, SpellDataModel, DemonDataModel, AbilityDataModel,
-  CompanionDataModel, LanguageDataModel
+  FacultyDataModel, SkillDataModel, AbilityDataModel, WeaponDataModel, GearDataModel,
+  ArtifactDataModel, SpellDataModel, DaemonDataModel, CompanionDataModel,
+  VehicleDataModel, DeviceDataModel, ContactDataModel, LanguageDataModel
 } from "./module/data-models.mjs";
 
 import { KK9Actor, KK9Item } from "./module/documents.mjs";
@@ -18,7 +17,7 @@ import {
 } from "./module/sheets.mjs";
 
 Hooks.once("init", function () {
-  console.log("КК9 | Инициализация v0.4");
+  console.log("КК9 | Инициализация v0.5");
 
   CONFIG.Actor.documentClass = KK9Actor;
   CONFIG.Item.documentClass  = KK9Item;
@@ -31,11 +30,18 @@ Hooks.once("init", function () {
   };
 
   CONFIG.Item.dataModels = {
+    "faculty":   FacultyDataModel,
+    "skill":     SkillDataModel,
+    "ability":   AbilityDataModel,
+    "weapon":    WeaponDataModel,
+    "gear":      GearDataModel,
     "artifact":  ArtifactDataModel,
     "spell":     SpellDataModel,
-    "demon":     DemonDataModel,
-    "ability":   AbilityDataModel,
+    "daemon":    DaemonDataModel,
     "companion": CompanionDataModel,
+    "vehicle":   VehicleDataModel,
+    "device":    DeviceDataModel,
+    "contact":   ContactDataModel,
     "language":  LanguageDataModel
   };
 
@@ -61,6 +67,7 @@ function _registerHelpers() {
   Handlebars.registerHelper("lt",  (a, b) => a < b);
   Handlebars.registerHelper("gte", (a, b) => a >= b);
   Handlebars.registerHelper("add", (a, b) => a + b);
+  Handlebars.registerHelper("lookup", (obj, key) => obj?.[key] ?? key);
 
   Handlebars.registerHelper("times", function(n, block) {
     let r = "";
@@ -68,28 +75,22 @@ function _registerHelpers() {
     return r;
   });
 
-  Handlebars.registerHelper("healthLabel", (v) => {
-    return ["Здоров","Царапина","Ранен","Тяжело ранен","Критически","Без сознания"][v] || "Здоров";
-  });
-
-  Handlebars.registerHelper("mentalLabel", (v) => {
-    return ["Стабилен","Тревога","Потрясён","Сломлен","Кризис","Диссоциация"][v] || "Стабилен";
-  });
-
-  Handlebars.registerHelper("talentLabel", (v) => {
-    return { weak:"Слабо", strong:"Крепко", exceptional:"Небывалый талант" }[v] || v;
-  });
-
-  Handlebars.registerHelper("lookup", (obj, key) => obj?.[key] ?? key);
-
-  Handlebars.registerHelper("facultyColor", (key) => {
-    const colors = {
-      white:"#e8e8e8", black:"#888", blue:"#3b82f6", green:"#22c55e",
-      purple:"#a855f7", red:"#ef4444", brown:"#92400e",
-      mercury:"#94a3b8", invisible:"#6b7280"
-    };
-    return colors[key] || "#c9a84c";
-  });
+  Handlebars.registerHelper("healthLabel", (v) =>
+    ["Здоров","Царапина","Ранен","Тяжело ранен","Критически","Без сознания"][v] || "Здоров"
+  );
+  Handlebars.registerHelper("mentalLabel", (v) =>
+    ["Стабилен","Тревога","Потрясён","Сломлен","Кризис","Диссоциация"][v] || "Стабилен"
+  );
+  Handlebars.registerHelper("talentLabel", (v) =>
+    ({ common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая" })[v] || v
+  );
+  Handlebars.registerHelper("categoryLabel", (v) =>
+    ({ common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая" })[v] || v
+  );
+  Handlebars.registerHelper("orgTypeLabel", (v) => ({
+    academic:"Академическая", criminal:"Криминальная", government:"Правительственная",
+    magical:"Магическая", corporate:"Корпоративная", underground:"Подпольная", other:"Прочая"
+  })[v] || v);
 }
 
 async function _preloadTemplates() {
@@ -104,11 +105,149 @@ async function _preloadTemplates() {
     "systems/kk9/templates/actors/parts/relations.hbs",
     "systems/kk9/templates/actors/parts/items.hbs",
     "systems/kk9/templates/actors/parts/biography.hbs",
+    "systems/kk9/templates/items/faculty-sheet.hbs",
+    "systems/kk9/templates/items/skill-sheet.hbs",
+    "systems/kk9/templates/items/ability-sheet.hbs",
+    "systems/kk9/templates/items/weapon-sheet.hbs",
+    "systems/kk9/templates/items/gear-sheet.hbs",
     "systems/kk9/templates/items/artifact-sheet.hbs",
     "systems/kk9/templates/items/spell-sheet.hbs",
-    "systems/kk9/templates/items/demon-sheet.hbs",
-    "systems/kk9/templates/items/ability-sheet.hbs",
+    "systems/kk9/templates/items/daemon-sheet.hbs",
     "systems/kk9/templates/items/companion-sheet.hbs",
+    "systems/kk9/templates/items/vehicle-sheet.hbs",
+    "systems/kk9/templates/items/device-sheet.hbs",
+    "systems/kk9/templates/items/contact-sheet.hbs",
     "systems/kk9/templates/items/language-sheet.hbs"
   ]);
+}
+
+// ============================================================
+// Хук ready — компендиум и готовность системы
+// ============================================================
+// При создании нового персонажа — добавляем базовые навыки
+Hooks.on("createActor", async (actor, options, userId) => {
+  if (actor.type !== "character") return;
+  if (game.userId !== userId) return;
+
+  const pack = game.packs.get("kk9.kk9-skills");
+  if (!pack) return;
+
+  await pack.getIndex();
+  const skillDocs = await Promise.all(
+    Array.from(pack.index).map(i => pack.getDocument(i._id))
+  );
+
+  const toCreate = skillDocs.filter(Boolean).map(s => {
+    const data = s.toObject();
+    data.system.isBase = true;
+    return data;
+  });
+
+  if (toCreate.length) await Item.createDocuments(toCreate, { parent: actor });
+});
+
+Hooks.once("ready", async function() {
+  console.log("КК9 | Система готова");
+  if (!game.user.isGM) return;
+  await _ensureCompendiums();
+});
+
+async function _ensureCompendiums() {
+  // Проверяем основной компендиум навыков
+  const skillPack = game.packs.get("kk9.kk9-skills");
+  if (!skillPack) { console.warn("КК9 | Компендиум навыков не найден"); return; }
+  await skillPack.getIndex();
+  if (skillPack.index.size > 0) return; // уже заполнен
+
+  console.log("КК9 | Наполняем компендиумы...");
+
+  // Разблокируем все паки системы (Foundry блокирует их по умолчанию)
+  const packNames = ["kk9-skills","kk9-faculties","kk9-abilities","kk9-languages",
+    "kk9-weapons","kk9-gear","kk9-artifacts","kk9-spells","kk9-daemons",
+    "kk9-companions","kk9-vehicles","kk9-devices","kk9-contacts",
+    "kk9-npc-light","kk9-npc-hard","kk9-npc-boss"];
+  for (const name of packNames) {
+    const p = game.packs.get(`kk9.${name}`);
+    if (p) await p.configure({ locked: false });
+  }
+
+  const SKILLS_DATA = [
+    {name:"Атлетика",                   attr:"agility" },
+    {name:"Внимание",                   attr:"smarts"  },
+    {name:"Скрытность",                 attr:"agility" },
+    {name:"Убеждение",                  attr:"spirit"  },
+    {name:"Рукопашный бой",             attr:"agility" },
+    {name:"Обман",                      attr:"smarts"  },
+    {name:"Ориентирование на местности",attr:"smarts"  },
+    {name:"Память",                     attr:"smarts"  },
+    {name:"Знания",                     attr:"smarts"  },
+    {name:"Запугивание",                attr:"spirit"  },
+    {name:"Выживание",                  attr:"smarts"  },
+    {name:"Вождение",                   attr:"agility" },
+  ];
+
+  const FACULTIES_DATA = [
+    {name:"Белый факультет",      color:"#e8e8e8", teacher:"Белый",
+     abilities:[{name:"Пытки",cat:"learned"},{name:"Тактика",cat:"learned"},{name:"Стратегия",cat:"learned"},{name:"Владение мечом",cat:"learned"}]},
+    {name:"Чёрный факультет",     color:"#555555", teacher:"Чёрный",
+     abilities:[{name:"Выслеживание",cat:"learned"},{name:"Скрытность",cat:"learned"},{name:"Противостояние пыткам",cat:"learned"},{name:"Убийство",cat:"learned"}]},
+    {name:"Синий факультет",      color:"#3b82f6", teacher:"Синий",
+     abilities:[{name:"Соблазнение",cat:"learned"},{name:"Уговоры",cat:"learned"},{name:"Запугивание",cat:"learned"},{name:"Скрытность",cat:"learned"}]},
+    {name:"Зелёный факультет",    color:"#22c55e", teacher:"Зелёный",
+     abilities:[{name:"Яды",cat:"learned"},{name:"Противоядия",cat:"learned"},{name:"Исцеление",cat:"learned"}]},
+    {name:"Фиолетовый факультет", color:"#a855f7", teacher:"Фиолетовый",
+     abilities:[{name:"Палочковая магия",cat:"magic"},{name:"Концентрация",cat:"learned"},{name:"Зельеварение",cat:"learned"},{name:"Руны",cat:"magic"},{name:"Даймонология",cat:"magic"}]},
+    {name:"Красный факультет",    color:"#ef4444", teacher:"Красный",
+     abilities:[{name:"Аналитика",cat:"learned"},{name:"Прорицание",cat:"magic"},{name:"Тактика",cat:"learned"},{name:"Наблюдательность",cat:"learned"}]},
+    {name:"Бурый факультет",      color:"#92400e", teacher:"Бурый",
+     abilities:[{name:"Владение оружием ближнего боя",cat:"learned"},{name:"Стрельба",cat:"learned"},{name:"Стрельба из автоматического оружия",cat:"learned"},{name:"Выживание",cat:"learned"}]},
+    {name:"Ртутный факультет",    color:"#94a3b8", teacher:"Ртутный",
+     abilities:[{name:"Починка",cat:"learned"},{name:"Взлом техники",cat:"learned"},{name:"Управление дроном",cat:"learned"}]},
+    {name:"Незримый факультет",   color:"#6b7280", teacher:"Незримый",
+     abilities:[{name:"Бытие бесполезным мудаком",cat:"personal"}]},
+  ];
+
+  const LANGUAGES = ["Русский","Английский","Немецкий","Французский","Испанский",
+    "Латынь","Древний","Магический","Демонический","Технический","Жестовый","Азбука морзе"];
+
+  // --- Навыки ---
+  await Item.createDocuments(
+    SKILLS_DATA.map(sk => ({
+      name:sk.name, type:"skill", img:"icons/svg/sword.svg",
+      system:{description:"", linkedAttribute:sk.attr, die:4, modifier:-2, isBase:true}
+    })),
+    { pack:"kk9.kk9-skills" }
+  );
+
+  // --- Факультеты и их способности ---
+  const abPack = game.packs.get("kk9.kk9-abilities");
+
+  for (const fac of FACULTIES_DATA) {
+    // Создаём ability items в компендиуме способностей
+    const abilityRefs = [];
+    if (abPack) {
+      for (const ab of fac.abilities) {
+        const [created] = await Item.createDocuments([{
+          name:ab.name, type:"ability", img:"icons/svg/aura.svg",
+          system:{description:"", category:ab.cat, faculty_id:null, die:4, modifier:-2}
+        }], { pack:"kk9.kk9-abilities" });
+        abilityRefs.push({name:ab.name, itemId:created.id, category:ab.cat});
+      }
+    }
+
+    // Faculty item
+    await Item.createDocuments([{
+      name:fac.name, type:"faculty", img:"icons/svg/academies.svg",
+      system:{description:"", color:fac.color, color_key:"", teacher:fac.teacher, abilities:abilityRefs}
+    }], { pack:"kk9.kk9-faculties" });
+  }
+
+  // --- Языки ---
+  await Item.createDocuments(
+    LANGUAGES.map(lang => ({name:lang, type:"language", img:"icons/svg/book.svg", system:{description:"",region:""}})),
+    { pack:"kk9.kk9-languages" }
+  );
+
+  console.log("КК9 | Компендиумы заполнены!");
+  ui.notifications.info("КК9 | Базовые данные загружены в компендиумы!");
 }

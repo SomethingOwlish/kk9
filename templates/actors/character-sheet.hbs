@@ -3,7 +3,7 @@
 
   {{!-- ЛЕВАЯ КОЛОНКА --}}
   <div class="sheet-sidebar">
-    <div class="portrait-wrap faculty-border-{{system.faculty}}">
+    <div class="portrait-wrap" style="{{#if system.faculty_color}}outline: 3px solid {{system.faculty_color}}; outline-offset: -3px;{{/if}}">
       <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
       <div class="portrait-name-overlay">
         <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="Имя" />
@@ -20,21 +20,18 @@
         <input type="text" name="system.birthplace" value="{{system.birthplace}}" class="sfield-val" placeholder="—" />
       </div>
 
-      {{!-- Факультет --}}
+      {{!-- Факультет — только отображение, меняется перетаскиванием --}}
       <div class="sfield-row faculty-row">
         <span class="sfield-label">Факультет</span>
-        <select name="system.faculty" class="faculty-select faculty-{{system.faculty}}">
-          <option value="">— —</option>
-          <option value="white"     {{#if (eq system.faculty "white")}}selected{{/if}}>Белый</option>
-          <option value="black"     {{#if (eq system.faculty "black")}}selected{{/if}}>Чёрный</option>
-          <option value="blue"      {{#if (eq system.faculty "blue")}}selected{{/if}}>Синий</option>
-          <option value="green"     {{#if (eq system.faculty "green")}}selected{{/if}}>Зелёный</option>
-          <option value="purple"    {{#if (eq system.faculty "purple")}}selected{{/if}}>Фиолетовый</option>
-          <option value="red"       {{#if (eq system.faculty "red")}}selected{{/if}}>Красный</option>
-          <option value="brown"     {{#if (eq system.faculty "brown")}}selected{{/if}}>Бурый</option>
-          <option value="mercury"   {{#if (eq system.faculty "mercury")}}selected{{/if}}>Ртутный</option>
-          <option value="invisible" {{#if (eq system.faculty "invisible")}}selected{{/if}}>Незримый</option>
-        </select>
+        {{#if system.faculty_name}}
+        <span class="faculty-display" style="flex:1;padding:3px 8px;border-radius:3px;font-size:0.86em;color:var(--text-head);{{#if system.faculty_color}}border-left:3px solid {{system.faculty_color}};background:{{system.faculty_color}}18;{{/if}}">
+          {{system.faculty_name}}
+        </span>
+        {{else}}
+        <span class="faculty-display" style="flex:1;padding:3px 8px;font-size:0.78em;color:var(--text-dim);font-style:italic">
+          Перетащи факультет
+        </span>
+        {{/if}}
       </div>
 
       {{!-- Деньги и Опыт --}}

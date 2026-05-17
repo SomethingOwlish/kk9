@@ -1,25 +1,29 @@
-{{!-- Навыки --}}
+{{!-- Навыки v0.6.2 --}}
 <section class="skills-section">
 
-  {{!-- Факультетские навыки вверху --}}
-  {{#if facultySkills.length}}
-  <div class="faculty-skills-block">
-    <h3 class="section-title faculty-skill-title">
-      <span class="faculty-dot faculty-dot-{{system.faculty}}"></span>
-      Навыки факультета
+  {{!-- Факультетские навыки --}}
+  {{#if facultyAbilities.length}}
+  <div class="faculty-skills-block" style="border-color:{{facultyColor}}40;background:{{facultyColor}}08;padding:8px;border:1px solid;border-radius:4px;margin-bottom:10px">
+    <h3 class="section-title" style="color:{{facultyColor}};border-color:{{facultyColor}}30">
+      <span class="faculty-dot" style="background:{{facultyColor}}"></span>
+      Навыки {{facultyName}}
     </h3>
-    {{#each facultySkills as |skill|}}
-    <div class="skill-row faculty-skill-row">
-      <span class="skill-name rollable-faculty-skill" data-skill="{{skill.name}}">{{skill.name}}</span>
-      <select name="system.facultySkills.{{@index}}.die" class="die-select-sm">
-        <option value="4"  {{#if (eq skill.die 4)}}selected{{/if}}>d4</option>
-        <option value="6"  {{#if (eq skill.die 6)}}selected{{/if}}>d6</option>
-        <option value="8"  {{#if (eq skill.die 8)}}selected{{/if}}>d8</option>
-        <option value="10" {{#if (eq skill.die 10)}}selected{{/if}}>d10</option>
-        <option value="12" {{#if (eq skill.die 12)}}selected{{/if}}>d12</option>
-        <option value="20" {{#if (eq skill.die 20)}}selected{{/if}}>d20</option>
-      </select>
-      <input type="number" name="system.facultySkills.{{@index}}.modifier" value="{{skill.modifier}}" class="mod-input-sm" />
+    {{#each facultyAbilities as |ab|}}
+    <div class="skill-row" data-item-id="{{ab.id}}">
+      <span class="skill-name rollable-ability" data-item-id="{{ab.id}}" style="color:{{../facultyColor}}">{{ab.name}}</span>
+      <div class="skill-controls">
+        <select class="die-select-sm ability-die-select" data-item-id="{{ab.id}}">
+          <option value="4"  {{#if (eq ab.system.die 4)}}selected{{/if}}>d4</option>
+          <option value="6"  {{#if (eq ab.system.die 6)}}selected{{/if}}>d6</option>
+          <option value="8"  {{#if (eq ab.system.die 8)}}selected{{/if}}>d8</option>
+          <option value="10" {{#if (eq ab.system.die 10)}}selected{{/if}}>d10</option>
+          <option value="12" {{#if (eq ab.system.die 12)}}selected{{/if}}>d12</option>
+          <option value="20" {{#if (eq ab.system.die 20)}}selected{{/if}}>d20</option>
+        </select>
+        <input type="number" class="mod-input-sm ability-mod-input" data-item-id="{{ab.id}}"
+               value="{{ab.system.modifier}}" placeholder="±0" />
+        {{!-- Факультетские навыки нельзя удалить вручную --}}
+      </div>
     </div>
     {{/each}}
   </div>
@@ -27,50 +31,93 @@
 
   {{!-- Основные навыки --}}
   <h3 class="section-title">Основные навыки</h3>
-  <div class="skills-list">
-    {{#each system.skills as |skill key|}}
-    <div class="skill-row">
-      <span class="skill-name rollable-skill" data-skill="{{key}}">{{lookup ../skillLabels key}}</span>
+  <div class="skills-list" data-drop-zone="skills-base">
+    {{#each baseSkills as |sk|}}
+    <div class="skill-row" data-item-id="{{sk.id}}">
+      <span class="skill-name rollable-skill" data-item-id="{{sk.id}}">{{sk.name}}</span>
+      {{#if sk.system.linkedAttribute}}
+      <span class="skill-attr-hint">{{lookup ../attrLabels sk.system.linkedAttribute}}</span>
+      {{/if}}
+      {{#if sk.system.category}}
+      <span class="item-badge cat-{{sk.system.category}}" style="font-size:0.62em">{{categoryLabel sk.system.category}}</span>
+      {{/if}}
       <div class="skill-controls">
-        <select name="system.skills.{{key}}.die" class="die-select-sm">
-          <option value="4"  {{#if (eq skill.die 4)}}selected{{/if}}>d4</option>
-          <option value="6"  {{#if (eq skill.die 6)}}selected{{/if}}>d6</option>
-          <option value="8"  {{#if (eq skill.die 8)}}selected{{/if}}>d8</option>
-          <option value="10" {{#if (eq skill.die 10)}}selected{{/if}}>d10</option>
-          <option value="12" {{#if (eq skill.die 12)}}selected{{/if}}>d12</option>
-          <option value="20" {{#if (eq skill.die 20)}}selected{{/if}}>d20</option>
+        <select class="die-select-sm skill-die-select" data-item-id="{{sk.id}}"
+                data-max-die="{{lookup ../attrDice sk.system.linkedAttribute}}">
+          <option value="4"  {{#if (eq sk.system.die 4)}}selected{{/if}}>d4</option>
+          <option value="6"  {{#if (eq sk.system.die 6)}}selected{{/if}}>d6</option>
+          <option value="8"  {{#if (eq sk.system.die 8)}}selected{{/if}}>d8</option>
+          <option value="10" {{#if (eq sk.system.die 10)}}selected{{/if}}>d10</option>
+          <option value="12" {{#if (eq sk.system.die 12)}}selected{{/if}}>d12</option>
+          <option value="20" {{#if (eq sk.system.die 20)}}selected{{/if}}>d20</option>
         </select>
-        <input type="number" name="system.skills.{{key}}.modifier" value="{{skill.modifier}}" class="mod-input-sm" />
-      </div>
-    </div>
-    {{/each}}
-  </div>
-
-  {{!-- Индивидуальные навыки --}}
-  <h3 class="section-title" style="margin-top:12px">
-    Индивидуальные навыки
-    <button type="button" class="add-custom-skill btn-add">+</button>
-  </h3>
-  <div class="skills-list">
-    {{#each system.customSkills as |skill|}}
-    <div class="skill-row">
-      <input type="text" name="system.customSkills.{{@index}}.name" value="{{skill.name}}" class="skill-name-input" placeholder="Название навыка..." />
-      <div class="skill-controls">
-        <select name="system.customSkills.{{@index}}.die" class="die-select-sm">
-          <option value="4"  {{#if (eq skill.die 4)}}selected{{/if}}>d4</option>
-          <option value="6"  {{#if (eq skill.die 6)}}selected{{/if}}>d6</option>
-          <option value="8"  {{#if (eq skill.die 8)}}selected{{/if}}>d8</option>
-          <option value="10" {{#if (eq skill.die 10)}}selected{{/if}}>d10</option>
-          <option value="12" {{#if (eq skill.die 12)}}selected{{/if}}>d12</option>
-          <option value="20" {{#if (eq skill.die 20)}}selected{{/if}}>d20</option>
-        </select>
-        <input type="number" name="system.customSkills.{{@index}}.modifier" value="{{skill.modifier}}" class="mod-input-sm" />
-        <button type="button" class="delete-custom-skill btn-delete-xs" data-index="{{@index}}">✕</button>
+        <input type="number" class="mod-input-sm skill-mod-input" data-item-id="{{sk.id}}"
+               value="{{sk.system.modifier}}" placeholder="±0" />
+        {{!-- Кнопка удаления: только learned и personal, никогда common или базовые --}}
+        {{#if sk.system.category}}
+          {{#unless (eq sk.system.category "common")}}
+          <button type="button" class="item-delete btn-delete-skill" data-item-id="{{sk.id}}">✕</button>
+          {{/unless}}
+        {{/if}}
       </div>
     </div>
     {{else}}
-    <p class="empty-hint">Нет индивидуальных навыков</p>
+    <p class="empty-hint">Перетащи навыки из компендиума</p>
     {{/each}}
   </div>
+
+  {{!-- Магические способности --}}
+  <h3 class="section-title magic-title" style="margin-top:12px">✦ Магические</h3>
+  <div class="skills-list" data-drop-zone="abilities-magic">
+    {{#each magicAbilities as |ab|}}
+    <div class="skill-row" data-item-id="{{ab.id}}">
+      <span class="skill-name rollable-ability" data-item-id="{{ab.id}}" style="color:#a855f7">{{ab.name}}</span>
+      <div class="skill-controls">
+        <select class="die-select-sm ability-die-select" data-item-id="{{ab.id}}">
+          <option value="4"  {{#if (eq ab.system.die 4)}}selected{{/if}}>d4</option>
+          <option value="6"  {{#if (eq ab.system.die 6)}}selected{{/if}}>d6</option>
+          <option value="8"  {{#if (eq ab.system.die 8)}}selected{{/if}}>d8</option>
+          <option value="10" {{#if (eq ab.system.die 10)}}selected{{/if}}>d10</option>
+          <option value="12" {{#if (eq ab.system.die 12)}}selected{{/if}}>d12</option>
+          <option value="20" {{#if (eq ab.system.die 20)}}selected{{/if}}>d20</option>
+        </select>
+        <input type="number" class="mod-input-sm ability-mod-input" data-item-id="{{ab.id}}" value="{{ab.system.modifier}}" />
+        <button type="button" class="item-delete btn-delete-xs" data-item-id="{{ab.id}}">✕</button>
+      </div>
+    </div>
+    {{else}}
+    <p class="empty-hint">Перетащи магическую способность из компендиума</p>
+    {{/each}}
+  </div>
+
+  {{!-- Индивидуальные навыки (способности) --}}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-bottom:4px;border-bottom:1px solid var(--border)">
+    <span class="section-title" style="margin:0;border:none">Индивидуальные навыки</span>
+    <button type="button" class="item-create btn-add-sm" data-type="ability" data-category="personal">+</button>
+  </div>
+  <div class="skills-list" data-drop-zone="abilities-personal">
+    {{#each personalAbilities as |ab|}}
+    <div class="skill-row" data-item-id="{{ab.id}}">
+      <span class="skill-name rollable-ability" data-item-id="{{ab.id}}">{{ab.name}}</span>
+      <span class="item-badge cat-{{ab.system.category}}" style="font-size:0.65em">{{categoryLabel ab.system.category}}</span>
+      <div class="skill-controls">
+        <select class="die-select-sm ability-die-select" data-item-id="{{ab.id}}">
+          <option value="4"  {{#if (eq ab.system.die 4)}}selected{{/if}}>d4</option>
+          <option value="6"  {{#if (eq ab.system.die 6)}}selected{{/if}}>d6</option>
+          <option value="8"  {{#if (eq ab.system.die 8)}}selected{{/if}}>d8</option>
+          <option value="10" {{#if (eq ab.system.die 10)}}selected{{/if}}>d10</option>
+          <option value="12" {{#if (eq ab.system.die 12)}}selected{{/if}}>d12</option>
+          <option value="20" {{#if (eq ab.system.die 20)}}selected{{/if}}>d20</option>
+        </select>
+        <input type="number" class="mod-input-sm ability-mod-input" data-item-id="{{ab.id}}" value="{{ab.system.modifier}}" />
+        <button type="button" class="item-delete btn-delete-xs" data-item-id="{{ab.id}}">✕</button>
+      </div>
+    </div>
+    {{else}}
+    <p class="empty-hint">Нет индивидуальных навыков. Нажми + или перетащи.</p>
+    {{/each}}
+  </div>
+
+
 
 </section>

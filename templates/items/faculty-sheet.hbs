@@ -1,0 +1,51 @@
+{{!-- КК9 | Факультет --}}
+<form class="kk9-sheet item-sheet faculty-sheet" autocomplete="off"
+      style="--faculty-color: {{system.color}}">
+  <header class="faculty-header" style="border-left: 4px solid {{system.color}}; padding:12px; background: var(--bg2); display:flex; gap:12px; align-items:center">
+    <img src="{{item.img}}" data-edit="img" style="width:56px;height:56px;border-radius:50%;border:2px solid {{system.color}};cursor:pointer;object-fit:cover" />
+    <div style="flex:1">
+      <input type="text" name="name" value="{{item.name}}"
+             style="font-family:'Caveat',cursive;font-size:1.5em;background:transparent;border:none;border-bottom:2px solid {{system.color}};color:var(--text-head);width:100%" />
+      <div style="display:flex;gap:12px;margin-top:6px;align-items:center">
+        <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase">Цвет</label>
+        <input type="color" name="system.color" value="{{system.color}}" style="width:32px;height:24px;border:none;background:none;cursor:pointer" />
+        <span style="font-size:0.78em;color:var(--text-dim)">{{system.color}}</span>
+        <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;margin-left:8px">Учитель</label>
+        <input type="text" name="system.teacher" value="{{system.teacher}}"
+               style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 6px;font-size:0.84em" placeholder="Имя учителя" />
+      </div>
+    </div>
+  </header>
+
+  <div style="padding:12px">
+    {{!-- Способности факультета --}}
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:8px">
+        <span style="font-size:0.78em;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em">Способности факультета</span>
+        <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи skill или ability сюда</span>
+      </div>
+      <div class="faculty-abilities-drop" style="min-height:48px;border:1px dashed var(--border2);border-radius:4px;padding:6px">
+        {{#each facultyAbilities as |ab|}}
+        <div class="faculty-ability-row" style="display:flex;align-items:center;gap:8px;padding:3px 6px;border-radius:3px;background:var(--bg2);margin-bottom:3px">
+          <span style="flex:1;font-size:0.86em;color:var(--text)">{{ab.name}}</span>
+          <span style="font-size:0.72em;color:var(--text-dim);padding:1px 6px;background:var(--bg3);border-radius:8px">
+            {{categoryLabel ab.category}}
+          </span>
+          <button type="button" class="remove-faculty-ability" data-index="{{@index}}"
+                  style="background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:0.75em">✕</button>
+        </div>
+        {{else}}
+        <p style="font-size:0.78em;color:var(--text-dim);font-style:italic;text-align:center;padding:8px">
+          Нет навыков. Перетащи skill или ability items сюда.
+        </p>
+        {{/each}}
+      </div>
+    </div>
+
+    {{!-- Описание --}}
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;display:block;margin-bottom:4px">Описание</label>
+      {{editor system.description target="system.description" button=true editable=editable}}
+    </div>
+  </div>
+</form>

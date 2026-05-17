@@ -1,8 +1,6 @@
 // ============================================================
-// КК9 — Листы v0.4
+// КК9 — Листы v0.6
 // ============================================================
-
-import { FACULTIES } from "./faculties.mjs";
 
 export class KK9CharacterSheet extends ActorSheet {
 
@@ -10,115 +8,142 @@ export class KK9CharacterSheet extends ActorSheet {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["kk9", "sheet", "actor", "character"],
       template: "systems/kk9/templates/actors/character-sheet.hbs",
-      width: 860,
-      height: 720,
-      tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "main" }],
-      dragDrop: [{ dragSelector: ".item-list .item, .draggable-item", dropSelector: null }]
+      width: 860, height: 720,
+      tabs: [{ navSelector:".sheet-tabs", contentSelector:".sheet-body", initial:"main" }],
+      dragDrop: [{ dragSelector: null, dropSelector: null }]
     });
+  }
+
+  async _render(force, options) {
+    const pack = game.packs.get("kk9.kk9-faculties");
+    if (pack && !pack.indexed) await pack.getIndex();
+    return super._render(force, options);
   }
 
   getData() {
     const context = super.getData();
     context.system = context.data.system;
-    context.isGM   = game.user.isGM;
+    context.isGM = game.user.isGM;
 
     context.attributeLabels = {
       agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия"
     };
-
-    context.skillLabels = {
-      athletics:"Атлетика", notice:"Внимание", stealth:"Скрытность",
-      persuasion:"Убеждение", fighting:"Рукопашный бой",
-      deception:"Обман", navigation:"Ориентирование на местности",
-      memory:"Память", knowledge:"Знания",
-      intimidation:"Запугивание", survival:"Выживание", driving:"Вождение"
+    // Атрибуты для подсказок в навыках
+    context.attrLabels = {
+      agility:"Ловк", smarts:"Смек", spirit:"Дух", strength:"Сила", magic:"Магия"
     };
 
-    // Факультет — всегда пересобираем скиллы из определения
-    const fKey = context.system.faculty;
-    context.currentFaculty = fKey ? FACULTIES[fKey] : null;
+    // Навыки и способности
+    const allSkills    = this.actor.items.filter(i => i.type === "skill");
+    const allAbilities = this.actor.items.filter(i => i.type === "ability");
 
-    if (fKey && FACULTIES[fKey]) {
-      const savedSkills = context.system.facultySkills || [];
-      // Берём имена из определения факультета, кубики из сохранённых данных
-      context.facultySkills = FACULTIES[fKey].skills.map((defSkill, idx) => {
-        const saved = savedSkills[idx] || {};
-        return {
-          name: defSkill.name,
-          die: saved.die || defSkill.die,
-          linkedAttribute: defSkill.linkedAttribute,
-          modifier: saved.modifier || 0
-        };
-      });
-    } else {
-      context.facultySkills = [];
+    // Максимальные кубики атрибутов для валидации
+    context.attrDice = {
+      agility:  context.system.attributes.agility.die,
+      smarts:   context.system.attributes.smarts.die,
+      spirit:   context.system.attributes.spirit.die,
+      strength: context.system.attributes.strength.die,
+      magic:    context.system.attributes.magic.die,
+    };
+    context.categoryLabels = {
+      common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая"
+    };
+
+    // Хелпер для шаблона
+    context.categoryLabel = (cat) =>
+      ({common:"Общая",personal:"Личная",learned:"Изучаемая",magic:"Магическая"})[cat] || cat;
+
+    // Факультет
+    const facultyId = context.system.faculty;
+    // faculty item ищем в индексе компендиума (синхронно)
+    let facultyItem = null;
+    if (facultyId) {
+      const pack = game.packs.get("kk9.kk9-faculties");
+      if (pack) facultyItem = pack.get(facultyId) ?? null;
+      if (!facultyItem) facultyItem = game.items?.get(facultyId) ?? null;
+    }
+    context.facultyItem  = facultyItem;
+    context.facultyColor = context.system.faculty_color || "#888888";
+    context.facultyName  = context.system.faculty_name || facultyItem?.name || "";
+
+    // Имена навыков факультета
+    let facultyAbilityNames = new Set();
+    if (facultyItem) {
+      (facultyItem.system.abilities || []).forEach(a => facultyAbilityNames.add(a.name));
     }
 
-    // Предметы по типам
-    context.artifacts   = this.actor.items.filter(i => i.type === "artifact");
-    context.spells      = this.actor.items.filter(i => i.type === "spell");
-    context.demons      = this.actor.items.filter(i => i.type === "demon");
-    context.abilities   = this.actor.items.filter(i => i.type === "ability" && i.system.category !== "magic");
-    context.magicItems  = this.actor.items.filter(i => i.type === "ability" && i.system.category === "magic");
-    context.companions  = this.actor.items.filter(i => i.type === "companion" && ["pet","device","other"].includes(i.system.companion_type));
-    context.vehicles    = this.actor.items.filter(i => i.type === "companion" && i.system.companion_type === "vehicle");
-    context.languages   = this.actor.items.filter(i => i.type === "language");
-
-    // Метки здоровья
-    context.healthLabels = ["Здоров","Царапина","Ранен","Тяжело ранен","Критически","Без сознания"];
-    context.physLabel    = context.healthLabels[context.system.health.physical.value] || "Здоров";
-    context.mentLabel    = context.healthLabels[context.system.health.mental.value]   || "Стабилен";
-
-    // Уровни магических талантов
-    context.talentLevels = [
-      { value: "weak",        label: "Слабо" },
-      { value: "strong",      label: "Крепко" },
-      { value: "exceptional", label: "Небывалый талант" }
+    // Факультетские: ability с faculty_id ИЛИ любой item с именем из списка факультета
+    const facultyItems = [
+      ...allAbilities.filter(i =>
+        (facultyId && i.system.faculty_id === facultyId) ||
+        (i.system.category === "common" && facultyAbilityNames.has(i.name))
+      ),
+      ...allSkills.filter(i => facultyAbilityNames.has(i.name))
     ];
+    context.facultyAbilities = facultyItems;
+    const facultyAbilityIds = new Set(facultyItems.map(i => i.id));
+    context.magicAbilities = allAbilities.filter(i =>
+      i.system.category === "magic" && !facultyAbilityIds.has(i.id)
+    );
 
-    // Опции статуса связи
-    context.relationStatusOptions = [
-      { value:"ally",    label:"Союзник" },
-      { value:"enemy",   label:"Враг" },
-      { value:"neutral", label:"Нейтрал" },
-      { value:"unknown", label:"Неизвестно" }
-    ];
+    // Навыки — исключаем те что уже в faculty блоке
+    context.baseSkills = allSkills.filter(i => !facultyAbilityIds.has(i.id));
+
+    // common/learned НЕ в факультетском блоке → в основных навыках
+    const commonAbilities = allAbilities.filter(i =>
+      ["common","learned"].includes(i.system.category) &&
+      !facultyAbilityIds.has(i.id)
+    );
+    context.baseSkills = [...context.baseSkills, ...commonAbilities];
+
+    // personal → всегда в индивидуальных, никогда не двигаются
+    context.personalAbilities = allAbilities.filter(i =>
+      i.system.category === "personal"
+    );
+
+    // Карта уровней магических способностей {itemId: level}
+    const magicLevelMap = {};
+    for (const ml of (context.system.magicLevels || [])) {
+      magicLevelMap[ml.itemId] = ml.level;
+    }
+    context.magicLevelMap = magicLevelMap;
+
+    // Снаряжение
+    context.weapons    = this.actor.items.filter(i => i.type === "weapon");
+    context.gear       = this.actor.items.filter(i => i.type === "gear");
+    context.artifacts  = this.actor.items.filter(i => i.type === "artifact");
+    context.spells     = this.actor.items.filter(i => i.type === "spell");
+    context.daemons    = this.actor.items.filter(i => i.type === "daemon");
+    context.companions = this.actor.items.filter(i => i.type === "companion");
+    context.vehicles   = this.actor.items.filter(i => i.type === "vehicle");
+    context.devices    = this.actor.items.filter(i => i.type === "device");
+
+    // Контакты — в связях
+    context.contacts = this.actor.items.filter(i => i.type === "contact");
+
+    // Языки
+    context.languageItems = this.actor.items.filter(i => i.type === "language");
 
     return context;
   }
 
   // ---- Drag & Drop ----
-  _onDragStart(event) {
-    const el = event.currentTarget;
-    // Стандартный drag для items
-    if (el.dataset.itemId) {
-      const item = this.actor.items.get(el.dataset.itemId);
-      if (item) {
-        event.dataTransfer.setData("text/plain", JSON.stringify({ type: "Item", uuid: item.uuid }));
-      }
-    }
-  }
-
   async _onDrop(event) {
     event.preventDefault();
     let data;
     try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch(e) { return; }
 
-    const dropZone = event.currentTarget.closest("[data-drop-zone]")?.dataset.dropZone;
-
-    // Дроп Актёра (НПС или игрок) в связи
+    // Актёр → связи
     if (data.type === "Actor") {
       const actor = await fromUuid(data.uuid);
-      if (!actor || actor.id === this.actor.id) return; // не добавляем себя
+      if (!actor || actor.id === this.actor.id) return;
       const relations = this.actor.system.relations || [];
       if (!relations.find(r => r.name === actor.name)) {
         await this.actor.update({
           "system.relations": [...relations, {
-            name: actor.name,
-            status: "neutral",
-            level: 0,
-            notes: actor.type === "character" ? "Игровой персонаж" : "",
-            love: false
+            name:actor.name, status:"neutral", level:0,
+            notes: actor.type==="character" ? "Игровой персонаж" : "",
+            love:false
           }]
         });
       }
@@ -130,29 +155,75 @@ export class KK9CharacterSheet extends ActorSheet {
     const item = await fromUuid(data.uuid);
     if (!item) return;
 
-    // Дроп языка
-    if (dropZone === "languages" && item.type === "language") {
+    // Faculty → применяем факультет
+    if (item.type === "faculty") {
+      await this.actor._applyFaculty(item);
+      return;
+    }
+
+    // Language → список языков
+    if (item.type === "language") {
       const langs = this.actor.system.languages || [];
-      if (!langs.find(l => l.itemId === item.id)) {
+      if (!langs.find(l => l.name === item.name)) {
         await this.actor.update({
-          "system.languages": [...langs, { name: item.name, itemId: item.id }]
+          "system.languages": [...langs, { name:item.name, itemId:item.id }]
         });
       }
       return;
     }
 
-    // Дроп магического таланта
-    if (dropZone === "magicTalents" && (item.type === "ability" || item.type === "spell")) {
-      const talents = this.actor.system.magicTalents || [];
-      if (!talents.find(t => t.itemId === item.id)) {
-        await this.actor.update({
-          "system.magicTalents": [...talents, { name: item.name, itemId: item.id, level: "weak" }]
-        });
+    // Skill → добавляем навык на персонажа
+    if (item.type === "skill") {
+      const existing = this.actor.items.find(i => i.type === "skill" && i.name === item.name);
+      if (existing) {
+        ui.notifications.warn(`Навык "${item.name}" уже есть на карточке.`);
+        return;
       }
+      // Создаём копию навыка на персонаже
+      const itemData = item.toObject();
+      itemData.system.isBase = true;
+      await Item.create(itemData, { parent: this.actor });
       return;
     }
 
-    // Стандартный дроп предмета
+    // Contact, weapon, gear, artifact, spell, daemon, companion, vehicle, device
+    // → стандартный дроп (создаёт копию item на персонаже)
+    const standardTypes = ["contact","weapon","gear","artifact","spell","daemon","companion","vehicle","device"];
+    if (standardTypes.includes(item.type)) {
+      return super._onDrop(event);
+    }
+
+    // Ability → создаём копию на персонаже
+    if (item.type === "ability") {
+      const existing = this.actor.items.find(i => i.type === "ability" && i.name === item.name);
+      if (existing) {
+        ui.notifications.warn(`Способность "${item.name}" уже есть на карточке.`);
+        return;
+      }
+      // common abilities получают faculty_id если имя совпадает с текущим факультетом
+      const itemData = item.toObject();
+      if (item.system.category === "common") {
+        const facultyId = this.actor.system.faculty;
+        if (facultyId) {
+          const facultyItem = this.actor.items.get(facultyId) ?? game.items?.get(facultyId);
+          // Ищем faculty в компендиуме если нет в мире
+          if (!facultyItem) {
+            const pack = game.packs.get("kk9.kk9-faculties");
+            if (pack) {
+              await pack.getIndex();
+              const entry = Array.from(pack.index).find(i => i._id === facultyId);
+              // Не устанавливаем faculty_id для common — они двигаются по имени
+            }
+          }
+          // common всегда без faculty_id — визуальное перемещение по имени
+          itemData.system.faculty_id = null;
+        }
+      }
+      await Item.create(itemData, { parent: this.actor });
+      return;
+    }
+
+    // Всё остальное — стандартный дроп
     return super._onDrop(event);
   }
 
@@ -163,38 +234,43 @@ export class KK9CharacterSheet extends ActorSheet {
       // Связи
       html.find(".add-relation").click(this._onAddRelation.bind(this));
       html.find(".delete-relation").click(this._onDeleteRelation.bind(this));
+      html.find(".love-toggle").click(this._onLoveToggle.bind(this));
       html.find(".relation-level-range").on("input", e => {
         e.currentTarget.closest(".relation-row").querySelector(".relation-level-val").textContent = e.currentTarget.value;
       });
-      // Любовь — только один раз
-      html.find(".love-toggle").click(this._onLoveToggle.bind(this));
 
       // Навыки
       html.find(".add-custom-skill").click(this._onAddCustomSkill.bind(this));
       html.find(".delete-custom-skill").click(this._onDeleteCustomSkill.bind(this));
 
-      // Предметы — удаление
+      // Предметы
       html.find(".item-delete").click(this._onItemDelete.bind(this));
-      // Предметы — создание
       html.find(".item-create").click(this._onItemCreate.bind(this));
-
-      // Языки
       html.find(".delete-language").click(this._onDeleteLanguage.bind(this));
 
-      // Магические таланты
-      html.find(".delete-talent").click(this._onDeleteTalent.bind(this));
-
-      // Жетоны судьбы — клик по пипу
+      // Жетоны и здоровье
       html.find(".bennie-pip").click(this._onBenniePipClick.bind(this));
+      html.find(".health-pip[data-track='physical']").click(this._onPhysicalPipClick.bind(this));
+      html.find(".health-pip[data-track='mental']").click(this._onMentalPipClick.bind(this));
 
-      // Энергия
-      html.find(".energy-pip").click(this._onEnergyPipClick.bind(this));
+      // Кубик способности изменился → сохраняем в item
+      html.find(".ability-die-select").on("change", this._onAbilityDieChange.bind(this));
+      html.find(".ability-mod-input").on("change", this._onAbilityModChange.bind(this));
+
+      // Кубик навыка изменился → проверяем ограничение
+      html.find(".skill-die-select").on("change", this._onSkillDieChange.bind(this));
+      html.find(".skill-mod-input").on("change", this._onSkillModChange.bind(this));
+
+      // Факультет меняется только перетаскиванием faculty item
+
+      // Уровень магической способности
+      html.find(".magic-level-select").on("change", this._onMagicLevelChange.bind(this));
     }
 
     // Броски
     html.find(".rollable-attribute").click(e => this.actor.rollAttribute(e.currentTarget.dataset.attribute));
-    html.find(".rollable-skill").click(e => this.actor.rollSkill(e.currentTarget.dataset.skill));
-    html.find(".rollable-faculty-skill").click(e => this.actor.rollSkill(e.currentTarget.dataset.skill));
+    html.find(".rollable-skill").click(e => this.actor.rollSkillItem(e.currentTarget.dataset.itemId));
+    html.find(".rollable-ability").click(e => this.actor.rollAbility(e.currentTarget.dataset.itemId));
     html.find(".roll-initiative").click(() => this.actor.rollInitiative());
     html.find(".roll-toughness").click(() => this.actor.rollToughness());
 
@@ -202,43 +278,89 @@ export class KK9CharacterSheet extends ActorSheet {
     html.find(".health-pip[data-track='physical']").click(this._onPhysicalPipClick.bind(this));
     html.find(".health-pip[data-track='mental']").click(this._onMentalPipClick.bind(this));
 
-    // Открыть предмет по клику на имя или иконку
+    // Открыть предмет
     html.find(".item-name-click, .item-img").click(e => {
       const row = e.currentTarget.closest("[data-item-id]");
       if (!row) return;
-      const item = this.actor.items.get(row.dataset.itemId);
-      if (item) item.sheet.render(true);
+      this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
     });
   }
 
-  // ---- Жетоны судьбы ----
+  // ---- Способности ----
+
+  async _onSkillDieChange(event) {
+    const itemId = event.currentTarget.dataset.itemId;
+    const die = parseInt(event.currentTarget.value);
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+
+    // Проверяем ограничение: кубик навыка ≤ кубик связанного атрибута
+    const linkedAttr = item.system.linkedAttribute;
+    const attrDie = this.actor.system.attributes?.[linkedAttr]?.die || 20;
+
+    if (die > attrDie) {
+      ui.notifications.warn(
+        `Кубик навыка "${item.name}" не может превышать кубик ${
+          {agility:"Ловкости",smarts:"Смекалки",spirit:"Духа",strength:"Силы",magic:"Магии"}[linkedAttr]
+        } (d${attrDie}).`
+      );
+      // Сбрасываем select обратно
+      event.currentTarget.value = item.system.die;
+      return;
+    }
+
+    await item.update({ "system.die": die });
+  }
+
+  async _onSkillModChange(event) {
+    const itemId = event.currentTarget.dataset.itemId;
+    const mod = parseInt(event.currentTarget.value) || 0;
+    const item = this.actor.items.get(itemId);
+    if (item) await item.update({ "system.modifier": mod });
+  }
+
+  async _onAbilityDieChange(event) {
+    const itemId = event.currentTarget.dataset.itemId;
+    const die = parseInt(event.currentTarget.value);
+    const item = this.actor.items.get(itemId);
+    if (item) await item.update({ "system.die": die });
+  }
+
+  async _onAbilityModChange(event) {
+    const itemId = event.currentTarget.dataset.itemId;
+    const mod = parseInt(event.currentTarget.value) || 0;
+    const item = this.actor.items.get(itemId);
+    if (item) await item.update({ "system.modifier": mod });
+  }
+
+  async _onMagicLevelChange(event) {
+    const itemId = event.currentTarget.dataset.itemId;
+    const level = event.currentTarget.value;
+    const magicLevels = [...(this.actor.system.magicLevels || [])];
+    const idx = magicLevels.findIndex(ml => ml.itemId === itemId);
+    if (idx >= 0) magicLevels[idx].level = level;
+    else magicLevels.push({ itemId, level });
+    await this.actor.update({ "system.magicLevels": magicLevels });
+  }
+
+  // ---- Жетоны и здоровье ----
+
   async _onBenniePipClick(event) {
-    const idx = parseInt(event.currentTarget.dataset.index); // 1-9
+    const idx = parseInt(event.currentTarget.dataset.index);
     const cur = this.actor.system.bennies;
-    // Клик на последний заполненный — уменьшает. Клик на пустой — увеличивает.
-    const newVal = idx <= cur ? idx - 1 : idx;
-    await this.actor.update({ "system.bennies": Math.max(0, Math.min(9, newVal)) });
+    await this.actor.update({ "system.bennies": idx <= cur ? idx-1 : idx });
   }
 
-  // ---- Энергия ----
-  async _onEnergyPipClick(event) {
-    const val = parseInt(event.currentTarget.dataset.value);
-    const cur = this.actor.system.energy.value;
-    await this.actor.update({ "system.energy.value": val === cur ? val - 1 : val });
-  }
-
-  // ---- Физическое здоровье ----
   async _onPhysicalPipClick(event) {
     const val = parseInt(event.currentTarget.dataset.value);
     const cur = this.actor.system.health.physical.value;
-    await this.actor.update({ "system.health.physical.value": val === cur ? val - 1 : val });
+    await this.actor.update({ "system.health.physical.value": val===cur ? val-1 : val });
   }
 
-  // ---- Ментальное здоровье ----
   async _onMentalPipClick(event) {
     const val = parseInt(event.currentTarget.dataset.value);
     const cur = this.actor.system.health.mental.value;
-    await this.actor.update({ "system.health.mental.value": val === cur ? val - 1 : val });
+    await this.actor.update({ "system.health.mental.value": val===cur ? val-1 : val });
   }
 
   // ---- Любовь ----
@@ -246,12 +368,9 @@ export class KK9CharacterSheet extends ActorSheet {
     event.preventDefault();
     const idx = parseInt(event.currentTarget.dataset.index);
     const relations = [...(this.actor.system.relations || [])];
-    const isCurrentlyLoved = relations[idx].love;
-
-    // Снимаем love со всех, потом ставим на выбранного (если не был)
-    relations.forEach((r, i) => r.love = false);
-    if (!isCurrentlyLoved) relations[idx].love = true;
-
+    const wasLoved = relations[idx].love;
+    relations.forEach(r => r.love = false);
+    if (!wasLoved) relations[idx].love = true;
     await this.actor.update({ "system.relations": relations });
   }
 
@@ -259,7 +378,7 @@ export class KK9CharacterSheet extends ActorSheet {
   async _onAddRelation(event) {
     event.preventDefault();
     const relations = this.actor.system.relations || [];
-    await this.actor.update({ "system.relations": [...relations, { name:"", status:"neutral", level:0, notes:"" }] });
+    await this.actor.update({ "system.relations": [...relations, { name:"", status:"neutral", level:0, notes:"", love:false }] });
   }
 
   async _onDeleteRelation(event) {
@@ -280,7 +399,7 @@ export class KK9CharacterSheet extends ActorSheet {
   async _onDeleteCustomSkill(event) {
     event.preventDefault();
     const idx = parseInt(event.currentTarget.dataset.index);
-    const cs  = [...(this.actor.system.customSkills || [])];
+    const cs = [...(this.actor.system.customSkills || [])];
     cs.splice(idx, 1);
     await this.actor.update({ "system.customSkills": cs });
   }
@@ -288,37 +407,42 @@ export class KK9CharacterSheet extends ActorSheet {
   // ---- Языки ----
   async _onDeleteLanguage(event) {
     event.preventDefault();
-    const idx  = parseInt(event.currentTarget.dataset.index);
+    const idx = parseInt(event.currentTarget.dataset.index);
     const list = [...(this.actor.system.languages || [])];
     list.splice(idx, 1);
     await this.actor.update({ "system.languages": list });
-  }
-
-  // ---- Магические таланты ----
-  async _onDeleteTalent(event) {
-    event.preventDefault();
-    const idx     = parseInt(event.currentTarget.dataset.index);
-    const talents = [...(this.actor.system.magicTalents || [])];
-    talents.splice(idx, 1);
-    await this.actor.update({ "system.magicTalents": talents });
   }
 
   // ---- Предметы ----
   async _onItemCreate(event) {
     event.preventDefault();
     const type = event.currentTarget.dataset.type;
-    const subtype = event.currentTarget.dataset.subtype; // для транспорта
-    const names = { artifact:"Артефакт", spell:"Заклинание", demon:"Демон", ability:"Абилка", companion:"Спутник", language:"Язык" };
-    const itemData = { name:`Новый ${names[type]||type}`, type };
-    // Если создаём транспорт — сразу ставим нужный подтип
-    if (subtype) itemData["system.companion_type"] = subtype;
+    const category = event.currentTarget.dataset.category;
+    const names = {
+      weapon:"Оружие", gear:"Снаряжение", artifact:"Артефакт",
+      spell:"Заклинание", daemon:"Даймон", ability:"Способность",
+      companion:"Спутник", vehicle:"Транспорт", device:"Устройство",
+      contact:"Контакт", language:"Язык"
+    };
+    const itemData = { name:`Новая ${names[type]||type}`, type };
+    if (category) itemData["system.category"] = category;
     await Item.create(itemData, { parent: this.actor });
   }
 
   async _onItemDelete(event) {
     event.preventDefault();
-    const id = event.currentTarget.closest("[data-item-id]")?.dataset.itemId;
-    if (id) await this.actor.items.get(id)?.delete();
+    const el = event.currentTarget;
+    // Поддерживаем оба варианта data-атрибута
+    const itemId = el.dataset.itemId || el.closest("[data-item-id]")?.dataset.itemId;
+    if (!itemId) return;
+
+    // Удаляем из magicLevels если была там
+    const magicLevels = (this.actor.system.magicLevels || []).filter(ml => ml.itemId !== itemId);
+    if (magicLevels.length !== (this.actor.system.magicLevels || []).length) {
+      await this.actor.update({ "system.magicLevels": magicLevels });
+    }
+
+    await this.actor.items.get(itemId)?.delete();
   }
 }
 
@@ -327,18 +451,18 @@ export class KK9CharacterSheet extends ActorSheet {
 export class KK9NpcLightSheet extends ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: ["kk9","sheet","actor","npc-light"],
-      template: "systems/kk9/templates/actors/npc-light-sheet.hbs",
-      width: 480, height: 360
+      classes:["kk9","sheet","actor","npc-light"],
+      template:"systems/kk9/templates/actors/npc-light-sheet.hbs",
+      width:480, height:360
     });
   }
-  getData() { const c = super.getData(); c.system = c.data.system; return c; }
+  getData() { const c=super.getData(); c.system=c.data.system; return c; }
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".rollable-die").click(async () => {
       const roll = new Roll(`1d${this.actor.system.die}`);
       await roll.evaluate();
-      await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong>` });
+      await roll.toMessage({ speaker:ChatMessage.getSpeaker({actor:this.actor}), flavor:`<strong>${this.actor.name}</strong>` });
     });
   }
 }
@@ -346,15 +470,15 @@ export class KK9NpcLightSheet extends ActorSheet {
 export class KK9NpcHardSheet extends ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: ["kk9","sheet","actor","npc-hard"],
-      template: "systems/kk9/templates/actors/npc-hard-sheet.hbs",
-      width: 620, height: 680,
-      tabs: [{ navSelector:".sheet-tabs", contentSelector:".sheet-body", initial:"main" }]
+      classes:["kk9","sheet","actor","npc-hard"],
+      template:"systems/kk9/templates/actors/npc-hard-sheet.hbs",
+      width:620, height:680,
+      tabs:[{ navSelector:".sheet-tabs", contentSelector:".sheet-body", initial:"main" }]
     });
   }
   getData() {
-    const c = super.getData(); c.system = c.data.system;
-    c.attributeLabels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+    const c=super.getData(); c.system=c.data.system;
+    c.attributeLabels={agility:"Ловкость",smarts:"Смекалка",spirit:"Дух",strength:"Сила",magic:"Магия"};
     return c;
   }
   activateListeners(html) {
@@ -366,33 +490,87 @@ export class KK9NpcHardSheet extends ActorSheet {
 export class KK9NpcBossSheet extends ActorSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: ["kk9","sheet","actor","npc-boss"],
-      template: "systems/kk9/templates/actors/npc-boss-sheet.hbs",
-      width: 540, height: 480
+      classes:["kk9","sheet","actor","npc-boss"],
+      template:"systems/kk9/templates/actors/npc-boss-sheet.hbs",
+      width:540, height:480
     });
   }
-  getData() { const c = super.getData(); c.system = c.data.system; return c; }
+  getData() { const c=super.getData(); c.system=c.data.system; return c; }
 }
+
+// ---- Item лист ----
 
 export class KK9ItemSheet extends ItemSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: ["kk9","sheet","item"],
-      width: 520, height: 480,
-      tabs: [{ navSelector:".sheet-tabs", contentSelector:".sheet-body", initial:"description" }]
+      classes:["kk9","sheet","item"],
+      width:560, height:520,
+      tabs:[{ navSelector:".sheet-tabs", contentSelector:".sheet-body", initial:"description" }],
+      dragDrop:[{ dragSelector:null, dropSelector:".faculty-abilities-drop" }]
     });
   }
-  get template() { return `systems/kk9/templates/items/${this.item.type}-sheet.hbs`; }
-  getData() {
-    const c = super.getData(); c.system = c.data.system;
-    c.rarityOptions = [
-      { value:"common", label:"Обычный" }, { value:"uncommon", label:"Необычный" },
-      { value:"rare", label:"Редкий" }, { value:"unique", label:"Уникальный" }
-    ];
-    return c;
+
+  get template() {
+    return `systems/kk9/templates/items/${this.item.type}-sheet.hbs`;
   }
+
+  getData() {
+    const context = super.getData();
+    context.system = context.data.system;
+    context.categoryOptions = [
+      {value:"common",label:"Общая"},{value:"personal",label:"Личная"},
+      {value:"learned",label:"Изучаемая"},{value:"magic",label:"Магическая"}
+    ];
+    context.rarityOptions = [
+      {value:"common",label:"Обычный"},{value:"uncommon",label:"Необычный"},
+      {value:"rare",label:"Редкий"},{value:"unique",label:"Уникальный"}
+    ];
+    context.vehicleTypeOptions = [
+      {value:"ground",label:"Наземный"},{value:"air",label:"Воздушный"},
+      {value:"water",label:"Водный"},{value:"magical",label:"Магический"},{value:"other",label:"Прочее"}
+    ];
+    context.orgTypeOptions = [
+      {value:"academic",label:"Академическая"},{value:"criminal",label:"Криминальная"},
+      {value:"government",label:"Правительственная"},{value:"magical",label:"Магическая"},
+      {value:"corporate",label:"Корпоративная"},{value:"underground",label:"Подпольная"},
+      {value:"other",label:"Прочая"}
+    ];
+    if (this.item.type === "faculty") {
+      context.facultyAbilities = context.system.abilities || [];
+    }
+    return context;
+  }
+
+  // Дроп ability или skill на faculty sheet
+  async _onDrop(event) {
+    if (this.item.type !== "faculty") return super._onDrop(event);
+    event.preventDefault();
+    let data;
+    try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch(e) { return; }
+    if (data.type !== "Item") return;
+    const item = await fromUuid(data.uuid);
+    if (!item) return;
+    // Принимаем ability и skill
+    if (!["ability","skill"].includes(item.type)) return;
+    const abilities = [...(this.item.system.abilities || [])];
+    if (!abilities.find(a => a.itemId === item.id)) {
+      abilities.push({
+        name: item.name,
+        itemId: item.id,
+        category: item.system.category || (item.type === "skill" ? "common" : "learned")
+      });
+      await this.item.update({ "system.abilities": abilities });
+    }
+  }
+
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".roll-damage").click(() => this.item.rollDamage());
+    html.find(".remove-faculty-ability").click(async e => {
+      const idx = parseInt(e.currentTarget.dataset.index);
+      const abilities = [...(this.item.system.abilities||[])];
+      abilities.splice(idx, 1);
+      await this.item.update({ "system.abilities": abilities });
+    });
   }
 }

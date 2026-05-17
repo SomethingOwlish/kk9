@@ -1,0 +1,32 @@
+<form class="kk9-sheet item-sheet" autocomplete="off">
+  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
+    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
+    <div style="flex:1">
+      <input type="text" name="name" value="{{item.name}}"
+             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
+    </div>
+  </header>
+  <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип устройства</label>
+        <select name="system.device_type" class="kk9-select">
+          <option value="gadget"   {{#if (eq system.device_type "gadget")}}selected{{/if}}>Гаджет</option>
+          <option value="weapon"   {{#if (eq system.device_type "weapon")}}selected{{/if}}>Оружие</option>
+          <option value="drone"    {{#if (eq system.device_type "drone")}}selected{{/if}}>Дрон</option>
+          <option value="computer" {{#if (eq system.device_type "computer")}}selected{{/if}}>Компьютер</option>
+          <option value="medical"  {{#if (eq system.device_type "medical")}}selected{{/if}}>Медицинское</option>
+          <option value="other"    {{#if (eq system.device_type "other")}}selected{{/if}}>Прочее</option>
+        </select></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Заряды (-1 = ∞)</label>
+        <input type="number" name="system.charges" value="{{system.charges}}" class="kk9-input" /></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Бонус к навыку</label>
+        <input type="text" name="system.bonus_skill" value="{{system.bonus_skill}}" class="kk9-input" placeholder="Взлом техники" /></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Значение бонуса</label>
+        <input type="number" name="system.bonus_value" value="{{system.bonus_value}}" class="kk9-input" /></div>
+    </div>
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
+      {{editor system.description target="system.description" button=true editable=editable}}
+    </div>
+  </div>
+</form>

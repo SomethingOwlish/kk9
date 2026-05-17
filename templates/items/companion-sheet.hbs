@@ -1,32 +1,22 @@
-{{!-- КК9 | Спутник / Транспорт --}}
-<form class="kk9-sheet item-sheet companion-sheet" autocomplete="off">
-  <header class="sheet-header">
-    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
-    <div class="header-fields">
-      <input class="name-input" type="text" name="name" value="{{item.name}}" />
-      <select name="system.companion_type" class="type-select">
-        <option value="pet"     {{#if (eq system.companion_type "pet")}}selected{{/if}}>Питомец</option>
-        <option value="vehicle" {{#if (eq system.companion_type "vehicle")}}selected{{/if}}>Транспорт</option>
-        <option value="device"  {{#if (eq system.companion_type "device")}}selected{{/if}}>Устройство</option>
-        <option value="other"   {{#if (eq system.companion_type "other")}}selected{{/if}}>Прочее</option>
-      </select>
+<form class="kk9-sheet item-sheet" autocomplete="off">
+  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
+    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
+    <div style="flex:1">
+      <input type="text" name="name" value="{{item.name}}"
+             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
     </div>
   </header>
-  <div class="sheet-body">
-    <div class="stat-row">
-      <label>Скорость:</label>
-      <input type="number" name="system.speed" value="{{system.speed}}" class="small-input" />
+  <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Вид</label>
+        <input type="text" name="system.species" value="{{system.species}}" class="kk9-input" placeholder="Кот, ворон..." /></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Скорость</label>
+        <input type="number" name="system.speed" value="{{system.speed}}" class="kk9-input" /></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Стойкость</label>
+        <input type="number" name="system.toughness" value="{{system.toughness}}" class="kk9-input" /></div>
     </div>
-    <div class="stat-row">
-      <label>Стойкость:</label>
-      <input type="number" name="system.toughness" value="{{system.toughness}}" class="small-input" />
-    </div>
-    <div class="form-group">
-      <label>Заметки:</label>
-      <textarea name="system.notes" rows="3">{{system.notes}}</textarea>
-    </div>
-    <div class="form-group">
-      <label>Описание:</label>
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
       {{editor system.description target="system.description" button=true editable=editable}}
     </div>
   </div>

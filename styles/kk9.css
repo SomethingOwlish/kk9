@@ -1255,3 +1255,216 @@
   border-color: #94a3b8 !important;
   box-shadow: 0 0 0 1px rgba(148,163,184,0.3), 0 0 10px rgba(148,163,184,0.1) !important;
 }
+
+/* === v0.5 — новые типы === */
+
+/* Бейджи категорий способностей */
+.cat-common   { background:#1e293b; color:#94a3b8; }
+.cat-personal { background:#422006; color:#fcd34d; }
+.cat-learned  { background:#052e16; color:#4ade80; }
+.cat-magic    { background:#2e1065; color:#c084fc; }
+
+/* Факультетские способности на основной вкладке */
+.faculty-abilities-section {
+  margin-top: 12px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--fcolor) 30%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--fcolor) 5%, transparent);
+}
+
+.faculty-abilities-list { display: flex; flex-direction: column; gap: 2px; }
+
+/* kk9-input и kk9-select для item sheets */
+.kk9-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 3px 8px;
+  font-size: 0.86em;
+  font-family: 'Jost', sans-serif;
+  margin-top: 3px;
+}
+.kk9-select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 3px 4px;
+  font-size: 0.84em;
+  font-family: 'Jost', sans-serif;
+  margin-top: 3px;
+}
+.kk9-textarea {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 6px 8px;
+  font-size: 0.86em;
+  font-family: 'Jost', sans-serif;
+  resize: vertical;
+}
+
+/* === v0.6 — способности как навыки === */
+.magic-talent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+.magic-talent-row:hover { background: var(--bg3); }
+
+.magic-talent-name {
+  flex: 1;
+  font-size: 0.86em;
+  color: #c084fc;
+  cursor: pointer;
+}
+.magic-talent-name:hover { color: #fff; }
+
+.magic-level-select {
+  background: var(--bg3);
+  border: 1px solid rgba(168,85,247,0.3);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 2px 6px;
+  font-size: 0.78em;
+  font-family: 'Jost', sans-serif;
+}
+
+.faculty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* === v0.6.1 — навыки как items === */
+
+/* Подсказка связанного атрибута */
+.skill-attr-hint {
+  font-size: 0.68em;
+  color: var(--text-dim);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+}
+
+/* Подсказка drop zone */
+.drop-hint {
+  font-size: 0.72em;
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 2px 0 6px;
+  padding: 0 8px;
+}
+
+/* Блок способностей в навыках */
+.skills-abilities-block {
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+/* Кнопка добавить маленькая в заголовке */
+.section-title .btn-add-sm {
+  margin-left: auto;
+}
+
+/* === v0.7.0 — фикс крестиков === */
+.skills-section { overflow: hidden; }
+
+.skill-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.skill-controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.skill-controls .btn-delete-xs {
+  flex-shrink: 0 !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  padding: 0 !important;
+  font-size: 0.65em !important;
+  overflow: hidden !important;
+}
+
+.skills-list, .skills-abilities-block { overflow: hidden; }
+
+/* === v0.7.1 — крестики навыков === */
+
+/* Крестик строго по центру вертикали */
+.btn-delete-skill {
+  flex-shrink: 0 !important;
+  width: 18px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.72em !important;
+  line-height: 1 !important;
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 3px !important;
+  color: var(--text-dim) !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+}
+.btn-delete-skill:hover {
+  color: var(--accent2) !important;
+  border-color: var(--accent2) !important;
+  background: rgba(192,57,43,0.1) !important;
+}
+
+/* Фикс вертикального выравнивания крестиков в skill-controls */
+.skill-controls {
+  display: flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  flex-shrink: 0 !important;
+  margin-left: auto !important;
+}
+
+.skill-controls .btn-delete-xs {
+  flex-shrink: 0 !important;
+  width: 18px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.72em !important;
+  line-height: 1 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 3px !important;
+}

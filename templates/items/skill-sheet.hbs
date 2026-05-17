@@ -1,0 +1,47 @@
+{{!-- КК9 | Навык --}}
+<form class="kk9-sheet item-sheet skill-sheet" autocomplete="off">
+  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
+    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
+    <div style="flex:1">
+      <input type="text" name="name" value="{{item.name}}"
+             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
+    </div>
+  </header>
+  <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">Связанный атрибут</label>
+        <select name="system.linkedAttribute" class="kk9-select">
+          <option value="agility"  {{#if (eq system.linkedAttribute "agility")}}selected{{/if}}>Ловкость</option>
+          <option value="smarts"   {{#if (eq system.linkedAttribute "smarts")}}selected{{/if}}>Смекалка</option>
+          <option value="spirit"   {{#if (eq system.linkedAttribute "spirit")}}selected{{/if}}>Дух</option>
+          <option value="strength" {{#if (eq system.linkedAttribute "strength")}}selected{{/if}}>Сила</option>
+          <option value="magic"    {{#if (eq system.linkedAttribute "magic")}}selected{{/if}}>Магия</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">Кубик</label>
+        <select name="system.die" class="kk9-select">
+          <option value="4"  {{#if (eq system.die 4)}}selected{{/if}}>d4</option>
+          <option value="6"  {{#if (eq system.die 6)}}selected{{/if}}>d6</option>
+          <option value="8"  {{#if (eq system.die 8)}}selected{{/if}}>d8</option>
+          <option value="10" {{#if (eq system.die 10)}}selected{{/if}}>d10</option>
+          <option value="12" {{#if (eq system.die 12)}}selected{{/if}}>d12</option>
+          <option value="20" {{#if (eq system.die 20)}}selected{{/if}}>d20</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">Модификатор</label>
+      <input type="number" name="system.modifier" value="{{system.modifier}}" class="kk9-input" style="width:80px" />
+    </div>
+
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px;text-transform:uppercase">Описание / заметки</label>
+      <textarea name="system.description" rows="3" class="kk9-textarea">{{system.description}}</textarea>
+    </div>
+
+  </div>
+</form>
