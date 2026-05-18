@@ -1,5 +1,5 @@
 // ============================================================
-// КК9 — Листы v1.1
+// КК9 — Листы v1.2
 // ============================================================
 
 export class KK9CharacterSheet extends ActorSheet {
@@ -54,7 +54,6 @@ export class KK9CharacterSheet extends ActorSheet {
     let facultyAbilityNames = new Set();
     if (facultyItem) (facultyItem.system.abilities || []).forEach(a => facultyAbilityNames.add(a.name));
 
-    // Факультетские — по faculty_id на items (работает без загрузки пака)
     const facultyItems = facultyId ? [
       ...allAbilities.filter(i =>
         i.system.faculty_id === facultyId ||
@@ -65,7 +64,6 @@ export class KK9CharacterSheet extends ActorSheet {
     context.facultyAbilities = facultyItems;
     const facultyAbilityIds = new Set(facultyItems.map(i => i.id));
 
-    // Магические — ВСЕ magic (включая факультетские)
     context.magicAbilities = allAbilities.filter(i => i.system.category === "magic");
 
     context.baseSkills = allSkills.filter(i => !facultyAbilityIds.has(i.id));
@@ -140,30 +138,101 @@ export class KK9CharacterSheet extends ActorSheet {
 
   activateListeners(html) {
     super.activateListeners(html);
+
+    // --- Броски ---
     html.find(".rollable-attribute").click(e => this.actor.rollAttribute(e.currentTarget.dataset.attribute));
     html.find(".rollable-skill").click(e => this.actor.rollSkillItem(e.currentTarget.dataset.itemId));
     html.find(".rollable-ability").click(e => this.actor.rollAbility(e.currentTarget.dataset.itemId));
     html.find(".roll-initiative").click(() => this.actor.rollInitiative());
     html.find(".roll-toughness").click(() => this.actor.rollToughness());
+
+    // --- Здоровье ---
     html.find(".health-pip[data-track='physical']").click(this._onPhysicalPipClick.bind(this));
     html.find(".health-pip[data-track='mental']").click(this._onMentalPipClick.bind(this));
+
+    // --- Открыть предмет ---
     html.find(".item-name-click, .item-img").click(e => {
       const row = e.currentTarget.closest("[data-item-id]");
       if (!row) return;
       this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
     });
+
+    // ============================================================
+    // НАВЫКИ (skills) — сохранение кубика и модификатора
+    // ============================================================
+    html.find(".skill-die-select").change(async e => {
+      const itemId = e.currentTarget.dataset.itemId;
+      const die = parseInt(e.currentTarget.value);
+      const item = this.actor.items.get(itemId);
+      if (!item) return;
+      // Проверяем что кубик навыка не превышает кубик связанного атрибута
+      const linkedAttr = item.system.linkedAttribute;
+      const attrDie = this.actor.system.attributes?.[linkedAttr]?.die;
+      if (attrDie && die > attrDie) {
+        ui.notifications.warn(`Кубик навыка не может превышать кубик атрибута (d${attrDie})`);
+        this.render();
+        return;
+      }
+      await item.update({ "system.die": die });
+    });
+
+    html.find(".skill-mod-input").change(async e => {
+      const itemId = e.currentTarget.dataset.itemId;
+      const mod = parseInt(e.currentTarget.value) || 0;
+      const item = this.actor.items.get(itemId);
+      if (item) await item.update({ "system.modifier": mod });
+    });
+
+    // Удалить навык
+    html.find(".btn-delete-skill").click(async e => {
+      e.preventDefault();
+      const itemId = e.currentTarget.dataset.itemId;
+      if (itemId) await this.actor.items.get(itemId)?.delete();
+    });
+
+    // ============================================================
+    // СПОСОБНОСТИ (abilities — факультет, магия, личные) — сохранение
+    // ============================================================
+    html.find(".ability-die-select").change(async e => {
+      const itemId = e.currentTarget.dataset.itemId;
+      const die = parseInt(e.currentTarget.value);
+      const item = this.actor.items.get(itemId);
+      if (item) await item.update({ "system.die": die });
+    });
+
+    html.find(".ability-mod-input").change(async e => {
+      const itemId = e.currentTarget.dataset.itemId;
+      const mod = parseInt(e.currentTarget.value) || 0;
+      const item = this.actor.items.get(itemId);
+      if (item) await item.update({ "system.modifier": mod });
+    });
+
+    // Удалить способность (кнопки .item-delete и .item-delete.btn-delete-xs)
+    html.find(".item-delete").click(e => this._onItemDelete(e));
+
+    // Уровень магического таланта
+    html.find(".magic-level-select").change(async e => {
+      const itemId = e.currentTarget.dataset.itemId;
+      const level = e.currentTarget.value;
+      const magicLevels = [...(this.actor.system.magicLevels || [])];
+      const existing = magicLevels.find(ml => ml.itemId === itemId);
+      if (existing) { existing.level = level; }
+      else { magicLevels.push({ itemId, level }); }
+      await this.actor.update({ "system.magicLevels": magicLevels });
+    });
+
+    // --- Связи ---
+    html.find(".love-toggle").click(this._onLoveToggle.bind(this));
+    html.find(".add-relation").click(this._onAddRelation.bind(this));
+    html.find(".delete-relation").click(this._onDeleteRelation.bind(this));
+
+    // --- Прочее ---
+    html.find(".add-custom-skill").click(this._onAddCustomSkill.bind(this));
+    html.find(".delete-custom-skill").click(this._onDeleteCustomSkill.bind(this));
+    html.find(".delete-language").click(this._onDeleteLanguage.bind(this));
+    html.find(".item-create").click(this._onItemCreate.bind(this));
   }
 
-  async _onSkillDieChange(event) {
-    const itemId = event.currentTarget.dataset.itemId;
-    const die = parseInt(event.currentTarget.value);
-    const item = this.actor.items.get(itemId);
-    if (!item) return;
-    const linkedAttr = item.system.linkedAttribute;
-    const attrDie = this.actor.system.attributes?.[linkedAttr]?.die;
-    if (attrDie && die > attrDie) { ui.notifications.warn(`Кубик навыка не может превышать кубик атрибута (d${attrDie})`); this.render(); return; }
-    await item.update({ "system.die": die });
-  }
   async _onPhysicalPipClick(event) {
     const val = parseInt(event.currentTarget.dataset.value);
     const cur = this.actor.system.health.physical.value;
@@ -252,11 +321,8 @@ class KK9NpcBaseSheet extends ActorSheet {
     const c = super.getData();
     c.system = c.data.system;
     c.attributeLabels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
-    // Хелпер для типа снаряжения в шаблоне
     c.npcItemTypeLabel = (type) => NPC_ITEM_TYPE_LABELS[type] || type;
-    // Навыки и способности вместе
     c.npcAllItems = this.actor.items.filter(i => i.type === "skill" || i.type === "ability");
-    // Снаряжение — всё остальное
     c.npcGear = this.actor.items.filter(i => !["skill","ability"].includes(i.type));
     return c;
   }
@@ -264,21 +330,18 @@ class KK9NpcBaseSheet extends ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Открыть предмет
     html.find(".item-name-click").click(e => {
       const row = e.currentTarget.closest("[data-item-id]");
       if (!row) return;
       this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
     });
 
-    // Удалить предмет (навык или снаряжение)
     html.find(".npc-item-del").click(async e => {
       e.preventDefault();
       const itemId = e.currentTarget.dataset.itemId || e.currentTarget.closest("[data-item-id]")?.dataset.itemId;
       if (itemId) await this.actor.items.get(itemId)?.delete();
     });
 
-    // Изменить кубик навыка/способности
     html.find(".npc-skill-die").change(async e => {
       e.stopPropagation();
       const itemId = e.currentTarget.dataset.itemId;
@@ -286,14 +349,12 @@ class KK9NpcBaseSheet extends ActorSheet {
       if (itemId) await this.actor.items.get(itemId)?.update({ "system.die": die });
     });
 
-    // Изменить модификатор навыка/способности
     html.find(".npc-skill-mod").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
       const mod = parseInt(e.currentTarget.value) || 0;
       if (itemId) await this.actor.items.get(itemId)?.update({ "system.modifier": mod });
     });
 
-    // Бросок навыка/способности
     html.find(".npc-rollable").click(async e => {
       const itemId = e.currentTarget.dataset.itemId;
       const item = this.actor.items.get(itemId);
@@ -307,7 +368,6 @@ class KK9NpcBaseSheet extends ActorSheet {
       await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — ${item.name}` });
     });
 
-    // Пипы физического состояния
     html.find(".health-pip[data-track='npc-physical']").click(async e => {
       const val = parseInt(e.currentTarget.dataset.value);
       const cur = this.actor.system.health?.physical?.value ?? 0;
@@ -325,7 +385,6 @@ class KK9NpcBaseSheet extends ActorSheet {
       await this.actor.update({ "system.health.mental.knockout": !this.actor.system.health.mental.knockout });
     });
 
-    // Связи — love
     html.find(".love-toggle").click(async e => {
       e.preventDefault();
       const idx = parseInt(e.currentTarget.dataset.index);
@@ -335,7 +394,6 @@ class KK9NpcBaseSheet extends ActorSheet {
       if (!wasLoved) relations[idx].love = true;
       await this.actor.update({ "system.relations": relations });
     });
-    // Связи — удалить
     html.find(".delete-relation").click(async e => {
       e.preventDefault();
       const idx = parseInt(e.currentTarget.dataset.index);
@@ -343,20 +401,16 @@ class KK9NpcBaseSheet extends ActorSheet {
       rel.splice(idx, 1);
       await this.actor.update({ "system.relations": rel });
     });
-    // Связи — добавить
     html.find(".add-relation").click(async e => {
       e.preventDefault();
       const relations = this.actor.system.relations || [];
       await this.actor.update({ "system.relations": [...relations, { name:"", status:"neutral", level:0, notes:"", love:false }] });
     });
 
-    // Инициатива
     html.find(".roll-npc-initiative").click(() => this._rollInitiative());
-    // Стойкость — модалка с выбором навыка
     html.find(".roll-npc-toughness").click(() => this._rollToughness());
   }
 
-  // Переопределяется в боссе для дикого кубика
   _buildRollFormula(die, modStr) {
     return `1d${die}${modStr}`;
   }
@@ -370,7 +424,6 @@ class KK9NpcBaseSheet extends ActorSheet {
   }
 
   async _rollToughness() {
-    // Собираем навыки сопротивления из items актора
     const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выжидание"];
     const available = this.actor.items.filter(i =>
       (i.type === "skill" || i.type === "ability") && resistNames.includes(i.name)
@@ -384,10 +437,7 @@ class KK9NpcBaseSheet extends ActorSheet {
       content: `<div style="padding:8px">
         <p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>
         ${available.length
-          ? `<select id="resist-skill" style="width:100%">
-               <option value="">— только Дух —</option>
-               ${options}
-             </select>`
+          ? `<select id="resist-skill" style="width:100%"><option value="">— только Дух —</option>${options}</select>`
           : "<em>Нет доступных навыков сопротивления</em>"}
       </div>`,
       label: "Бросить",
@@ -428,7 +478,6 @@ class KK9NpcBaseSheet extends ActorSheet {
       event.preventDefault();
       const item = await Item.fromDropData(data);
       if (!item) return;
-      // Без дублей для навыков и способностей
       if (item.type === "skill" || item.type === "ability") {
         const existing = this.actor.items.find(i => i.name === item.name && i.type === item.type);
         if (existing) { ui.notifications.warn(`"${item.name}" уже есть на карточке.`); return; }
@@ -457,8 +506,8 @@ export class KK9NpcLightSheet extends KK9NpcBaseSheet {
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".rollable-npc-attr").click(async e => {
-      const attr  = e.currentTarget.dataset.attribute;
-      const die   = this.actor.system.attributes[attr]?.die;
+      const attr = e.currentTarget.dataset.attribute;
+      const die  = this.actor.system.attributes[attr]?.die;
       if (!die) return;
       const label = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" }[attr] || attr;
       const roll  = new Roll(`1d${die}`);
@@ -484,8 +533,8 @@ export class KK9NpcHardSheet extends KK9NpcBaseSheet {
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".rollable-npc-attr").click(async e => {
-      const attr  = e.currentTarget.dataset.attribute;
-      const die   = this.actor.system.attributes[attr]?.die;
+      const attr = e.currentTarget.dataset.attribute;
+      const die  = this.actor.system.attributes[attr]?.die;
       if (!die) return;
       const label = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" }[attr] || attr;
       const roll  = new Roll(`1d${die}`);
@@ -509,17 +558,15 @@ export class KK9NpcBossSheet extends KK9NpcBaseSheet {
     });
   }
 
-  // Дикий кубик для навыков
   _buildRollFormula(die, modStr) {
     return `{1d6${modStr}, 1d${die}${modStr}}kh`;
   }
 
   activateListeners(html) {
     super.activateListeners(html);
-    // Бросок атрибута с диким кубиком
     html.find(".rollable-npc-attr-boss").click(async e => {
-      const attr  = e.currentTarget.dataset.attribute;
-      const die   = this.actor.system.attributes[attr]?.die;
+      const attr = e.currentTarget.dataset.attribute;
+      const die  = this.actor.system.attributes[attr]?.die;
       if (!die) return;
       const label = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" }[attr] || attr;
       const roll  = new Roll(`{1d6, 1d${die}}kh`);
@@ -528,7 +575,6 @@ export class KK9NpcBossSheet extends KK9NpcBaseSheet {
     });
   }
 
-  // Инициатива босса с диким кубиком
   async _rollInitiative() {
     const ag = this.actor.system.attributes.agility?.die || 4;
     const sm = this.actor.system.attributes.smarts?.die  || 4;

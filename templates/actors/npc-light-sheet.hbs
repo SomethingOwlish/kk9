@@ -1,4 +1,4 @@
-{{!-- КК9 | Лёгкий НПС v2.7 — убрана шкала из связей --}}
+{{!-- КК9 | Лёгкий НПС v2.8 --}}
 <form class="kk9-sheet npc-light-sheet" autocomplete="off">
 
   <div class="npc-sidebar">
@@ -119,7 +119,9 @@
           </div>
         </div>
 
-        {{!-- Состояние: 2 пипа — те же классы и статусы что у сложного НПС --}}
+        {{!-- Состояние: 2 пипа + КО-пип.
+             КО-пип использует pip-phys-5 / pip-ment-5 — те же классы что 5й пип у сложного НПС.
+             Так дизайн и цвета идентичны. --}}
         <div class="section-title">Состояние</div>
         <div class="health-tracks npc-tracks">
           <div class="health-track">
@@ -128,7 +130,6 @@
               <span class="health-state-badge state-{{system.health.physical.value}}">{{healthLabel system.health.physical.value}}</span>
             </div>
             <div class="track-pips">
-              {{!-- pip-phys-1 = Царапина, pip-phys-2 = Ранен — идентично сложному --}}
               <div class="health-pip {{#if (gte system.health.physical.value 1)}}pip-filled pip-phys-1{{else}}pip-empty{{/if}}"
                    data-track="npc-physical" data-value="1" title="{{healthLabel 1}}">
                 <span class="pip-txt">{{healthLabel 1}}</span>
@@ -137,7 +138,7 @@
                    data-track="npc-physical" data-value="2" title="{{healthLabel 2}}">
                 <span class="pip-txt">{{healthLabel 2}}</span>
               </div>
-              {{!-- Отключка — тот же класс pip-phys-5 что 5й пип у сложного --}}
+              {{!-- КО = pip-phys-5 (Без сознания) — идентично 5му пипу сложного НПС --}}
               <div class="health-pip npc-ko-pip {{#if system.health.physical.knockout}}pip-filled pip-phys-5 npc-ko-on{{else}}pip-empty{{/if}}"
                    data-track="npc-physical-ko" title="{{healthLabel 5}}">
                 <span class="pip-txt">{{healthLabel 5}}</span>
@@ -150,7 +151,6 @@
               <span class="health-state-badge state-mental-{{system.health.mental.value}}">{{mentalLabel system.health.mental.value}}</span>
             </div>
             <div class="track-pips">
-              {{!-- pip-ment-1 = Тревога, pip-ment-2 = Потрясён — идентично сложному --}}
               <div class="health-pip {{#if (gte system.health.mental.value 1)}}pip-filled pip-ment-1{{else}}pip-empty{{/if}}"
                    data-track="npc-mental" data-value="1" title="{{mentalLabel 1}}">
                 <span class="pip-txt">{{mentalLabel 1}}</span>
@@ -159,7 +159,7 @@
                    data-track="npc-mental" data-value="2" title="{{mentalLabel 2}}">
                 <span class="pip-txt">{{mentalLabel 2}}</span>
               </div>
-              {{!-- Диссоциация — тот же класс pip-ment-5 что 5й пип у сложного --}}
+              {{!-- КО = pip-ment-5 (Диссоциация) — идентично 5му пипу сложного НПС --}}
               <div class="health-pip npc-ko-pip {{#if system.health.mental.knockout}}pip-filled pip-ment-5 npc-ko-on{{else}}pip-empty{{/if}}"
                    data-track="npc-mental-ko" title="{{mentalLabel 5}}">
                 <span class="pip-txt">{{mentalLabel 5}}</span>
