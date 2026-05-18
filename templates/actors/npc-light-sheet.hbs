@@ -1,4 +1,4 @@
-{{!-- КК9 | Лёгкий НПС v2.6 --}}
+{{!-- КК9 | Лёгкий НПС v2.7 — убрана шкала из связей --}}
 <form class="kk9-sheet npc-light-sheet" autocomplete="off">
 
   <div class="npc-sidebar">
@@ -32,8 +32,6 @@
                 <option value="neutral" {{#if (eq rel.status "neutral")}}selected{{/if}}>Нейтрал</option>
                 <option value="unknown" {{#if (eq rel.status "unknown")}}selected{{/if}}>?</option>
               </select>
-              <input type="range" name="system.relations.{{@index}}.level" value="{{rel.level}}" min="-15" max="15" class="relation-level-range" />
-              <span class="relation-level-val">{{rel.level}}</span>
               <button type="button" class="delete-relation btn-delete-xs" data-index="{{@index}}">✕</button>
             </div>
             <textarea name="system.relations.{{@index}}.notes" class="relation-notes" placeholder="Заметки...">{{rel.notes}}</textarea>
@@ -104,7 +102,6 @@
           {{/each}}
         </div>
 
-        {{!-- Инициатива, Стойкость, Энергия — в конфликте --}}
         <div class="derived-bar" style="margin:10px 0">
           <div class="derived-btn roll-npc-initiative" title="Бросить инициативу (Лов+Смек)">
             <span class="derived-lbl">Инициатива</span>
@@ -122,7 +119,7 @@
           </div>
         </div>
 
-        {{!-- Состояние: 2 пипа с теми же статусами что у сложного --}}
+        {{!-- Состояние: 2 пипа — те же классы и статусы что у сложного НПС --}}
         <div class="section-title">Состояние</div>
         <div class="health-tracks npc-tracks">
           <div class="health-track">
@@ -131,7 +128,7 @@
               <span class="health-state-badge state-{{system.health.physical.value}}">{{healthLabel system.health.physical.value}}</span>
             </div>
             <div class="track-pips">
-              {{!-- пипы 1 и 2 = Царапина и Ранен, те же что у сложного --}}
+              {{!-- pip-phys-1 = Царапина, pip-phys-2 = Ранен — идентично сложному --}}
               <div class="health-pip {{#if (gte system.health.physical.value 1)}}pip-filled pip-phys-1{{else}}pip-empty{{/if}}"
                    data-track="npc-physical" data-value="1" title="{{healthLabel 1}}">
                 <span class="pip-txt">{{healthLabel 1}}</span>
@@ -140,9 +137,11 @@
                    data-track="npc-physical" data-value="2" title="{{healthLabel 2}}">
                 <span class="pip-txt">{{healthLabel 2}}</span>
               </div>
-              {{!-- Отключка = последний статус (Без сознания) --}}
-              <div class="health-pip npc-ko-pip {{#if system.health.physical.knockout}}npc-ko-on{{/if}}"
-                   data-track="npc-physical-ko" title="{{healthLabel 5}}">{{healthLabel 5}}</div>
+              {{!-- Отключка — тот же класс pip-phys-5 что 5й пип у сложного --}}
+              <div class="health-pip npc-ko-pip {{#if system.health.physical.knockout}}pip-filled pip-phys-5 npc-ko-on{{else}}pip-empty{{/if}}"
+                   data-track="npc-physical-ko" title="{{healthLabel 5}}">
+                <span class="pip-txt">{{healthLabel 5}}</span>
+              </div>
             </div>
           </div>
           <div class="health-track" style="margin-top:8px">
@@ -151,6 +150,7 @@
               <span class="health-state-badge state-mental-{{system.health.mental.value}}">{{mentalLabel system.health.mental.value}}</span>
             </div>
             <div class="track-pips">
+              {{!-- pip-ment-1 = Тревога, pip-ment-2 = Потрясён — идентично сложному --}}
               <div class="health-pip {{#if (gte system.health.mental.value 1)}}pip-filled pip-ment-1{{else}}pip-empty{{/if}}"
                    data-track="npc-mental" data-value="1" title="{{mentalLabel 1}}">
                 <span class="pip-txt">{{mentalLabel 1}}</span>
@@ -159,13 +159,15 @@
                    data-track="npc-mental" data-value="2" title="{{mentalLabel 2}}">
                 <span class="pip-txt">{{mentalLabel 2}}</span>
               </div>
-              <div class="health-pip npc-ko-pip {{#if system.health.mental.knockout}}npc-ko-on{{/if}}"
-                   data-track="npc-mental-ko" title="{{mentalLabel 5}}">{{mentalLabel 5}}</div>
+              {{!-- Диссоциация — тот же класс pip-ment-5 что 5й пип у сложного --}}
+              <div class="health-pip npc-ko-pip {{#if system.health.mental.knockout}}pip-filled pip-ment-5 npc-ko-on{{else}}pip-empty{{/if}}"
+                   data-track="npc-mental-ko" title="{{mentalLabel 5}}">
+                <span class="pip-txt">{{mentalLabel 5}}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {{!-- Навыки: название + кубик + мод + крестик --}}
         <div class="section-title" style="margin-top:12px">Навыки и способности</div>
         <div class="npc-skill-list">
           {{#each npcAllItems}}
@@ -189,7 +191,6 @@
           {{/each}}
         </div>
 
-        {{!-- Снаряжение: название + тип + крестик --}}
         <div class="section-title" style="margin-top:12px">Снаряжение</div>
         <div class="npc-skill-list">
           {{#each npcGear}}

@@ -1,4 +1,4 @@
-{{!-- КК9 | Сложный НПС v2.6 --}}
+{{!-- КК9 | Сложный НПС v2.7 — убрана шкала из связей --}}
 <form class="kk9-sheet npc-hard-sheet" autocomplete="off">
 
   <div class="npc-sidebar">
@@ -32,8 +32,6 @@
                 <option value="neutral" {{#if (eq rel.status "neutral")}}selected{{/if}}>Нейтрал</option>
                 <option value="unknown" {{#if (eq rel.status "unknown")}}selected{{/if}}>?</option>
               </select>
-              <input type="range" name="system.relations.{{@index}}.level" value="{{rel.level}}" min="-15" max="15" class="relation-level-range" />
-              <span class="relation-level-val">{{rel.level}}</span>
               <button type="button" class="delete-relation btn-delete-xs" data-index="{{@index}}">✕</button>
             </div>
             <textarea name="system.relations.{{@index}}.notes" class="relation-notes" placeholder="Заметки...">{{rel.notes}}</textarea>

@@ -1,5 +1,5 @@
 // ============================================================
-// КК9 — Документы v1.1
+// КК9 — Документы v1.2
 // ============================================================
 
 export class KK9Actor extends Actor {
@@ -34,13 +34,14 @@ export class KK9Actor extends Actor {
     if (this.type !== "character") return;
     const oldFacultyId = this.system.faculty;
 
+    // --- Убираем старый факультет ---
     if (oldFacultyId) {
-      // Только abilities с faculty_id — skills никогда не трогаем (Баг 1)
+      // Только abilities с faculty_id — skills НИКОГДА не трогаем (Баг 1)
       const facultyAbilities = this.items.filter(i =>
         i.type === "ability" && i.system.faculty_id === oldFacultyId
       );
       for (const item of facultyAbilities) {
-        // Прокачанная (die > 4 ИЛИ modifier !== -2) — оставляем, снимаем только привязку (Баг 2)
+        // Прокачанная (die > 4 ИЛИ modifier !== -2) — оставляем, снимаем привязку (Баг 2)
         const isLeveled = item.system.die > 4 || item.system.modifier !== -2;
         if (isLeveled || item.system.category === "magic") {
           await item.update({ "system.faculty_id": null });
@@ -51,6 +52,7 @@ export class KK9Actor extends Actor {
       }
     }
 
+    // --- Применяем новый факультет ---
     const fData = facultyItem.system;
     const updateData = {
       "system.faculty":       facultyItem.id,
@@ -66,16 +68,25 @@ export class KK9Actor extends Actor {
     }
     await this.update(updateData);
 
+    // Создаём/обновляем способности нового факультета
     if (fData.abilities?.length) {
       for (const abilityRef of fData.abilities) {
-        // Если уже есть на карточке (прокачанная осталась) — только обновляем faculty_id
+        // Ищем существующий item на карточке с таким именем
         const existing = this.items.find(i =>
           i.name === abilityRef.name && (i.type === "ability" || i.type === "skill")
         );
         if (existing) {
-          await existing.update({ "system.faculty_id": facultyItem.id });
+          // *** КРИТИЧЕСКИЙ ФИКС (Баг 1+2) ***
+          // Skills НЕ имеют поля faculty_id в схеме — обновлять нельзя, это вызывает ошибку
+          // Для abilities — обновляем faculty_id чтобы восстановить привязку
+          if (existing.type === "ability") {
+            await existing.update({ "system.faculty_id": facultyItem.id });
+          }
+          // Для skills — просто пропускаем, они и так на карточке
           continue;
         }
+
+        // Создаём новую способность
         let sourceItem = game.items.get(abilityRef.itemId);
         if (!sourceItem) {
           for (const pack of game.packs) {
@@ -142,7 +153,6 @@ export class KK9Actor extends Actor {
   }
 
   async rollToughness() {
-    // Собираем навыки сопротивления из items актора
     const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выжидание"];
     const available = this.items.filter(i =>
       (i.type === "skill" || i.type === "ability") && resistNames.includes(i.name)
