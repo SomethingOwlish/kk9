@@ -500,7 +500,7 @@ export class KK9ItemSheet extends ItemSheet {
       tabs: [{ navSelector:".sheet-tabs", contentSelector:".sheet-body", initial:"description" }],
       dragDrop: [{
         dragSelector: null,
-        dropSelector: ".faculty-abilities-drop, .faculty-students-drop, .fac-dropouts-drop, .faculty-predecessor-drop, .fac-lore-drop, .weapon-skill-drop, .weapon-status-drop"
+        dropSelector: ".faculty-abilities-drop, .faculty-students-drop, .fac-dropouts-drop, .faculty-predecessor-drop, .fac-lore-drop, .weapon-skill-drop, .weapon-status-drop, .artifact-skill-drop, .artifact-status-drop, .artifact-skill-bonus-drop, .spell-skill-drop, .spell-status-drop, .spell-skill-bonus-drop"
       }]
     });
   }
@@ -559,6 +559,60 @@ export class KK9ItemSheet extends ItemSheet {
         }
         if (target.classList.contains("weapon-status-drop") && item.type === "status") {
           await this.item.update({ "system.status_uuid": item.uuid, "system.status_name": item.name });
+          return;
+        }
+        return;
+      }
+    }
+
+    // ── Артефакт: drag-drop навыка, статуса, бонуса к навыку ──
+    if (this.item.type === "artifact") {
+      const target = event.target.closest(".artifact-skill-drop, .artifact-status-drop, .artifact-skill-bonus-drop");
+      if (target) {
+        if (data.type !== "Item") return;
+        const item = await fromUuid(data.uuid);
+        if (!item) return;
+        if (target.classList.contains("artifact-skill-drop") && ["skill","ability"].includes(item.type)) {
+          await this.item.update({ "system.skill_uuid": item.uuid, "system.skill_name": item.name });
+          return;
+        }
+        if (target.classList.contains("artifact-status-drop") && item.type === "status") {
+          await this.item.update({ "system.status_uuid": item.uuid, "system.status_name": item.name });
+          return;
+        }
+        if (target.classList.contains("artifact-skill-bonus-drop") && ["skill","ability"].includes(item.type)) {
+          const bonuses = [...(this.item.system.skill_bonuses || [])];
+          if (!bonuses.find(b => b.item_uuid === item.uuid)) {
+            bonuses.push({ item_uuid: item.uuid, item_name: item.name, bonus: 1 });
+            await this.item.update({ "system.skill_bonuses": bonuses });
+          }
+          return;
+        }
+        return;
+      }
+    }
+
+    // ── Заклинание: drag-drop навыка, статуса, бонуса к навыку ──
+    if (this.item.type === "spell") {
+      const target = event.target.closest(".spell-skill-drop, .spell-status-drop, .spell-skill-bonus-drop");
+      if (target) {
+        if (data.type !== "Item") return;
+        const item = await fromUuid(data.uuid);
+        if (!item) return;
+        if (target.classList.contains("spell-skill-drop") && ["skill","ability"].includes(item.type)) {
+          await this.item.update({ "system.skill_uuid": item.uuid, "system.skill_name": item.name });
+          return;
+        }
+        if (target.classList.contains("spell-status-drop") && item.type === "status") {
+          await this.item.update({ "system.status_uuid": item.uuid, "system.status_name": item.name });
+          return;
+        }
+        if (target.classList.contains("spell-skill-bonus-drop") && ["skill","ability"].includes(item.type)) {
+          const bonuses = [...(this.item.system.skill_bonuses || [])];
+          if (!bonuses.find(b => b.item_uuid === item.uuid)) {
+            bonuses.push({ item_uuid: item.uuid, item_name: item.name, bonus: 1 });
+            await this.item.update({ "system.skill_bonuses": bonuses });
+          }
           return;
         }
         return;
@@ -655,6 +709,112 @@ export class KK9ItemSheet extends ItemSheet {
       });
       html.find(".wp-clear-status").click(async () => {
         await this.item.update({ "system.status_uuid": "", "system.status_name": "" });
+      });
+    }
+
+    // ── Артефакт: атака ──
+    if (this.item.type === "artifact") {
+      html.find(".artifact-attack-roll").click(async () => {
+        if (!this.item.actor) { ui.notifications.warn("Артефакт должен быть на карточке персонажа."); return; }
+        const { rollWeaponAttack } = await import("./weapon-combat.mjs");
+        // Адаптируем артефакт под интерфейс оружия для броска
+        const fakeWeapon = {
+          system: {
+            skill_uuid:   this.item.system.skill_uuid,
+            damage_level: this.item.system.damage_level,
+            damage_type:  this.item.system.damage_type,
+            has_status:   this.item.system.has_status,
+            status_uuid:  this.item.system.status_uuid,
+            status_name:  this.item.system.status_name,
+          },
+          name: this.item.name,
+          actor: this.item.actor
+        };
+        await rollWeaponAttack(fakeWeapon, this.item.actor);
+      });
+      html.find(".art-clear-skill").click(async () => {
+        await this.item.update({ "system.skill_uuid": "", "system.skill_name": "" });
+      });
+      html.find(".art-clear-status").click(async () => {
+        await this.item.update({ "system.status_uuid": "", "system.status_name": "" });
+      });
+      html.find(".art-remove-skill-bonus").click(async e => {
+        const idx = parseInt(e.currentTarget.dataset.index);
+        const bonuses = [...(this.item.system.skill_bonuses || [])];
+        bonuses.splice(idx, 1);
+        await this.item.update({ "system.skill_bonuses": bonuses });
+      });
+    }
+
+    // ── Заклинание: применение ──
+    if (this.item.type === "spell") {
+      html.find(".spell-cast-roll").click(async () => {
+        if (!this.item.actor) { ui.notifications.warn("Заклинание должно быть на карточке персонажа."); return; }
+        const actor = this.item.actor;
+        const spell = this.item.system;
+
+        // Проверка палочки
+        if (!spell.no_wand_needed) {
+          const hasWand = actor.items.some(i =>
+            i.type === "artifact" &&
+            i.system.artifact_type === "wand" &&
+            i.system.equipped &&
+            !i.system.destroyed
+          );
+          if (!hasWand) {
+            ui.notifications.warn("Для этого заклинания нужна экипированная волшебная палочка!");
+            return;
+          }
+        }
+
+        // Проверка энергии
+        const energyVal = actor.system.energy?.value ?? 0;
+        if (energyVal < spell.cost) {
+          ui.notifications.warn(`Недостаточно энергии (нужно ${spell.cost}, есть ${energyVal}).`);
+          return;
+        }
+
+        // Списываем энергию
+        await actor.update({ "system.energy.value": energyVal - spell.cost });
+
+        // Бросок атаки если атакующее
+        if (spell.spell_type === "attack" && spell.skill_uuid) {
+          const { rollWeaponAttack } = await import("./weapon-combat.mjs");
+          const fakeWeapon = {
+            system: {
+              skill_uuid:   spell.skill_uuid,
+              damage_level: spell.damage_level,
+              damage_type:  spell.damage_type,
+              has_status:   spell.has_status,
+              status_uuid:  spell.status_uuid,
+              status_name:  spell.status_name,
+            },
+            name: this.item.name,
+            actor
+          };
+          await rollWeaponAttack(fakeWeapon, actor);
+        } else {
+          ChatMessage.create({
+            content: `<div style="font-family:'Jost',sans-serif;padding:5px 8px;border-left:3px solid ${spell.effect_color || '#a855f7'};background:var(--bg2,#232323)">
+              <strong>${actor.name}</strong> применяет заклинание <strong>${this.item.name}</strong>
+              <br><span style="font-size:0.82em;color:var(--text-dim,#6a6560)">Стоимость: ${spell.cost} энергии · ${spell.effect_description || ''}</span>
+            </div>`,
+            speaker: ChatMessage.getSpeaker({ actor })
+          });
+        }
+      });
+
+      html.find(".sp-clear-skill").click(async () => {
+        await this.item.update({ "system.skill_uuid": "", "system.skill_name": "" });
+      });
+      html.find(".sp-clear-status").click(async () => {
+        await this.item.update({ "system.status_uuid": "", "system.status_name": "" });
+      });
+      html.find(".sp-remove-skill-bonus").click(async e => {
+        const idx = parseInt(e.currentTarget.dataset.index);
+        const bonuses = [...(this.item.system.skill_bonuses || [])];
+        bonuses.splice(idx, 1);
+        await this.item.update({ "system.skill_bonuses": bonuses });
       });
     }
 

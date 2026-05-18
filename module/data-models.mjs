@@ -329,19 +329,22 @@ export class AbilityDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
+// ── WeaponDataModel — заменить существующий (добавлено поле condition) ──
 export class WeaponDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
     return {
       description:  new fields.HTMLField({ initial: "" }),
       skill_uuid:   new fields.StringField({ initial: "" }),
       skill_name:   new fields.StringField({ initial: "" }),
-      damage_level: new fields.StringField({ initial: "light", choices: ["light","heavy","lethal"] }),
+      damage_level: new fields.StringField({ initial: "light",   choices: ["light","heavy","lethal"] }),
       damage_type:  new fields.StringField({ initial: "physical", choices: ["physical","mental"] }),
       range:        new fields.NumberField({ initial: 0, integer: true }),
-      size:         new fields.StringField({ initial: "medium", choices: ["pocket","finger","small","medium","large","huge","immovable"] }),
+      size:         new fields.StringField({ initial: "medium",  choices: ["pocket","finger","small","medium","large","huge","immovable"] }),
       ap:           new fields.NumberField({ initial: 0, integer: true }),
       rof:          new fields.NumberField({ initial: 1, integer: true }),
       equipped:     new fields.BooleanField({ initial: false }),
+      condition:    new fields.StringField({ initial: "perfect", choices: ["perfect","good","worn","broken"] }),
       has_status:   new fields.BooleanField({ initial: false }),
       status_uuid:  new fields.StringField({ initial: "" }),
       status_name:  new fields.StringField({ initial: "" }),
@@ -350,23 +353,62 @@ export class WeaponDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
+// ── GearDataModel — заменить существующий ──
 export class GearDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
     return {
       description: new fields.HTMLField({ initial: "" }),
+      gear_type:   new fields.StringField({ initial: "utility", choices: ["attack","defense","utility"] }),
+      size:        new fields.StringField({ initial: "medium",  choices: ["pocket","finger","small","medium","large","huge","immovable"] }),
+      condition:   new fields.StringField({ initial: "perfect", choices: ["perfect","good","worn","broken"] }),
       quantity:    new fields.NumberField({ initial: 1, min: 0, integer: true }),
-      weight:      new fields.NumberField({ initial: 0 }),
       equipped:    new fields.BooleanField({ initial: false }),
-      notes:       new fields.StringField({ initial: "" })
     };
   }
 }
 
 export class ArtifactDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
     return {
-      description: new fields.HTMLField({ initial: "" }),
-      rarity: new fields.StringField({ initial: "common", choices: ["common","uncommon","rare","unique"] }),
+      description:        new fields.HTMLField({ initial: "" }),
+
+      // Тип артефакта
+      artifact_type: new fields.StringField({
+        initial: "utility",
+        choices: ["attack","defense","binding","spatial","utility","buff","transforming","prophetic","wand"]
+      }),
+
+      // Класс
+      artifact_class: new fields.StringField({
+        initial: "simple",
+        choices: ["simple","complex"]
+      }),
+      artifact_age: new fields.NumberField({ initial: 0, integer: true }),
+
+      // Редкость — добавлен "ancient"
+      rarity: new fields.StringField({
+        initial: "common",
+        choices: ["common","uncommon","rare","unique","ancient"]
+      }),
+
+      // Создатель и условие активации
+      creator:           new fields.StringField({ initial: "" }),
+      activation_condition: new fields.StringField({ initial: "" }),
+
+      // Размер
+      size: new fields.StringField({
+        initial: "small",
+        choices: ["pocket","finger","small","medium","large","huge","immovable"]
+      }),
+
+      // Состояние
+      equipped:   new fields.BooleanField({ initial: false }),
+      active:     new fields.BooleanField({ initial: false }),
+      destroyed:  new fields.BooleanField({ initial: false }),
+
+      // Бонусы к атрибутам (если бафф/экипирован+активен)
       bonuses: new fields.SchemaField({
         agility:   new fields.NumberField({ initial: 0, integer: true }),
         smarts:    new fields.NumberField({ initial: 0, integer: true }),
@@ -375,23 +417,99 @@ export class ArtifactDataModel extends foundry.abstract.TypeDataModel {
         magic:     new fields.NumberField({ initial: 0, integer: true }),
         toughness: new fields.NumberField({ initial: 0, integer: true })
       }),
-      damage:   new fields.StringField({ initial: "" }),
-      equipped: new fields.BooleanField({ initial: false }),
-      active:   new fields.BooleanField({ initial: false })
+
+      // Бонусы к навыкам/способностям — drag-drop массив
+      skill_bonuses: new fields.ArrayField(
+        new fields.SchemaField({
+          item_uuid: new fields.StringField({ required: true, initial: "" }),
+          item_name: new fields.StringField({ initial: "" }),
+          bonus:     new fields.NumberField({ initial: 1, integer: true })
+        })
+      ),
+
+      // Атакующие параметры (только для artifact_type === "attack")
+      damage_level: new fields.StringField({
+        initial: "light",
+        choices: ["light","heavy","lethal"]
+      }),
+      damage_type: new fields.StringField({
+        initial: "physical",
+        choices: ["physical","mental"]
+      }),
+      skill_uuid:  new fields.StringField({ initial: "" }),
+      skill_name:  new fields.StringField({ initial: "" }),
+
+      // Статус при попадании (только для attack)
+      has_status:  new fields.BooleanField({ initial: false }),
+      status_uuid: new fields.StringField({ initial: "" }),
+      status_name: new fields.StringField({ initial: "" }),
     };
   }
 }
 
 export class SpellDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
     return {
       description: new fields.HTMLField({ initial: "" }),
-      cost:        new fields.NumberField({ required: true, initial: 1, min: 0, integer: true }),
-      range:       new fields.StringField({ initial: "" }),
-      damage:      new fields.StringField({ initial: "" }),
-      duration:    new fields.StringField({ initial: "мгновенное" }),
-      school:      new fields.StringField({ initial: "" }),
-      roll_skill:  new fields.StringField({ initial: "magic" })
+
+      // Стоимость энергии
+      cost: new fields.NumberField({ required: true, initial: 1, min: 0, integer: true }),
+
+      // Дальность в метрах
+      range: new fields.NumberField({ initial: 0, integer: true }),
+
+      // Длительность в ходах (-1 = постоянное, 0 = мгновенное)
+      duration: new fields.NumberField({ initial: 0, integer: true }),
+
+      // Тип/класс заклинания
+      spell_type: new fields.StringField({
+        initial: "attack",
+        choices: ["attack","defense","binding","spatial","utility","buff","transforming","prophetic"]
+      }),
+
+      // Визуальный цвет эффекта
+      effect_color: new fields.StringField({ initial: "#a855f7" }),
+
+      // Описание визуального эффекта
+      effect_description: new fields.StringField({ initial: "" }),
+
+      // Можно применять без волшебной палочки
+      no_wand_needed: new fields.BooleanField({ initial: false }),
+
+      // Навык-тип магии — drag-drop магического навыка/способности
+      skill_uuid: new fields.StringField({ initial: "" }),
+      skill_name: new fields.StringField({ initial: "" }),
+
+      // ── АТАКУЮЩИЕ ПОЛЯ (spell_type === "attack") ──
+      damage_level: new fields.StringField({
+        initial: "light",
+        choices: ["light","heavy","lethal"]
+      }),
+      damage_type: new fields.StringField({
+        initial: "physical",
+        choices: ["physical","mental"]
+      }),
+      has_status:  new fields.BooleanField({ initial: false }),
+      status_uuid: new fields.StringField({ initial: "" }),
+      status_name: new fields.StringField({ initial: "" }),
+
+      // ── БАФФ ПОЛЯ (spell_type === "buff") ──
+      bonuses: new fields.SchemaField({
+        agility:   new fields.NumberField({ initial: 0, integer: true }),
+        smarts:    new fields.NumberField({ initial: 0, integer: true }),
+        spirit:    new fields.NumberField({ initial: 0, integer: true }),
+        strength:  new fields.NumberField({ initial: 0, integer: true }),
+        magic:     new fields.NumberField({ initial: 0, integer: true }),
+        toughness: new fields.NumberField({ initial: 0, integer: true })
+      }),
+      skill_bonuses: new fields.ArrayField(
+        new fields.SchemaField({
+          item_uuid: new fields.StringField({ required: true, initial: "" }),
+          item_name: new fields.StringField({ initial: "" }),
+          bonus:     new fields.NumberField({ initial: 1, integer: true })
+        })
+      ),
     };
   }
 }

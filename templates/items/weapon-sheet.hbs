@@ -8,12 +8,22 @@
       <div class="wp-name-row">
         <input class="wp-name-input" type="text" name="name"
                value="{{item.name}}" placeholder="Название оружия" />
+        <span class="wp-condition-badge wp-cond-{{system.condition}}">
+          {{#if (eq system.condition "broken")}}💔 Сломано
+          {{else if (eq system.condition "worn")}}⚠ Потрёпанное
+          {{else if (eq system.condition "good")}}✓ Хорошее
+          {{else}}✦ Идеальное{{/if}}
+        </span>
+        {{#unless (eq system.condition "broken")}}
         <label class="wp-equipped-badge {{#if system.equipped}}wp-equipped-on{{/if}}"
                title="Экипировано">
           <input type="checkbox" name="system.equipped"
                  {{#if system.equipped}}checked{{/if}} style="display:none" />
           {{#if system.equipped}}⚔ Экипировано{{else}}◌ Убрано{{/if}}
         </label>
+        {{else}}
+        <span class="wp-equipped-badge wp-broken-badge">⛔ Сломано</span>
+        {{/unless}}
       </div>
       <div class="wp-sub-row">
         <span class="wp-size-tag">
@@ -109,6 +119,24 @@
       </div>
     </div>
 
+    {{!-- Состояние --}}
+    <div class="wp-params-grid">
+      <div class="wp-param-block">
+        <span class="wp-param-label">Состояние</span>
+        <select name="system.condition" class="kk9-select">
+          <option value="perfect" {{#if (eq system.condition "perfect")}}selected{{/if}}>✦ Идеальное</option>
+          <option value="good"    {{#if (eq system.condition "good")}}selected{{/if}}>✓ Хорошее</option>
+          <option value="worn"    {{#if (eq system.condition "worn")}}selected{{/if}}>⚠ Потрёпанное</option>
+          <option value="broken"  {{#if (eq system.condition "broken")}}selected{{/if}}>💔 Сломано</option>
+        </select>
+      </div>
+      {{#if (eq system.condition "broken")}}
+      <div class="wp-param-block" style="display:flex;align-items:flex-end">
+        <span style="font-size:0.8em;color:#f87171;padding-bottom:4px">⛔ Атаковать нельзя — сломано</span>
+      </div>
+      {{/if}}
+    </div>
+
     {{!-- Статус при попадании --}}
     <div class="wp-status-section">
       <div class="wp-status-header">
@@ -139,11 +167,13 @@
                 placeholder="Особенности, описание...">{{system.notes}}</textarea>
     </div>
 
-    {{!-- Кнопка атаки --}}
+    {{!-- Кнопка атаки — только если экипировано и не сломано --}}
     {{#if system.equipped}}
+    {{#unless (eq system.condition "broken")}}
     <button type="button" class="wp-attack-btn weapon-attack-roll">
       ⚔ Атаковать
     </button>
+    {{/unless}}
     {{/if}}
 
   </div>
@@ -255,5 +285,23 @@
 }
 .weapon-sheet .wp-attack-btn:hover {
   background: rgba(160,41,30,0.35); color: #e74c3c;
+}
+
+/* Бейдж состояния оружия */
+.weapon-sheet .wp-condition-badge {
+  flex-shrink: 0; font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.weapon-sheet .wp-cond-perfect { background: rgba(196,164,74,0.12); color: var(--gold); border: 1px solid rgba(196,164,74,0.3); }
+.weapon-sheet .wp-cond-good    { background: rgba(34,197,94,0.1);   color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.weapon-sheet .wp-cond-worn    { background: rgba(251,191,36,0.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+.weapon-sheet .wp-cond-broken  { background: rgba(239,68,68,0.1);   color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+.weapon-sheet .wp-broken-badge {
+  flex-shrink: 0; font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+  background: rgba(239,68,68,0.1); color: #f87171;
+  border: 1px solid rgba(239,68,68,0.25);
 }
 </style>

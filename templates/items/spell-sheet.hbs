@@ -1,42 +1,403 @@
-{{!-- КК9 | Карточка заклинания --}}
-<form class="kk9-sheet item-sheet spell-sheet" autocomplete="off">
-  <header class="sheet-header">
-    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
-    <div class="header-fields">
-      <input class="name-input" type="text" name="name" value="{{item.name}}" />
-      <input type="text" name="system.school" value="{{system.school}}" placeholder="Школа магии" class="school-input" />
+{{!-- КК9 | Карточка заклинания v2.0 --}}
+<form class="kk9-sheet item-sheet spell-sheet" autocomplete="off"
+      style="--spcolor: {{system.effect_color}}">
+
+  {{!-- ═══ ШАПКА ═══ --}}
+  <header class="sp-header">
+    <div class="sp-header-glow"></div>
+    <img class="sp-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="sp-header-right">
+      <div class="sp-name-row">
+        <input class="sp-name-input" type="text" name="name"
+               value="{{item.name}}" placeholder="Название заклинания" />
+        <span class="sp-type-badge sp-type-{{system.spell_type}}">
+          {{#if (eq system.spell_type "attack")}}⚔ Атака
+          {{else if (eq system.spell_type "defense")}}🛡 Защита
+          {{else if (eq system.spell_type "binding")}}🔗 Связующее
+          {{else if (eq system.spell_type "spatial")}}🌀 Пространственное
+          {{else if (eq system.spell_type "utility")}}⚙ Утилита
+          {{else if (eq system.spell_type "buff")}}✨ Бафф
+          {{else if (eq system.spell_type "transforming")}}🔄 Трансформация
+          {{else}}🔮 Пророческое{{/if}}
+        </span>
+      </div>
+      <div class="sp-sub-row">
+        <span class="sp-sub-cost">⚡ {{system.cost}} энергии</span>
+        {{#if system.range}}<span class="sp-sub-dim">📍 {{system.range}} м</span>{{/if}}
+        {{#if (eq system.duration -1)}}
+          <span class="sp-sub-dim">∞ постоянное</span>
+        {{else if (eq system.duration 0)}}
+          <span class="sp-sub-dim">⚡ мгновенное</span>
+        {{else}}
+          <span class="sp-sub-dim">⏱ {{system.duration}} ход.</span>
+        {{/if}}
+        {{#if system.no_wand_needed}}
+        <span class="sp-no-wand">✋ без палочки</span>
+        {{/if}}
+      </div>
     </div>
   </header>
 
-  <div class="sheet-body">
-    <div class="spell-params-grid">
-      <div class="stat-row">
-        <label>Стоимость (Воля):</label>
-        <input type="number" name="system.cost" value="{{system.cost}}" min="0" class="small-input" />
+  {{!-- ═══ ТЕЛО ═══ --}}
+  <div class="sp-body">
+
+    {{!-- Основные параметры --}}
+    <div class="sp-params-grid">
+      <div class="sp-param-block">
+        <span class="sp-param-label">Тип</span>
+        <select name="system.spell_type" class="kk9-select">
+          <option value="attack"      {{#if (eq system.spell_type "attack")}}selected{{/if}}>⚔ Атака</option>
+          <option value="defense"     {{#if (eq system.spell_type "defense")}}selected{{/if}}>🛡 Защита</option>
+          <option value="binding"     {{#if (eq system.spell_type "binding")}}selected{{/if}}>🔗 Связующее</option>
+          <option value="spatial"     {{#if (eq system.spell_type "spatial")}}selected{{/if}}>🌀 Пространственное</option>
+          <option value="utility"     {{#if (eq system.spell_type "utility")}}selected{{/if}}>⚙ Утилита</option>
+          <option value="buff"        {{#if (eq system.spell_type "buff")}}selected{{/if}}>✨ Бафф</option>
+          <option value="transforming" {{#if (eq system.spell_type "transforming")}}selected{{/if}}>🔄 Трансформация</option>
+          <option value="prophetic"   {{#if (eq system.spell_type "prophetic")}}selected{{/if}}>🔮 Пророческое</option>
+        </select>
       </div>
-      <div class="stat-row">
-        <label>Урон:</label>
-        <input type="text" name="system.damage" value="{{system.damage}}" placeholder="напр. 3d6" />
-        {{#if system.damage}}
-        <button type="button" class="roll-damage btn-roll">🎲 Бросить урон</button>
+      <div class="sp-param-block">
+        <span class="sp-param-label">Стоимость (энергия)</span>
+        <input type="number" name="system.cost" value="{{system.cost}}"
+               class="kk9-input" min="0" />
+      </div>
+      <div class="sp-param-block">
+        <span class="sp-param-label">Дальность (м)</span>
+        <input type="number" name="system.range" value="{{system.range}}"
+               class="kk9-input" min="0" />
+      </div>
+      <div class="sp-param-block">
+        <span class="sp-param-label">Длительность (ходов, −1=∞, 0=миг)</span>
+        <input type="number" name="system.duration" value="{{system.duration}}"
+               class="kk9-input" />
+      </div>
+    </div>
+
+    {{!-- Цвет и эффект --}}
+    <div class="sp-params-grid sp-params-grid--3">
+      <div class="sp-param-block sp-color-block">
+        <span class="sp-param-label">Цвет эффекта</span>
+        <div class="sp-color-row">
+          <input type="color" name="system.effect_color"
+                 value="{{system.effect_color}}" class="sp-color-picker" />
+          <span class="sp-color-preview" style="background:{{system.effect_color}}"></span>
+        </div>
+      </div>
+      <div class="sp-param-block" style="grid-column: span 2">
+        <span class="sp-param-label">Описание эффекта</span>
+        <input type="text" name="system.effect_description"
+               value="{{system.effect_description}}"
+               class="kk9-input" placeholder="Вспышка пурпурного огня, клубы тумана..." />
+      </div>
+    </div>
+
+    {{!-- Навык-тип + без палочки --}}
+    <div class="sp-params-grid sp-params-grid--skill">
+      <div class="spell-skill-drop sp-skill-drop">
+        <span class="sp-param-label">Магический навык</span>
+        {{#if system.skill_name}}
+        <div class="sp-linked-row">
+          <span class="sp-linked-name">✦ {{system.skill_name}}</span>
+          <button type="button" class="sp-clear-skill fac-del">✕</button>
+        </div>
+        {{else}}
+        <div class="sp-drop-hint">Перетащи магический навык или способность</div>
         {{/if}}
       </div>
-      <div class="stat-row">
-        <label>Дальность:</label>
-        <input type="text" name="system.range" value="{{system.range}}" />
-      </div>
-      <div class="stat-row">
-        <label>Длительность:</label>
-        <input type="text" name="system.duration" value="{{system.duration}}" />
-      </div>
-      <div class="stat-row">
-        <label>Навык для броска:</label>
-        <input type="text" name="system.roll_skill" value="{{system.roll_skill}}" />
+      <div class="sp-param-block sp-wand-block">
+        <span class="sp-param-label">Применение</span>
+        <label class="sp-toggle {{#if system.no_wand_needed}}sp-toggle-on{{/if}}">
+          <input type="checkbox" name="system.no_wand_needed"
+                 {{#if system.no_wand_needed}}checked{{/if}} />
+          {{#if system.no_wand_needed}}✋ Можно без палочки{{else}}🪄 Нужна палочка{{/if}}
+        </label>
+        {{#unless system.no_wand_needed}}
+        <span class="sp-wand-hint">Требует экипированный артефакт-палочку</span>
+        {{/unless}}
       </div>
     </div>
-    <div class="form-group">
-      <label>Описание:</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
+
+    {{!-- ── АТАКУЮЩИЕ ПОЛЯ ── --}}
+    {{#if (eq system.spell_type "attack")}}
+    <div class="sp-section">
+      <div class="sp-section-title">⚔ Параметры атаки</div>
+
+      <div class="sp-params-grid sp-params-grid--2">
+        <div class="sp-param-block">
+          <span class="sp-param-label">Уровень урона</span>
+          <select name="system.damage_level" class="kk9-select">
+            <option value="light"  {{#if (eq system.damage_level "light")}}selected{{/if}}>Лёгкий (1 ур.)</option>
+            <option value="heavy"  {{#if (eq system.damage_level "heavy")}}selected{{/if}}>Тяжёлый (2 ур.)</option>
+            <option value="lethal" {{#if (eq system.damage_level "lethal")}}selected{{/if}}>Летальный (3 ур.)</option>
+          </select>
+        </div>
+        <div class="sp-param-block">
+          <span class="sp-param-label">Тип урона</span>
+          <select name="system.damage_type" class="kk9-select">
+            <option value="physical" {{#if (eq system.damage_type "physical")}}selected{{/if}}>Физический</option>
+            <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sp-status-section">
+        <label class="sp-toggle-row">
+          <input type="checkbox" name="system.has_status"
+                 {{#if system.has_status}}checked{{/if}} />
+          <span class="sp-param-label">Применяет статус при попадании</span>
+        </label>
+        {{#if system.has_status}}
+        <div class="spell-status-drop sp-status-drop">
+          {{#if system.status_name}}
+          <div class="sp-linked-row">
+            <span class="sp-linked-name sp-status-name">{{system.status_name}}</span>
+            <button type="button" class="sp-clear-status fac-del">✕</button>
+          </div>
+          {{else}}
+          <div class="sp-drop-hint">Перетащи статус-итем сюда</div>
+          {{/if}}
+        </div>
+        {{/if}}
+      </div>
+
+      {{#if system.skill_name}}
+      <button type="button" class="sp-cast-btn spell-cast-roll">
+        ✦ Применить заклинание
+      </button>
+      {{else}}
+      <div class="sp-cast-hint">Укажи магический навык чтобы применить</div>
+      {{/if}}
     </div>
+    {{/if}}
+
+    {{!-- ── БАФФ ПОЛЯ ── --}}
+    {{#if (eq system.spell_type "buff")}}
+    <div class="sp-section">
+      <div class="sp-section-title">✨ Бонусы</div>
+      <div class="sp-bonuses-grid">
+        <div class="sp-bonus-row">
+          <span class="sp-bonus-label">Ловкость</span>
+          <input type="number" name="system.bonuses.agility" value="{{system.bonuses.agility}}" class="kk9-input sp-bonus-input" />
+        </div>
+        <div class="sp-bonus-row">
+          <span class="sp-bonus-label">Смекалка</span>
+          <input type="number" name="system.bonuses.smarts" value="{{system.bonuses.smarts}}" class="kk9-input sp-bonus-input" />
+        </div>
+        <div class="sp-bonus-row">
+          <span class="sp-bonus-label">Дух</span>
+          <input type="number" name="system.bonuses.spirit" value="{{system.bonuses.spirit}}" class="kk9-input sp-bonus-input" />
+        </div>
+        <div class="sp-bonus-row">
+          <span class="sp-bonus-label">Сила</span>
+          <input type="number" name="system.bonuses.strength" value="{{system.bonuses.strength}}" class="kk9-input sp-bonus-input" />
+        </div>
+        <div class="sp-bonus-row">
+          <span class="sp-bonus-label">Магия</span>
+          <input type="number" name="system.bonuses.magic" value="{{system.bonuses.magic}}" class="kk9-input sp-bonus-input" />
+        </div>
+        <div class="sp-bonus-row">
+          <span class="sp-bonus-label">Стойкость</span>
+          <input type="number" name="system.bonuses.toughness" value="{{system.bonuses.toughness}}" class="kk9-input sp-bonus-input" />
+        </div>
+      </div>
+
+      <div class="sp-param-label" style="margin-top:8px;margin-bottom:4px">
+        Бонусы к навыкам и способностям
+      </div>
+      <div class="spell-skill-bonus-drop sp-skill-bonus-drop">
+        {{#if system.skill_bonuses.length}}
+          {{#each system.skill_bonuses as |sb|}}
+          <div class="sp-skill-bonus-row">
+            <span class="sp-skill-bonus-name">{{sb.item_name}}</span>
+            <input type="number" name="system.skill_bonuses.{{@index}}.bonus"
+                   value="{{sb.bonus}}" class="kk9-input sp-bonus-input" />
+            <button type="button" class="sp-remove-skill-bonus fac-del"
+                    data-index="{{@index}}">✕</button>
+          </div>
+          {{/each}}
+        {{else}}
+          <div class="sp-drop-hint">Перетащи навык или способность сюда</div>
+        {{/if}}
+      </div>
+    </div>
+    {{/if}}
+
+    {{!-- Описание --}}
+    <div class="sp-param-block">
+      <span class="sp-param-label">Описание</span>
+      <textarea name="system.description" class="kk9-textarea sp-desc-ta"
+                placeholder="Описание заклинания...">{{system.description}}</textarea>
+    </div>
+
   </div>
+
 </form>
+
+<style>
+.spell-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+  --spcolor: #a855f7;
+}
+
+/* ── Шапка ── */
+.spell-sheet .sp-header {
+  position: relative;
+  display: flex; flex-direction: row; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0; overflow: hidden;
+}
+.spell-sheet .sp-header-glow {
+  position: absolute; top: -20px; left: -10px;
+  width: 120px; height: 120px;
+  background: radial-gradient(ellipse,
+    color-mix(in srgb, var(--spcolor) 20%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.spell-sheet .sp-avatar {
+  width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
+  cursor: pointer; flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, var(--spcolor) 50%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--spcolor) 20%, transparent);
+}
+.spell-sheet .sp-header-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.spell-sheet .sp-name-row { display: flex; align-items: center; gap: 8px; }
+.spell-sheet .sp-name-input {
+  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
+  background: transparent; border: none;
+  border-bottom: 2px solid color-mix(in srgb, var(--spcolor) 40%, transparent);
+  color: var(--text-head); padding: 0 0 1px; outline: none; min-width: 0;
+  transition: border-color 0.2s;
+}
+.spell-sheet .sp-name-input:focus {
+  border-bottom-color: var(--spcolor);
+}
+.spell-sheet .sp-sub-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.spell-sheet .sp-sub-cost {
+  font-size: 0.76em; font-weight: 500;
+  color: color-mix(in srgb, var(--spcolor) 80%, var(--text));
+}
+.spell-sheet .sp-sub-dim { font-size: 0.72em; color: var(--text-dim); }
+.spell-sheet .sp-no-wand {
+  font-size: 0.7em; color: #4ade80;
+  background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);
+  padding: 1px 6px; border-radius: 6px;
+}
+
+/* Бейдж типа */
+.spell-sheet .sp-type-badge {
+  flex-shrink: 0; font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+  background: color-mix(in srgb, var(--spcolor) 12%, transparent);
+  color: color-mix(in srgb, var(--spcolor) 90%, var(--text));
+  border: 1px solid color-mix(in srgb, var(--spcolor) 30%, transparent);
+}
+
+/* ── Тело ── */
+.spell-sheet .sp-body {
+  flex: 1; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+.spell-sheet .sp-params-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: end;
+}
+.spell-sheet .sp-params-grid--2 { grid-template-columns: 1fr 1fr; }
+.spell-sheet .sp-params-grid--3 { grid-template-columns: auto 1fr 1fr; align-items: end; }
+.spell-sheet .sp-params-grid--skill { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; }
+.spell-sheet .sp-param-block { display: flex; flex-direction: column; gap: 3px; }
+.spell-sheet .sp-param-label {
+  font-size: 0.65em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
+}
+
+/* Цвет */
+.spell-sheet .sp-color-row { display: flex; align-items: center; gap: 8px; }
+.spell-sheet .sp-color-picker {
+  width: 36px; height: 28px; padding: 0; border: 1px solid var(--border2);
+  border-radius: 3px; background: none; cursor: pointer;
+}
+.spell-sheet .sp-color-preview {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+
+/* Навык + палочка */
+.spell-sheet .sp-skill-drop {
+  border: 1px dashed color-mix(in srgb, var(--spcolor) 30%, var(--border));
+  border-radius: 4px; padding: 5px 10px; background: var(--bg3); min-height: 36px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.spell-sheet .sp-wand-block { min-width: 160px; }
+.spell-sheet .sp-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.8em; cursor: pointer; color: var(--text);
+  padding: 4px 10px; border-radius: 4px;
+  background: var(--bg2); border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.spell-sheet .sp-toggle input { margin: 0; }
+.spell-sheet .sp-toggle-on { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.3); color: #4ade80; }
+.spell-sheet .sp-toggle-row { display: flex; align-items: center; gap: 6px; font-size: 0.82em; color: var(--text); cursor: pointer; }
+.spell-sheet .sp-wand-hint { font-size: 0.68em; color: var(--text-dim); font-style: italic; margin-top: 3px; }
+
+/* Linked row */
+.spell-sheet .sp-linked-row { display: flex; align-items: center; gap: 8px; }
+.spell-sheet .sp-linked-name { flex: 1; font-size: 0.86em; color: color-mix(in srgb, var(--spcolor) 80%, var(--text)); }
+.spell-sheet .sp-status-name { color: #c084fc; }
+.spell-sheet .sp-drop-hint { font-size: 0.76em; color: var(--text-dim); font-style: italic; }
+
+/* Секции */
+.spell-sheet .sp-section {
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 10px 12px; background: var(--bg2);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.spell-sheet .sp-section-title {
+  font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--spcolor) 70%, var(--gold-dim)); font-weight: 500;
+}
+.spell-sheet .sp-status-section { display: flex; flex-direction: column; gap: 5px; }
+.spell-sheet .sp-status-drop {
+  border: 1px dashed rgba(168,85,247,0.3); border-radius: 4px;
+  padding: 5px 10px; background: rgba(168,85,247,0.04); min-height: 30px;
+}
+
+/* Бонусы */
+.spell-sheet .sp-bonuses-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+}
+.spell-sheet .sp-bonus-row { display: flex; align-items: center; gap: 6px; }
+.spell-sheet .sp-bonus-label { font-size: 0.75em; color: var(--text-dim); flex: 1; }
+.spell-sheet .sp-bonus-input { width: 56px !important; text-align: center; }
+
+.spell-sheet .sp-skill-bonus-drop {
+  border: 1px dashed color-mix(in srgb, var(--spcolor) 25%, var(--border));
+  border-radius: 4px; padding: 4px; min-height: 30px;
+  background: color-mix(in srgb, var(--spcolor) 3%, var(--bg2));
+  display: flex; flex-direction: column; gap: 3px;
+}
+.spell-sheet .sp-skill-bonus-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 3px 6px; background: var(--bg2); border-radius: 3px;
+}
+.spell-sheet .sp-skill-bonus-name { flex: 1; font-size: 0.84em; color: var(--text); }
+
+/* Кнопка применения */
+.spell-sheet .sp-cast-btn {
+  width: 100%; padding: 8px;
+  background: color-mix(in srgb, var(--spcolor) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--spcolor) 35%, transparent);
+  border-radius: 4px;
+  color: color-mix(in srgb, var(--spcolor) 90%, var(--text));
+  font-family: 'Jost', sans-serif; font-size: 0.9em; font-weight: 500;
+  letter-spacing: 0.06em; cursor: pointer; transition: all 0.15s;
+}
+.spell-sheet .sp-cast-btn:hover {
+  background: color-mix(in srgb, var(--spcolor) 22%, transparent);
+}
+.spell-sheet .sp-cast-hint {
+  font-size: 0.76em; color: var(--text-dim); font-style: italic; text-align: center; padding: 6px;
+}
+.spell-sheet .sp-desc-ta { min-height: 80px; }
+</style>
