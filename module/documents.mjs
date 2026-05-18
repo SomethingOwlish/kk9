@@ -1,5 +1,5 @@
 // ============================================================
-// КК9 — Документы v0.9
+// КК9 — Документы v1.0
 // ============================================================
 
 export class KK9Actor extends Actor {
@@ -17,10 +17,10 @@ export class KK9Actor extends Actor {
   async applyFacultyByName(facultyName) {
     if (!facultyName) {
       await this.update({
-        "system.faculty": null,
+        "system.faculty":       null,
         "system.faculty_color": "",
-        "system.faculty_key": "",
-        "system.faculty_name": ""
+        "system.faculty_key":   "",
+        "system.faculty_name":  ""
       });
       return;
     }
@@ -43,36 +43,38 @@ export class KK9Actor extends Actor {
 
     const oldFacultyId = this.system.faculty;
 
-    // --- БАГ 1 + 2: убираем старый факультет ---
+    // --- Убираем старый факультет ---
     if (oldFacultyId) {
-      const toRemove = this.items.filter(i =>
+      const facultyAbilities = this.items.filter(i =>
         i.type === "ability" && i.system.faculty_id === oldFacultyId
       );
 
-      for (const item of toRemove) {
+      for (const item of facultyAbilities) {
         const isLeveled = item.system.die > 4 || item.system.modifier !== -2;
 
         if (item.system.category === "magic") {
-          // magic всегда остаётся, только снимаем привязку к факультету
+          // Магические — всегда остаются, просто снимаем привязку к факультету
           await item.update({ "system.faculty_id": null });
         } else if (isLeveled) {
-          // БАГ 2: прокачанная — не удалять, перемещать по категории
-          // common/learned → в baseSkills (убрать faculty_id)
-          // personal → остаётся personal
+          // Баг 1+2: прокачанная (die>4 или modifier≠-2) — НЕ удаляем
+          // Снимаем faculty_id, остаётся в своей категории (common/learned → baseSkills)
           await item.update({ "system.faculty_id": null });
         } else {
-          // неумелая (d4, -2) — удаляем
+          // Неумелая (d4, -2) — удаляем
           await item.delete();
         }
       }
+
+      // Навыки (skills) — НЕ трогаем никогда при смене факультета (Баг 1)
     }
 
+    // --- Применяем новый факультет ---
     const fData = facultyItem.system;
     const updateData = {
       "system.faculty":       facultyItem.id,
       "system.faculty_color": fData.color || "#888888",
       "system.faculty_key":   facultyItem.id,
-      "system.faculty_name":  facultyItem.name  // БАГ 1: кэшируем имя
+      "system.faculty_name":  facultyItem.name
     };
 
     const relations = [...(this.system.relations || [])];
@@ -84,18 +86,19 @@ export class KK9Actor extends Actor {
 
     await this.update(updateData);
 
+    // Создаём способности нового факультета
     if (fData.abilities?.length) {
       for (const abilityRef of fData.abilities) {
-        // Не добавляем если уже есть (учитываем сохранённые прокачанные)
-        const alreadyHas = this.items.find(i =>
+        // Если уже есть такая способность на карточке (осталась прокачанной) — просто обновляем faculty_id
+        const existing = this.items.find(i =>
           (i.type === "ability" || i.type === "skill") && i.name === abilityRef.name
         );
-        if (alreadyHas) {
-          // если есть — просто обновляем faculty_id
-          await alreadyHas.update({ "system.faculty_id": facultyItem.id });
+        if (existing) {
+          await existing.update({ "system.faculty_id": facultyItem.id });
           continue;
         }
 
+        // Ищем оригинал в компендиумах
         let sourceItem = game.items.get(abilityRef.itemId);
         if (!sourceItem) {
           for (const pack of game.packs) {
@@ -113,11 +116,7 @@ export class KK9Actor extends Actor {
           await Item.create({
             name: abilityRef.name,
             type: "ability",
-            system: {
-              category: abilityRef.category || "common",
-              faculty_id: facultyItem.id,
-              description: ""
-            }
+            system: { category: abilityRef.category || "common", faculty_id: facultyItem.id, description: "" }
           }, { parent: this });
         }
       }
@@ -213,10 +212,9 @@ export class KK9Actor extends Actor {
   async rollSkill(skillName, modifier = 0, difficulty = 4) {
     const skillLabels = {
       athletics:"Атлетика", notice:"Внимание", stealth:"Скрытность",
-      persuasion:"Убеждение", fighting:"Рукопашный бой",
-      deception:"Обман", navigation:"Ориентирование", memory:"Память",
-      knowledge:"Знания", intimidation:"Запугивание",
-      survival:"Выживание", driving:"Вождение"
+      persuasion:"Убеждение", fighting:"Рукопашный бой", deception:"Обман",
+      navigation:"Ориентирование", memory:"Память", knowledge:"Знания",
+      intimidation:"Запугивание", survival:"Выживание", driving:"Вождение"
     };
     let skill = this.system.skills?.[skillName];
     let label = skillLabels[skillName] || skillName;
@@ -233,10 +231,7 @@ export class KK9Actor extends Actor {
     const roll = new Roll(formula);
     await roll.evaluate();
     const degree = this._getSuccessDegree(roll.total, difficulty);
-    await roll.toMessage({
-      speaker: ChatMessage.getSpeaker({ actor: this }),
-      flavor: `<strong>${label}</strong> (сложность ${difficulty})<br>${degree.label}`
-    });
+    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this }), flavor: `<strong>${label}</strong><br>${degree.label}` });
     return { roll, degree };
   }
 
@@ -251,10 +246,7 @@ export class KK9Actor extends Actor {
     const roll = new Roll(formula);
     await roll.evaluate();
     const degree = this._getSuccessDegree(roll.total, difficulty);
-    await roll.toMessage({
-      speaker: ChatMessage.getSpeaker({ actor: this }),
-      flavor: `<strong>${item.name}</strong> (d${die}${modStr})<br>${degree.label}`
-    });
+    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this }), flavor: `<strong>${item.name}</strong> (d${die}${modStr})<br>${degree.label}` });
     return { roll, degree };
   }
 
@@ -269,10 +261,7 @@ export class KK9Actor extends Actor {
     const roll = new Roll(formula);
     await roll.evaluate();
     const degree = this._getSuccessDegree(roll.total, difficulty);
-    await roll.toMessage({
-      speaker: ChatMessage.getSpeaker({ actor: this }),
-      flavor: `<strong>${item.name}</strong> (сложность ${difficulty})<br>${degree.label}`
-    });
+    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this }), flavor: `<strong>${item.name}</strong><br>${degree.label}` });
     return { roll, degree };
   }
 
@@ -289,10 +278,7 @@ export class KK9Item extends Item {
     if (!dmg) { ui.notifications.warn("Урон не задан."); return; }
     const roll = new Roll(dmg);
     await roll.evaluate();
-    await roll.toMessage({
-      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      flavor: `<strong>Урон: ${this.name}</strong>`
-    });
+    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>Урон: ${this.name}</strong>` });
     return roll;
   }
 }

@@ -1,4 +1,4 @@
-{{!-- Атрибуты + Факультет + Магические таланты v0.6 --}}
+{{!-- Атрибуты v1.0 — факультетские способности убраны отсюда, они только на вкладке Навыки --}}
 <section class="attributes-section">
   <h3 class="section-title">Атрибуты</h3>
   <div class="attributes-grid">
@@ -22,27 +22,7 @@
   </div>
 </section>
 
-{{!-- Факультетские способности на основной вкладке --}}
-{{#if facultyItem}}
-<section class="faculty-abilities-section" style="--fcolor:{{facultyColor}};border-color:{{facultyColor}}40;background:{{facultyColor}}08;margin-top:12px;padding:8px;border:1px solid;border-radius:4px">
-  <h3 class="section-title" style="color:{{facultyColor}};border-color:{{facultyColor}}30">
-    <span class="faculty-dot" style="background:{{facultyColor}}"></span>
-    {{facultyName}}
-  </h3>
-  {{#each facultyAbilities as |ab|}}
-  <div class="item-row" data-item-id="{{ab.id}}">
-    <img src="{{ab.img}}" class="item-img" />
-    <span class="item-name item-name-click" style="color:{{../facultyColor}}">{{ab.name}}</span>
-    <span class="item-badge cat-{{ab.system.category}}">{{categoryLabel ab.system.category}}</span>
-    <button type="button" class="item-delete btn-delete-xs">✕</button>
-  </div>
-  {{else}}
-  <p class="empty-hint">Нет способностей факультета</p>
-  {{/each}}
-</section>
-{{/if}}
-
-{{!-- Магические способности на основной: уровень таланта --}}
+{{!-- Магические таланты на основной вкладке — только уровень, без факультетских --}}
 {{#if magicAbilities.length}}
 <section class="magic-section" style="margin-top:12px;padding:8px;border:1px solid rgba(168,85,247,0.2);border-radius:4px;background:rgba(168,85,247,0.04)">
   <h3 class="section-title magic-title">✦ Магические таланты</h3>

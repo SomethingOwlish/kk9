@@ -1,5 +1,5 @@
 // ============================================================
-// КК9 — Листы v0.9
+// КК9 — Листы v1.0
 // ============================================================
 
 export class KK9CharacterSheet extends ActorSheet {
@@ -15,7 +15,6 @@ export class KK9CharacterSheet extends ActorSheet {
   }
 
   async _render(force, options) {
-    // БАГ 1: индексируем пак до рендера чтобы pack.get() работало
     const pack = game.packs.get("kk9.kk9-faculties");
     if (pack && !pack.indexed) await pack.getIndex();
     return super._render(force, options);
@@ -41,7 +40,6 @@ export class KK9CharacterSheet extends ActorSheet {
     context.categoryLabels = { common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая" };
     context.categoryLabel = (cat) => ({common:"Общая",personal:"Личная",learned:"Изучаемая",magic:"Магическая"})[cat] || cat;
 
-    // БАГ 3: ищем facultyItem надёжно — сначала в загруженных, потом по кэшу имени
     const facultyId = context.system.faculty;
     let facultyItem = null;
     if (facultyId) {
@@ -50,18 +48,13 @@ export class KK9CharacterSheet extends ActorSheet {
       if (!facultyItem) facultyItem = game.items?.get(facultyId) ?? null;
     }
     context.facultyItem  = facultyItem;
-    // БАГ 1: если facultyItem не загружен — используем кэшированные поля
     context.facultyColor = facultyItem?.system?.color || context.system.faculty_color || "#888888";
     context.facultyName  = facultyItem?.name || context.system.faculty_name || "";
 
-    // Имена способностей факультета — из item если загружен, иначе из items актора
     let facultyAbilityNames = new Set();
-    if (facultyItem) {
-      (facultyItem.system.abilities || []).forEach(a => facultyAbilityNames.add(a.name));
-    }
+    if (facultyItem) (facultyItem.system.abilities || []).forEach(a => facultyAbilityNames.add(a.name));
 
-    // БАГ 3: если facultyItem null но facultyId есть — ищем по faculty_id на items
-    // Это работает всегда, независимо от загруженности пака
+    // Факультетские: по faculty_id на items актора (работает даже если пак не загружен)
     const facultyItems = facultyId ? [
       ...allAbilities.filter(i =>
         i.system.faculty_id === facultyId ||
@@ -69,13 +62,10 @@ export class KK9CharacterSheet extends ActorSheet {
       ),
       ...allSkills.filter(i => facultyAbilityNames.has(i.name))
     ] : [];
-
     context.facultyAbilities = facultyItems;
     const facultyAbilityIds = new Set(facultyItems.map(i => i.id));
 
-    // БАГ 4: магические способности факультета — попадают В ОБА массива
-    // facultyAbilities уже содержит магические с faculty_id
-    // magicAbilities должен включать ВСЕ магические, включая факультетские
+    // Магические — ВСЕ magic, включая факультетские (баг 4 предыдущей итерации)
     context.magicAbilities = allAbilities.filter(i => i.system.category === "magic");
 
     context.baseSkills = allSkills.filter(i => !facultyAbilityIds.has(i.id));
@@ -248,6 +238,15 @@ export class KK9CharacterSheet extends ActorSheet {
 }
 
 // ============================================================
+// НПС — метка типа снаряжения
+// ============================================================
+const ITEM_TYPE_LABELS = {
+  weapon:"Оружие", gear:"Снаряжение", artifact:"Артефакт", spell:"Заклинание",
+  daemon:"Даймон", companion:"Спутник", vehicle:"Транспорт", device:"Устройство",
+  contact:"Контакт", language:"Язык", skill:"Навык", ability:"Способность"
+};
+
+// ============================================================
 // НПС — базовый класс
 // ============================================================
 class KK9NpcBaseSheet extends ActorSheet {
@@ -256,38 +255,17 @@ class KK9NpcBaseSheet extends ActorSheet {
     const c = super.getData();
     c.system = c.data.system;
     c.attributeLabels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
-    c.attrLabels      = { agility:"Ловк", smarts:"Смек", spirit:"Дух", strength:"Сила", magic:"Магия" };
-    c.categoryLabels  = { common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая" };
-    c.categoryLabel   = (cat) => ({common:"Общая",personal:"Личная",learned:"Изучаемая",magic:"Магическая"})[cat] || cat;
+    c.categoryLabel = (type) => ITEM_TYPE_LABELS[type] || type;
 
-    const attrs = c.system.attributes || {};
-    c.attrDice = {
-      agility:  attrs.agility?.die  || 4,
-      smarts:   attrs.smarts?.die   || 4,
-      spirit:   attrs.spirit?.die   || 4,
-      strength: attrs.strength?.die || 4,
-      magic:    attrs.magic?.die    || 4,
-    };
+    // Навыки и способности — одно поле без разделения
+    c.npcAllItems = this.actor.items
+      .filter(i => i.type === "skill" || i.type === "ability")
+      .map(i => i);
 
-    // Все навыки и способности в одной куче — без разделения
-    c.npcAllItems = this.actor.items.filter(i =>
-      i.type === "skill" || i.type === "ability"
-    );
-
-    // Всё снаряжение в одной куче — без разделения по типам
-    c.npcGear = this.actor.items.filter(i =>
-      !["skill","ability"].includes(i.type)
-    );
-
-    // НПС нет факультета
-    c.facultyAbilities  = [];
-    c.facultyItem       = null;
-    c.facultyColor      = "#888888";
-    c.facultyName       = "";
-    c.magicAbilities    = [];
-    c.baseSkills        = [];
-    c.personalAbilities = [];
-    c.magicLevelMap     = {};
+    // Снаряжение — всё остальное
+    c.npcGear = this.actor.items
+      .filter(i => !["skill","ability"].includes(i.type))
+      .map(i => i);
 
     return c;
   }
@@ -296,7 +274,7 @@ class KK9NpcBaseSheet extends ActorSheet {
     super.activateListeners(html);
 
     // Открыть предмет
-    html.find(".item-name-click, .item-img").click(e => {
+    html.find(".item-name-click").click(e => {
       const row = e.currentTarget.closest("[data-item-id]");
       if (!row) return;
       this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
@@ -305,19 +283,19 @@ class KK9NpcBaseSheet extends ActorSheet {
     // Удалить предмет
     html.find(".npc-item-delete").click(async e => {
       e.preventDefault();
-      const row = e.currentTarget.closest("[data-item-id]");
-      const itemId = row?.dataset.itemId || e.currentTarget.dataset.itemId;
+      const itemId = e.currentTarget.dataset.itemId || e.currentTarget.closest("[data-item-id]")?.dataset.itemId;
       if (itemId) await this.actor.items.get(itemId)?.delete();
     });
 
-    // Создать предмет
-    html.find(".npc-item-create").click(async e => {
-      e.preventDefault();
-      const type = e.currentTarget.dataset.type || "gear";
-      await Item.create({ name:"Новый предмет", type }, { parent: this.actor });
+    // Изменить кубик навыка/способности НПС
+    html.find(".npc-skill-die-select").change(async e => {
+      e.stopPropagation();
+      const itemId = e.currentTarget.dataset.itemId;
+      const die = parseInt(e.currentTarget.value);
+      if (itemId) await this.actor.items.get(itemId)?.update({ "system.die": die });
     });
 
-    // Бросок навыка/способности НПС
+    // Бросок навыка/способности
     html.find(".npc-rollable").click(async e => {
       const itemId = e.currentTarget.dataset.itemId;
       const item = this.actor.items.get(itemId);
@@ -325,7 +303,9 @@ class KK9NpcBaseSheet extends ActorSheet {
       const die = item.system.die || 4;
       const mod = item.system.modifier || 0;
       const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-      const roll = new Roll(`1d${die}${modStr}`);
+      // Лёгкий и сложный — только свой кубик (формула переопределяется в боссе)
+      const formula = this._buildRollFormula(die, modStr);
+      const roll = new Roll(formula);
       await roll.evaluate();
       await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — ${item.name}` });
     });
@@ -371,29 +351,36 @@ class KK9NpcBaseSheet extends ActorSheet {
       await this.actor.update({ "system.relations": [...relations, { name:"", status:"neutral", level:0, notes:"", love:false }] });
     });
 
-    // Инициатива — Ловкость + Смекалка (у босса переопределяется)
-    html.find(".roll-npc-initiative").click(async () => {
-      const ag = this.actor.system.attributes.agility?.die || 4;
-      const sm = this.actor.system.attributes.smarts?.die  || 4;
-      const roll = new Roll(`1d${ag} + 1d${sm}`);
-      await roll.evaluate();
-      await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — Инициатива` });
-    });
+    // Инициатива
+    html.find(".roll-npc-initiative").click(() => this._rollInitiative());
+    // Стойкость
+    html.find(".roll-npc-toughness").click(() => this._rollToughness());
+  }
 
-    // Стойкость = 2 + Дух/2, бросок Духа (как у игрока — Дух)
-    html.find(".roll-npc-toughness").click(async () => {
-      const sp = this.actor.system.attributes.spirit?.die || 4;
-      const roll = new Roll(`{1d${sp}}kh`);
-      await roll.evaluate();
-      await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — Стойкость` });
-    });
+  // Переопределяется в боссе
+  _buildRollFormula(die, modStr) {
+    return `1d${die}${modStr}`;
+  }
+
+  async _rollInitiative() {
+    const ag = this.actor.system.attributes.agility?.die || 4;
+    const sm = this.actor.system.attributes.smarts?.die  || 4;
+    const roll = new Roll(`1d${ag} + 1d${sm}`);
+    await roll.evaluate();
+    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — Инициатива` });
+  }
+
+  async _rollToughness() {
+    const sp = this.actor.system.attributes.spirit?.die || 4;
+    const roll = new Roll(`1d${sp}`);
+    await roll.evaluate();
+    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — Стойкость` });
   }
 
   async _onDrop(event) {
     let data;
     try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return super._onDrop(event); }
 
-    // Акторы → связи
     if (data.type === "Actor") {
       event.preventDefault();
       const actor = await fromUuid(data.uuid);
@@ -405,11 +392,11 @@ class KK9NpcBaseSheet extends ActorSheet {
       return;
     }
 
-    // Предметы — без дублей для навыков/способностей
     if (data.type === "Item") {
       event.preventDefault();
       const item = await Item.fromDropData(data);
       if (!item) return;
+      // Без дублей для навыков и способностей
       if (item.type === "skill" || item.type === "ability") {
         const existing = this.actor.items.find(i => i.name === item.name && i.type === item.type);
         if (existing) { ui.notifications.warn(`"${item.name}" уже есть на карточке.`); return; }
@@ -423,7 +410,7 @@ class KK9NpcBaseSheet extends ActorSheet {
 }
 
 // ============================================================
-// ЛЁГКИЙ НПС
+// ЛЁГКИЙ НПС — только свои кубики
 // ============================================================
 export class KK9NpcLightSheet extends KK9NpcBaseSheet {
   static get defaultOptions() {
@@ -451,7 +438,7 @@ export class KK9NpcLightSheet extends KK9NpcBaseSheet {
 }
 
 // ============================================================
-// СЛОЖНЫЙ НПС
+// СЛОЖНЫЙ НПС — только свои кубики
 // ============================================================
 export class KK9NpcHardSheet extends KK9NpcBaseSheet {
   static get defaultOptions() {
@@ -479,7 +466,7 @@ export class KK9NpcHardSheet extends KK9NpcBaseSheet {
 }
 
 // ============================================================
-// НЕПОБЕДИМЫЙ НПС — дикий кубик
+// НЕПОБЕДИМЫЙ НПС — дикий кубик: лучший из {д6, свой}
 // ============================================================
 export class KK9NpcBossSheet extends KK9NpcBaseSheet {
   static get defaultOptions() {
@@ -492,10 +479,15 @@ export class KK9NpcBossSheet extends KK9NpcBaseSheet {
     });
   }
 
+  // Переопределяем формулу — дикий кубик для навыков
+  _buildRollFormula(die, modStr) {
+    return `{1d6${modStr}, 1d${die}${modStr}}kh`;
+  }
+
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Бросок атрибута — дикий кубик: лучший из д6 и своего
+    // Бросок атрибута с диким кубиком
     html.find(".rollable-npc-attr-boss").click(async e => {
       const attr  = e.currentTarget.dataset.attribute;
       const die   = this.actor.system.attributes[attr]?.die;
@@ -505,15 +497,15 @@ export class KK9NpcBossSheet extends KK9NpcBaseSheet {
       await roll.evaluate();
       await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — ${label} (д6 + д${die}, лучший)` });
     });
+  }
 
-    // Инициатива босса — дикий кубик
-    html.find(".roll-npc-initiative").off("click").click(async () => {
-      const ag = this.actor.system.attributes.agility?.die || 4;
-      const sm = this.actor.system.attributes.smarts?.die  || 4;
-      const roll = new Roll(`{1d6, 1d${ag} + 1d${sm}}kh`);
-      await roll.evaluate();
-      await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — Инициатива (дикий кубик)` });
-    });
+  // Инициатива босса — дикий кубик
+  async _rollInitiative() {
+    const ag = this.actor.system.attributes.agility?.die || 4;
+    const sm = this.actor.system.attributes.smarts?.die  || 4;
+    const roll = new Roll(`{1d6, 1d${ag} + 1d${sm}}kh`);
+    await roll.evaluate();
+    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — Инициатива (дикий кубик)` });
   }
 }
 
