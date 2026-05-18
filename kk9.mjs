@@ -307,6 +307,12 @@ function _registerHelpers() {
     daemon:"👁", companion:"🐾", vehicle:"🚗", device:"⚙",
     contact:"📇", language:"🗣", skill:"📖", ability:"⚡", status:"⚡"
   })[type] || "📦");
+  Handlebars.registerHelper("colorHex", (color) => ({
+    black:"#1a1a1a", white:"#f0f0f0", gold:"#c4a44a", silver:"#c0c0c0",
+    red:"#e53935", orange:"#fb8c00", green:"#43a047", blue:"#1e88e5",
+    purple:"#8e24aa", yellow:"#fdd835", pink:"#f06292", pearl:"#e8d5c0", grey:"#9e9e9e"
+  })[color] || "#888888");
+
   Handlebars.registerHelper("npcItemTypeLabel", (type) => ({
     weapon:"Оружие", gear:"Снаряжение", artifact:"Артефакт", spell:"Заклинание",
     daemon:"Даймон", companion:"Спутник", vehicle:"Транспорт", device:"Устройство",

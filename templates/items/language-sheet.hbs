@@ -1,19 +1,112 @@
-{{!-- КК9 | Язык --}}
-<form class="kk9-sheet item-sheet" autocomplete="off">
-  <header class="sheet-header" style="padding:10px;background:var(--bg2,#232323);border-bottom:1px solid var(--border,#3a3a3a)">
-    <img class="item-img" src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer" />
-    <div style="flex:1;padding-left:10px">
-      <input type="text" name="name" value="{{item.name}}" style="font-size:1.2em;background:transparent;border:none;border-bottom:1px solid var(--border,#3a3a3a);color:var(--text-head,#d8d0c8);width:100%" />
+{{!-- КК9 | Карточка языка v1.1 — без аватара --}}
+<form class="kk9-sheet item-sheet language-sheet" autocomplete="off">
+
+  {{!-- ═══ ШАПКА ═══ --}}
+  <header class="lang-header">
+    <div class="lang-header-main">
+      <div class="lang-name-row">
+        <input class="lang-name-input" type="text" name="name"
+               value="{{item.name}}" placeholder="Название языка" />
+        <span class="lang-world-badge lang-world-{{system.world}}">
+          {{#if (eq system.world "upper")}}☀ Верхний мир
+          {{else if (eq system.world "lower")}}🌑 Нижний мир
+          {{else}}🌐 Оба мира{{/if}}
+        </span>
+        {{#if system.is_dead}}
+        <span class="lang-dead-badge">💀 Мёртвый</span>
+        {{/if}}
+      </div>
     </div>
   </header>
-  <div style="padding:12px">
-    <div style="margin-bottom:8px">
-      <label style="font-size:0.78em;color:var(--text-dim,#6a6560);text-transform:uppercase">Регион / происхождение</label>
-      <input type="text" name="system.region" value="{{system.region}}" style="width:100%;margin-top:4px;background:var(--bg3,#2a2a2a);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text,#b8b0a4);padding:4px 8px" />
+
+  {{!-- ═══ ТЕЛО ═══ --}}
+  <div class="lang-body">
+
+    <div class="lang-params-grid">
+      <div class="lang-param-block">
+        <span class="lang-param-label">Мир</span>
+        <select name="system.world" class="kk9-select">
+          <option value="upper" {{#if (eq system.world "upper")}}selected{{/if}}>☀ Верхний мир</option>
+          <option value="lower" {{#if (eq system.world "lower")}}selected{{/if}}>🌑 Нижний мир</option>
+          <option value="both"  {{#if (eq system.world "both")}}selected{{/if}}>🌐 Оба мира</option>
+        </select>
+      </div>
+      <div class="lang-param-block lang-param-block--check">
+        <span class="lang-param-label">Статус</span>
+        <label class="lang-dead-toggle {{#if system.is_dead}}lang-dead-on{{/if}}">
+          <input type="checkbox" name="system.is_dead"
+                 {{#if system.is_dead}}checked{{/if}} />
+          💀 Мёртвый язык
+        </label>
+      </div>
     </div>
-    <div>
-      <label style="font-size:0.78em;color:var(--text-dim,#6a6560);text-transform:uppercase">Описание</label>
-      <textarea name="system.description" rows="4" style="width:100%;margin-top:4px;background:var(--bg3,#2a2a2a);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text,#b8b0a4);padding:6px 8px;font-family:inherit">{{system.description}}</textarea>
+
+    <div class="lang-param-block">
+      <span class="lang-param-label">Описание</span>
+      <textarea name="system.description" class="kk9-textarea lang-desc-ta"
+                placeholder="Где используется, кто говорит, особенности...">{{system.description}}</textarea>
     </div>
+
   </div>
+
 </form>
+
+<style>
+.language-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+}
+.language-sheet .lang-header {
+  padding: 10px 14px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.language-sheet .lang-header-main { display: flex; flex-direction: column; gap: 4px; }
+.language-sheet .lang-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.language-sheet .lang-name-input {
+  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
+  background: transparent; border: none;
+  border-bottom: 2px solid var(--border2);
+  color: var(--text-head); padding: 0 0 1px; outline: none; min-width: 0;
+}
+.language-sheet .lang-name-input:focus { border-bottom-color: var(--gold); }
+
+.language-sheet .lang-world-badge {
+  flex-shrink: 0; font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.language-sheet .lang-world-upper { background: rgba(251,191,36,0.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+.language-sheet .lang-world-lower { background: rgba(139,92,246,0.1);  color: #a78bfa; border: 1px solid rgba(139,92,246,0.25); }
+.language-sheet .lang-world-both  { background: rgba(148,163,184,0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.25); }
+
+.language-sheet .lang-dead-badge {
+  font-size: 0.66em; padding: 2px 8px; border-radius: 10px;
+  background: rgba(100,100,100,0.15); color: var(--text-dim);
+  border: 1px solid var(--border2);
+}
+
+.language-sheet .lang-body {
+  flex: 1; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+.language-sheet .lang-params-grid {
+  display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end;
+}
+.language-sheet .lang-param-block { display: flex; flex-direction: column; gap: 3px; }
+.language-sheet .lang-param-block--check { justify-content: flex-end; }
+.language-sheet .lang-param-label {
+  font-size: 0.65em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
+}
+.language-sheet .lang-dead-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.8em; cursor: pointer; color: var(--text-dim);
+  padding: 4px 10px; border-radius: 4px;
+  background: var(--bg2); border: 1px solid var(--border);
+  transition: all 0.15s; white-space: nowrap;
+}
+.language-sheet .lang-dead-toggle input { margin: 0; }
+.language-sheet .lang-dead-on {
+  background: rgba(100,100,100,0.12); border-color: var(--border2); color: var(--text-dim);
+}
+.language-sheet .lang-desc-ta { min-height: 100px; }
+</style>

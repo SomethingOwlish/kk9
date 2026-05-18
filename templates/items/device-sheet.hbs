@@ -1,32 +1,254 @@
-<form class="kk9-sheet item-sheet" autocomplete="off">
-  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
-    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
-    <div style="flex:1">
-      <input type="text" name="name" value="{{item.name}}"
-             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
+{{!-- КК9 | Карточка устройства v2.0 --}}
+<form class="kk9-sheet item-sheet device-sheet" autocomplete="off">
+
+  {{!-- ═══ ШАПКА ═══ --}}
+  <header class="dev-header">
+    <img class="dev-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="dev-header-right">
+      <div class="dev-name-row">
+        <input class="dev-name-input" type="text" name="name"
+               value="{{item.name}}" placeholder="Название устройства" />
+        <span class="dev-cond-badge dev-cond-{{system.condition}}">
+          {{#if (eq system.condition "broken")}}💔 Сломано
+          {{else if (eq system.condition "worn")}}⚠ Потрёпанное
+          {{else if (eq system.condition "good")}}✓ Хорошее
+          {{else}}✦ Идеальное{{/if}}
+        </span>
+      </div>
+      <div class="dev-sub-row">
+        <span class="dev-type-tag">
+          {{#if (eq system.device_type "gadget")}}⚙ Гаджет
+          {{else if (eq system.device_type "drone")}}🚁 Дрон
+          {{else if (eq system.device_type "computer")}}💻 Компьютер
+          {{else if (eq system.device_type "medical")}}💊 Медицинское
+          {{else}}◈ Прочее{{/if}}
+        </span>
+        {{#if system.creator}}<span class="dev-sub-dim">🔧 {{system.creator}}</span>{{/if}}
+        {{#if (ne system.charges -1)}}
+        <span class="dev-sub-dim">🔋 {{system.charges}} заряд.</span>
+        {{/if}}
+        <span class="dev-world-tags">
+          {{#if system.works_upper}}<span class="dev-world-tag dev-world-upper" title="Работает в верхнем мире">☀</span>{{/if}}
+          {{#if system.works_lower}}<span class="dev-world-tag dev-world-lower" title="Работает в нижнем мире">🌑</span>{{/if}}
+        </span>
+      </div>
     </div>
   </header>
-  <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип устройства</label>
+
+  {{!-- ═══ ТЕЛО ═══ --}}
+  <div class="dev-body">
+
+    {{!-- Основные параметры --}}
+    <div class="dev-params-grid">
+      <div class="dev-param-block">
+        <span class="dev-param-label">Тип</span>
         <select name="system.device_type" class="kk9-select">
-          <option value="gadget"   {{#if (eq system.device_type "gadget")}}selected{{/if}}>Гаджет</option>
-          <option value="weapon"   {{#if (eq system.device_type "weapon")}}selected{{/if}}>Оружие</option>
-          <option value="drone"    {{#if (eq system.device_type "drone")}}selected{{/if}}>Дрон</option>
-          <option value="computer" {{#if (eq system.device_type "computer")}}selected{{/if}}>Компьютер</option>
-          <option value="medical"  {{#if (eq system.device_type "medical")}}selected{{/if}}>Медицинское</option>
-          <option value="other"    {{#if (eq system.device_type "other")}}selected{{/if}}>Прочее</option>
-        </select></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Заряды (-1 = ∞)</label>
-        <input type="number" name="system.charges" value="{{system.charges}}" class="kk9-input" /></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Бонус к навыку</label>
-        <input type="text" name="system.bonus_skill" value="{{system.bonus_skill}}" class="kk9-input" placeholder="Взлом техники" /></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Значение бонуса</label>
-        <input type="number" name="system.bonus_value" value="{{system.bonus_value}}" class="kk9-input" /></div>
+          <option value="gadget"   {{#if (eq system.device_type "gadget")}}selected{{/if}}>⚙ Гаджет</option>
+          <option value="drone"    {{#if (eq system.device_type "drone")}}selected{{/if}}>🚁 Дрон</option>
+          <option value="computer" {{#if (eq system.device_type "computer")}}selected{{/if}}>💻 Компьютер</option>
+          <option value="medical"  {{#if (eq system.device_type "medical")}}selected{{/if}}>💊 Медицинское</option>
+          <option value="other"    {{#if (eq system.device_type "other")}}selected{{/if}}>◈ Прочее</option>
+        </select>
+      </div>
+      <div class="dev-param-block">
+        <span class="dev-param-label">Состояние</span>
+        <select name="system.condition" class="kk9-select">
+          <option value="perfect" {{#if (eq system.condition "perfect")}}selected{{/if}}>✦ Идеальное</option>
+          <option value="good"    {{#if (eq system.condition "good")}}selected{{/if}}>✓ Хорошее</option>
+          <option value="worn"    {{#if (eq system.condition "worn")}}selected{{/if}}>⚠ Потрёпанное</option>
+          <option value="broken"  {{#if (eq system.condition "broken")}}selected{{/if}}>💔 Сломано</option>
+        </select>
+      </div>
+      <div class="dev-param-block">
+        <span class="dev-param-label">Заряды (−1 = ∞)</span>
+        <input type="number" name="system.charges" value="{{system.charges}}"
+               class="kk9-input" />
+      </div>
     </div>
-    <div>
-      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
+
+    {{!-- Создатель --}}
+    <div class="dev-param-block">
+      <span class="dev-param-label">Создатель</span>
+      <input type="text" name="system.creator" value="{{system.creator}}"
+             class="kk9-input" placeholder="Компания, учёный, мастер..." />
     </div>
+
+    {{!-- Бонус к навыку --}}
+    <div class="dev-section">
+      <div class="dev-section-title">⚡ Бонус к навыку</div>
+      <div class="dev-skill-row">
+        <div class="device-skill-drop dev-skill-drop">
+          {{#if system.bonus_skill_name}}
+          <div class="dev-linked-row">
+            <span class="dev-linked-name">📖 {{system.bonus_skill_name}}</span>
+            <button type="button" class="dev-clear-skill fac-del">✕</button>
+          </div>
+          {{else}}
+          <div class="dev-drop-hint">Перетащи навык или способность</div>
+          {{/if}}
+        </div>
+        <div class="dev-param-block dev-bonus-block">
+          <span class="dev-param-label">Бонус</span>
+          <input type="number" name="system.bonus_value" value="{{system.bonus_value}}"
+                 class="kk9-input dev-bonus-input" />
+        </div>
+      </div>
+    </div>
+
+    {{!-- Экипировка --}}
+    {{#unless (eq system.condition "broken")}}
+    <label class="dev-equip-toggle {{#if system.equipped}}dev-equipped-on{{/if}}">
+      <input type="checkbox" name="system.equipped"
+             {{#if system.equipped}}checked{{/if}} />
+      {{#if system.equipped}}✓ Экипировано{{else}}◌ Не экипировано{{/if}}
+    </label>
+    {{else}}
+    <div class="dev-equip-disabled">⛔ Сломано — нельзя экипировать</div>
+    {{/unless}}
+
+    {{!-- Может работать --}}
+    <div class="dev-section">
+      <div class="dev-section-title">🌍 Может работать</div>
+      <div class="dev-world-row">
+        <label class="dev-world-check {{#if system.works_upper}}dev-world-on{{/if}}">
+          <input type="checkbox" name="system.works_upper"
+                 {{#if system.works_upper}}checked{{/if}} />
+          ☀ Верхний мир
+        </label>
+        <label class="dev-world-check {{#if system.works_lower}}dev-world-on-lower{{/if}}">
+          <input type="checkbox" name="system.works_lower"
+                 {{#if system.works_lower}}checked{{/if}} />
+          🌑 Нижний мир
+        </label>
+      </div>
+    </div>
+
+    {{!-- Заметки и описание --}}
+    <div class="dev-param-block">
+      <span class="dev-param-label">Заметки</span>
+      <textarea name="system.notes" class="kk9-textarea dev-notes-ta"
+                placeholder="Особенности, инструкция...">{{system.notes}}</textarea>
+    </div>
+    <div class="dev-param-block">
+      <span class="dev-param-label">Описание</span>
+      <textarea name="system.description" class="kk9-textarea dev-desc-ta"
+                placeholder="История, происхождение...">{{system.description}}</textarea>
+    </div>
+
   </div>
+
 </form>
+
+<style>
+.device-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+}
+
+/* ── Шапка ── */
+.device-sheet .dev-header {
+  display: flex; flex-direction: row; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.device-sheet .dev-avatar {
+  width: 48px; height: 48px; border-radius: 4px; object-fit: cover;
+  cursor: pointer; flex-shrink: 0; border: 2px solid var(--border2);
+}
+.device-sheet .dev-header-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.device-sheet .dev-name-row { display: flex; align-items: center; gap: 8px; }
+.device-sheet .dev-name-input {
+  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
+  background: transparent; border: none;
+  border-bottom: 2px solid var(--border2);
+  color: var(--text-head); padding: 0 0 1px; outline: none; min-width: 0;
+}
+.device-sheet .dev-name-input:focus { border-bottom-color: var(--gold); }
+.device-sheet .dev-sub-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.device-sheet .dev-type-tag { font-size: 0.72em; color: var(--text-dim); }
+.device-sheet .dev-sub-dim  { font-size: 0.72em; color: var(--text-dim); }
+
+/* Состояние */
+.device-sheet .dev-cond-badge {
+  flex-shrink: 0; font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.device-sheet .dev-cond-perfect { background: rgba(196,164,74,0.12); color: var(--gold); border: 1px solid rgba(196,164,74,0.3); }
+.device-sheet .dev-cond-good    { background: rgba(34,197,94,0.1);   color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.device-sheet .dev-cond-worn    { background: rgba(251,191,36,0.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+.device-sheet .dev-cond-broken  { background: rgba(239,68,68,0.1);   color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+
+/* Миры */
+.device-sheet .dev-world-tags { display: flex; gap: 4px; }
+.device-sheet .dev-world-tag { font-size: 0.9em; }
+
+/* ── Тело ── */
+.device-sheet .dev-body {
+  flex: 1; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+.device-sheet .dev-params-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: end;
+}
+.device-sheet .dev-param-block { display: flex; flex-direction: column; gap: 3px; }
+.device-sheet .dev-param-label {
+  font-size: 0.65em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
+}
+
+/* Секция бонуса */
+.device-sheet .dev-section {
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px 12px; background: var(--bg2);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.device-sheet .dev-section-title {
+  font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gold-dim); font-weight: 500;
+}
+.device-sheet .dev-skill-row { display: flex; align-items: flex-end; gap: 10px; }
+.device-sheet .dev-skill-drop {
+  flex: 1; border: 1px dashed var(--border2); border-radius: 4px;
+  padding: 5px 10px; background: var(--bg3); min-height: 32px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.device-sheet .dev-linked-row { display: flex; align-items: center; gap: 8px; }
+.device-sheet .dev-linked-name { flex: 1; font-size: 0.86em; color: var(--text); }
+.device-sheet .dev-drop-hint { font-size: 0.76em; color: var(--text-dim); font-style: italic; }
+.device-sheet .dev-bonus-block { min-width: 80px; }
+.device-sheet .dev-bonus-input { width: 70px !important; text-align: center; }
+
+/* Экипировка */
+.device-sheet .dev-equip-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.82em; cursor: pointer; color: var(--text);
+  padding: 5px 10px; border-radius: 4px;
+  background: var(--bg2); border: 1px solid var(--border);
+  transition: all 0.15s; width: fit-content;
+}
+.device-sheet .dev-equip-toggle input { margin: 0; }
+.device-sheet .dev-equipped-on { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.3); color: #4ade80; }
+.device-sheet .dev-equip-disabled {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.82em; color: #f87171; opacity: 0.7;
+  padding: 5px 10px; border-radius: 4px;
+  background: rgba(239,68,68,0.06); border: 1px dashed rgba(239,68,68,0.25);
+  width: fit-content;
+}
+
+/* Миры */
+.device-sheet .dev-world-row { display: flex; gap: 12px; }
+.device-sheet .dev-world-check {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.84em; cursor: pointer; color: var(--text-dim);
+  padding: 4px 10px; border-radius: 4px;
+  background: var(--bg3); border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.device-sheet .dev-world-check input { margin: 0; }
+.device-sheet .dev-world-on       { background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.3); color: #fbbf24; }
+.device-sheet .dev-world-on-lower { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.3); color: #a78bfa; }
+
+.device-sheet .dev-notes-ta { min-height: 60px; }
+.device-sheet .dev-desc-ta  { min-height: 70px; }
+</style>

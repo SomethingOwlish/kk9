@@ -516,86 +516,204 @@ export class SpellDataModel extends foundry.abstract.TypeDataModel {
 
 export class DaemonDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
     return {
-      description: new fields.HTMLField({ initial: "" }),
-      attributes: new fields.SchemaField({
-        agility:  attributeField(),
-        smarts:   attributeField(),
-        spirit:   attributeField(),
-        strength: attributeField(),
-        magic:    attributeField(),
+      description:  new fields.HTMLField({ initial: "" }),
+
+      // Режим: шарик или свободен
+      is_orb:       new fields.BooleanField({ initial: true }),
+
+      // Настоящее имя
+      true_name:    new fields.StringField({ initial: "" }),
+
+      // Корпорация
+      corporation:  new fields.StringField({
+        initial: "taro",
+        choices: ["taro", "rainbow", "new"]
       }),
+
+      // Класс — зависит от корпорации
+      // Таро: "1"-"10", "page", "queen", "knight", "king", "major"
+      // Радуга: "junior", "middle", "senior", "elder", "great"
+      daemon_class: new fields.StringField({ initial: "1" }),
+
+      // Масть (только Таро)
+      suit: new fields.StringField({
+        initial: "cups",
+        choices: ["cups", "wands", "swords", "pentacles"]
+      }),
+
+      // Цвет
+      color: new fields.StringField({
+        initial: "white",
+        choices: ["black","white","gold","silver","red","orange","green","blue","purple","yellow","pink","pearl","grey"]
+      }),
+
+      // Внешний вид
+      appearance: new fields.StringField({ initial: "" }),
+
+      // Психологические поля
+      dream:   new fields.StringField({ initial: "" }),
+      fear:    new fields.StringField({ initial: "" }),
+      desire:  new fields.StringField({ initial: "" }),
+
+      // ── РЕЖИМ ШАРИК ──
+      captor:  new fields.StringField({ initial: "" }),   // пленитель
+      used:    new fields.BooleanField({ initial: false }),// использован
+
+      // ── РЕЖИМ СВОБОДНЫЙ ──
+      gone:    new fields.BooleanField({ initial: false }), // ушёл
+
+      // Здоровье (5+5 пипов как у сложного НПС)
       health: new fields.SchemaField({
-        value:     new fields.NumberField({ initial: 0, min: 0, max: 5, integer: true }),
-        toughness: new fields.NumberField({ initial: 5, integer: true })
+        physical: new fields.SchemaField({
+          value: new fields.NumberField({ required: true, initial: 0, min: 0, max: 5, integer: true })
+        }),
+        mental: new fields.SchemaField({
+          value: new fields.NumberField({ required: true, initial: 0, min: 0, max: 5, integer: true })
+        })
       }),
-      abilities:        new fields.StringField({ initial: "" }),
-      summon_condition: new fields.StringField({ initial: "" }),
-      summon_cost:      new fields.StringField({ initial: "" }),
-      summoned:         new fields.BooleanField({ initial: false })
+
+      // Стойкость
+      toughness: new fields.NumberField({ initial: 5, integer: true }),
     };
   }
 }
 
 export class CompanionDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
     return {
       description: new fields.HTMLField({ initial: "" }),
       species:     new fields.StringField({ initial: "" }),
-      speed:       new fields.NumberField({ initial: 6, integer: true }),
-      toughness:   new fields.NumberField({ initial: 5, integer: true }),
-      notes:       new fields.StringField({ initial: "" })
+      age:         new fields.NumberField({ initial: 0, min: 0, integer: true }),
+      initiative: new fields.SchemaField({
+        die:      new fields.NumberField({ initial: 6, choices: [4,6,8,10,12,20], integer: true }),
+        modifier: new fields.NumberField({ initial: 0, integer: true })
+      }),
+      bond:        new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
+      character:   new fields.StringField({ initial: "" }),
     };
   }
 }
+
 
 export class VehicleDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
     return {
       description:  new fields.HTMLField({ initial: "" }),
-      vehicle_type: new fields.StringField({ initial: "ground", choices: ["ground","air","water","space","magical","other"] }),
-      speed:        new fields.NumberField({ initial: 60, integer: true }),
-      toughness:    new fields.NumberField({ initial: 8, integer: true }),
-      capacity:     new fields.NumberField({ initial: 4, integer: true }),
-      notes:        new fields.StringField({ initial: "" })
+      vehicle_type: new fields.StringField({
+        initial: "ground",
+        choices: ["ground","air","water","magical","other"]
+      }),
+      speed:    new fields.NumberField({ initial: 60, integer: true }),
+      toughness: new fields.NumberField({ initial: 8, integer: true }),
+      capacity:  new fields.NumberField({ initial: 4, integer: true }),
+      notes:     new fields.StringField({ initial: "" })
     };
   }
 }
+
 
 export class DeviceDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
     return {
       description:  new fields.HTMLField({ initial: "" }),
-      device_type:  new fields.StringField({ initial: "gadget", choices: ["gadget","weapon","drone","computer","medical","other"] }),
-      bonus_skill:  new fields.StringField({ initial: "" }),
-      bonus_value:  new fields.NumberField({ initial: 0, integer: true }),
+
+      device_type:  new fields.StringField({
+        initial: "gadget",
+        choices: ["gadget","drone","computer","medical","other"]
+      }),
+
+      creator:      new fields.StringField({ initial: "" }),
+
+      condition:    new fields.StringField({
+        initial: "perfect",
+        choices: ["perfect","good","worn","broken"]
+      }),
+
+      // Бонус к навыку — drag-drop
+      bonus_skill_uuid: new fields.StringField({ initial: "" }),
+      bonus_skill_name: new fields.StringField({ initial: "" }),
+      bonus_value:      new fields.NumberField({ initial: 0, integer: true }),
+
       charges:      new fields.NumberField({ initial: -1, integer: true }),
       equipped:     new fields.BooleanField({ initial: false }),
+
+      // Совместимость с мирами
+      works_upper:  new fields.BooleanField({ initial: true }),
+      works_lower:  new fields.BooleanField({ initial: true }),
+
       notes:        new fields.StringField({ initial: "" })
     };
   }
 }
 
+
+
+
 export class ContactDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
     return {
-      description:    new fields.HTMLField({ initial: "" }),
-      org_type:       new fields.StringField({ initial: "other", choices: ["academic","criminal","government","magical","corporate","underground","other"] }),
-      access_level:   new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
+      description: new fields.HTMLField({ initial: "" }),
+
+      org_type: new fields.StringField({
+        initial: "other",
+        choices: ["academic","criminal","government","magical","corporate","underground","other"]
+      }),
+
+      access_level: new fields.StringField({
+        initial: "open",
+        choices: ["open","known","secret","forbidden"]
+      }),
+
+      leader:         new fields.StringField({ initial: "" }),
+      goals:          new fields.StringField({ initial: "" }),
       representative: new fields.StringField({ initial: "" }),
-      notes:          new fields.StringField({ initial: "" })
+      notes:          new fields.StringField({ initial: "" }),
+
+      members: new fields.ArrayField(
+        new fields.SchemaField({
+          actor_uuid: new fields.StringField({ required: true, initial: "" }),
+          actor_name: new fields.StringField({ initial: "" })
+        })
+      ),
+
+      former_members: new fields.ArrayField(
+        new fields.SchemaField({
+          actor_uuid: new fields.StringField({ required: true, initial: "" }),
+          actor_name: new fields.StringField({ initial: "" }),
+          comment:    new fields.StringField({ initial: "" })
+        })
+      ),
+
+      events: new fields.ArrayField(
+        new fields.SchemaField({
+          uuid: new fields.StringField({ required: true, initial: "" }),
+          name: new fields.StringField({ initial: "" })
+        })
+      ),
     };
   }
 }
 
 export class LanguageDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
     return {
       description: new fields.StringField({ initial: "" }),
-      region:      new fields.StringField({ initial: "" })
+      world:       new fields.StringField({
+        initial: "lower",
+        choices: ["upper", "lower", "both", "mystic"]
+      }),
+      is_dead:     new fields.BooleanField({ initial: false }),
     };
   }
 }
+
 
 // ============================================================
 // СТАТУС (новый тип v0.9.0)

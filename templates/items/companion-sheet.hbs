@@ -1,23 +1,189 @@
-<form class="kk9-sheet item-sheet" autocomplete="off">
-  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
-    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
-    <div style="flex:1">
-      <input type="text" name="name" value="{{item.name}}"
-             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
+{{!-- КК9 | Карточка спутника v2.0 --}}
+<form class="kk9-sheet item-sheet companion-sheet" autocomplete="off">
+
+  {{!-- ═══ ШАПКА ═══ --}}
+  <header class="cp-header">
+    <img class="cp-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="cp-header-right">
+      <div class="cp-name-row">
+        <input class="cp-name-input" type="text" name="name"
+               value="{{item.name}}" placeholder="Имя спутника" />
+      </div>
+      <div class="cp-sub-row">
+        {{#if system.species}}<span class="cp-sub-tag">{{system.species}}</span>{{/if}}
+        {{#if system.age}}<span class="cp-sub-dim">{{system.age}} лет</span>{{/if}}
+        <span class="cp-bond-tag">
+          {{#if (eq system.bond 1)}}♡ Знакомый
+          {{else if (eq system.bond 2)}}♡♡ Приятель
+          {{else if (eq system.bond 3)}}♥ Друг
+          {{else if (eq system.bond 4)}}♥♥ Близкий
+          {{else}}♥♥♥ Неразлучны{{/if}}
+        </span>
+      </div>
     </div>
   </header>
-  <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Вид</label>
-        <input type="text" name="system.species" value="{{system.species}}" class="kk9-input" placeholder="Кот, ворон..." /></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Скорость</label>
-        <input type="number" name="system.speed" value="{{system.speed}}" class="kk9-input" /></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Стойкость</label>
-        <input type="number" name="system.toughness" value="{{system.toughness}}" class="kk9-input" /></div>
+
+  {{!-- ═══ ТЕЛО ═══ --}}
+  <div class="cp-body">
+
+    {{!-- Основные параметры --}}
+    <div class="cp-params-grid">
+      <div class="cp-param-block">
+        <span class="cp-param-label">Вид</span>
+        <input type="text" name="system.species" value="{{system.species}}"
+               class="kk9-input" placeholder="Кот, ворон, лисица..." />
+      </div>
+      <div class="cp-param-block cp-param-block--sm">
+        <span class="cp-param-label">Возраст</span>
+        <input type="number" name="system.age" value="{{system.age}}"
+               class="kk9-input" min="0" />
+      </div>
+      <div class="cp-param-block">
+        <span class="cp-param-label">Привязанность (1–5)</span>
+        <div class="cp-bond-row">
+          {{#times 5}}
+          <div class="cp-bond-pip {{#if (gte ../system.bond this)}}cp-bond-on{{/if}}"
+               data-value="{{this}}">♥</div>
+          {{/times}}
+          <input type="hidden" name="system.bond" value="{{system.bond}}" class="cp-bond-hidden" />
+        </div>
+      </div>
     </div>
-    <div>
-      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
+
+    {{!-- Инициатива --}}
+    <div class="cp-section">
+      <div class="cp-section-title">🎲 Инициатива</div>
+      <div class="cp-init-row">
+        <div class="cp-param-block">
+          <span class="cp-param-label">Кубик</span>
+          <select name="system.initiative.die" class="kk9-select">
+            <option value="4"  {{#if (eq system.initiative.die 4)}}selected{{/if}}>d4</option>
+            <option value="6"  {{#if (eq system.initiative.die 6)}}selected{{/if}}>d6</option>
+            <option value="8"  {{#if (eq system.initiative.die 8)}}selected{{/if}}>d8</option>
+            <option value="10" {{#if (eq system.initiative.die 10)}}selected{{/if}}>d10</option>
+            <option value="12" {{#if (eq system.initiative.die 12)}}selected{{/if}}>d12</option>
+            <option value="20" {{#if (eq system.initiative.die 20)}}selected{{/if}}>d20</option>
+          </select>
+        </div>
+        <div class="cp-param-block cp-param-block--sm">
+          <span class="cp-param-label">Модификатор</span>
+          <input type="number" name="system.initiative.modifier"
+                 value="{{system.initiative.modifier}}"
+                 class="kk9-input" />
+        </div>
+        <div class="cp-param-block cp-param-block--formula">
+          <span class="cp-param-label">Формула</span>
+          <span class="cp-formula">
+            1d{{system.initiative.die}}
+            {{#if system.initiative.modifier}}
+              {{#if (gt system.initiative.modifier 0)}}+{{system.initiative.modifier}}
+              {{else}}{{system.initiative.modifier}}{{/if}}
+            {{/if}}
+          </span>
+        </div>
+        <button type="button" class="cp-roll-init-btn companion-roll-initiative">
+          🎲 Бросить
+        </button>
+      </div>
     </div>
+
+    {{!-- Характер --}}
+    <div class="cp-param-block">
+      <span class="cp-param-label">Характер</span>
+      <textarea name="system.character" class="kk9-textarea cp-char-ta"
+                placeholder="Как ведёт себя, что любит, как реагирует...">{{system.character}}</textarea>
+    </div>
+
+    {{!-- Описание --}}
+    <div class="cp-param-block">
+      <span class="cp-param-label">Описание</span>
+      <textarea name="system.description" class="kk9-textarea cp-desc-ta"
+                placeholder="Внешность, история...">{{system.description}}</textarea>
+    </div>
+
   </div>
+
 </form>
+
+<style>
+.companion-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+}
+
+/* ── Шапка ── */
+.companion-sheet .cp-header {
+  display: flex; flex-direction: row; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.companion-sheet .cp-avatar {
+  width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
+  cursor: pointer; flex-shrink: 0; border: 2px solid var(--border2);
+}
+.companion-sheet .cp-header-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.companion-sheet .cp-name-row { display: flex; align-items: center; gap: 8px; }
+.companion-sheet .cp-name-input {
+  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
+  background: transparent; border: none;
+  border-bottom: 2px solid var(--border2);
+  color: var(--text-head); padding: 0 0 1px; outline: none; min-width: 0;
+}
+.companion-sheet .cp-name-input:focus { border-bottom-color: var(--gold); }
+.companion-sheet .cp-sub-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.companion-sheet .cp-sub-tag  { font-size: 0.78em; color: var(--text); }
+.companion-sheet .cp-sub-dim  { font-size: 0.72em; color: var(--text-dim); }
+.companion-sheet .cp-bond-tag { font-size: 0.72em; color: #f9a8d4; }
+
+/* ── Тело ── */
+.companion-sheet .cp-body {
+  flex: 1; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+.companion-sheet .cp-params-grid {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: end;
+}
+.companion-sheet .cp-param-block { display: flex; flex-direction: column; gap: 3px; }
+.companion-sheet .cp-param-block--sm { min-width: 70px; }
+.companion-sheet .cp-param-block--formula { justify-content: flex-end; }
+.companion-sheet .cp-param-label {
+  font-size: 0.65em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
+}
+
+/* Привязанность — пипы сердечки */
+.companion-sheet .cp-bond-row { display: flex; align-items: center; gap: 4px; }
+.companion-sheet .cp-bond-pip {
+  font-size: 1.1em; cursor: pointer; color: var(--border2);
+  transition: color 0.15s, transform 0.1s;
+}
+.companion-sheet .cp-bond-pip:hover { transform: scale(1.2); color: #f9a8d4; }
+.companion-sheet .cp-bond-on { color: #ec4899; text-shadow: 0 0 6px rgba(236,72,153,0.4); }
+
+/* Инициатива */
+.companion-sheet .cp-section {
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 10px 12px; background: var(--bg2);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.companion-sheet .cp-section-title {
+  font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gold-dim); font-weight: 500;
+}
+.companion-sheet .cp-init-row {
+  display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+}
+.companion-sheet .cp-formula {
+  font-family: 'Caveat', cursive; font-size: 1.1em;
+  color: var(--gold); padding-top: 4px;
+}
+.companion-sheet .cp-roll-init-btn {
+  padding: 4px 12px; align-self: flex-end;
+  background: rgba(196,164,74,0.1); border: 1px solid rgba(196,164,74,0.3);
+  border-radius: 4px; color: var(--gold); font-family: 'Jost', sans-serif;
+  font-size: 0.82em; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.companion-sheet .cp-roll-init-btn:hover { background: rgba(196,164,74,0.2); }
+
+.companion-sheet .cp-char-ta { min-height: 90px; }
+.companion-sheet .cp-desc-ta { min-height: 70px; }
+</style>

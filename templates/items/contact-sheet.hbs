@@ -1,29 +1,266 @@
-<form class="kk9-sheet item-sheet" autocomplete="off">
-  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
-    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
-    <div style="flex:1">
-      <input type="text" name="name" value="{{item.name}}"
-             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
+{{!-- КК9 | Карточка контакта/организации v2.0 --}}
+<form class="kk9-sheet item-sheet contact-sheet" autocomplete="off">
+
+  {{!-- ═══ ШАПКА ═══ --}}
+  <header class="con-header">
+    <img class="con-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="con-header-right">
+      <div class="con-name-row">
+        <input class="con-name-input" type="text" name="name"
+               value="{{item.name}}" placeholder="Название организации" />
+        <span class="con-access-badge con-access-{{system.access_level}}">
+          {{#if (eq system.access_level "open")}}🌐 Открытая
+          {{else if (eq system.access_level "known")}}👁 Общеизвестная
+          {{else if (eq system.access_level "secret")}}🔒 Тайная
+          {{else}}⛔ Запрещённая{{/if}}
+        </span>
+      </div>
+      <div class="con-sub-row">
+        <span class="con-type-tag">
+          {{#if (eq system.org_type "academic")}}🎓 Академическая
+          {{else if (eq system.org_type "criminal")}}💀 Криминальная
+          {{else if (eq system.org_type "government")}}🏛 Правительственная
+          {{else if (eq system.org_type "magical")}}✨ Магическая
+          {{else if (eq system.org_type "corporate")}}💼 Корпоративная
+          {{else if (eq system.org_type "underground")}}🕳 Подпольная
+          {{else}}◈ Прочая{{/if}}
+        </span>
+        {{#if system.leader}}<span class="con-sub-dim">👤 {{system.leader}}</span>{{/if}}
+        {{#if system.members.length}}<span class="con-sub-dim">{{system.members.length}} участн.</span>{{/if}}
+      </div>
     </div>
   </header>
-  <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип организации</label>
+
+  {{!-- ═══ ТЕЛО ═══ --}}
+  <div class="con-body">
+
+    {{!-- Основные параметры --}}
+    <div class="con-params-grid">
+      <div class="con-param-block">
+        <span class="con-param-label">Тип</span>
         <select name="system.org_type" class="kk9-select">
-          {{#each orgTypeOptions}}
-          <option value="{{value}}" {{#if (eq value ../system.org_type)}}selected{{/if}}>{{label}}</option>
-          {{/each}}
-        </select></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Уровень доступа (1–5)</label>
-        <input type="number" name="system.access_level" value="{{system.access_level}}" min="1" max="5" class="kk9-input" /></div>
+          <option value="academic"    {{#if (eq system.org_type "academic")}}selected{{/if}}>🎓 Академическая</option>
+          <option value="criminal"    {{#if (eq system.org_type "criminal")}}selected{{/if}}>💀 Криминальная</option>
+          <option value="government"  {{#if (eq system.org_type "government")}}selected{{/if}}>🏛 Правительственная</option>
+          <option value="magical"     {{#if (eq system.org_type "magical")}}selected{{/if}}>✨ Магическая</option>
+          <option value="corporate"   {{#if (eq system.org_type "corporate")}}selected{{/if}}>💼 Корпоративная</option>
+          <option value="underground" {{#if (eq system.org_type "underground")}}selected{{/if}}>🕳 Подпольная</option>
+          <option value="other"       {{#if (eq system.org_type "other")}}selected{{/if}}>◈ Прочая</option>
+        </select>
+      </div>
+      <div class="con-param-block">
+        <span class="con-param-label">Статус</span>
+        <select name="system.access_level" class="kk9-select">
+          <option value="open"      {{#if (eq system.access_level "open")}}selected{{/if}}>🌐 Открытая</option>
+          <option value="known"     {{#if (eq system.access_level "known")}}selected{{/if}}>👁 Общеизвестная</option>
+          <option value="secret"    {{#if (eq system.access_level "secret")}}selected{{/if}}>🔒 Тайная</option>
+          <option value="forbidden" {{#if (eq system.access_level "forbidden")}}selected{{/if}}>⛔ Запрещённая</option>
+        </select>
+      </div>
+      <div class="con-param-block">
+        <span class="con-param-label">Лидер</span>
+        <input type="text" name="system.leader" value="{{system.leader}}"
+               class="kk9-input" placeholder="Имя или должность..." />
+      </div>
+      <div class="con-param-block">
+        <span class="con-param-label">Представитель</span>
+        <input type="text" name="system.representative" value="{{system.representative}}"
+               class="kk9-input" placeholder="Контактное лицо..." />
+      </div>
     </div>
-    <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Представитель</label>
-      <input type="text" name="system.representative" value="{{system.representative}}" class="kk9-input" placeholder="Имя куратора в организации" /></div>
-    <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Заметки</label>
-      <textarea name="system.notes" rows="3" class="kk9-textarea">{{system.notes}}</textarea></div>
-    <div>
-      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
+
+    {{!-- Цели --}}
+    <div class="con-param-block">
+      <span class="con-param-label">Цели</span>
+      <textarea name="system.goals" class="kk9-textarea con-goals-ta"
+                placeholder="Что стремится достичь организация...">{{system.goals}}</textarea>
     </div>
+
+    {{!-- Участники --}}
+    <div class="con-section contact-members-drop">
+      <div class="con-section-header">
+        <span class="con-section-title">👥 Участники</span>
+        <span class="con-drop-hint">Перетащи карточку персонажа или НПС</span>
+      </div>
+      {{#if system.members.length}}
+      <div class="con-members-list">
+        {{#each system.members as |m|}}
+        <div class="con-member-row">
+          <span class="con-member-name con-open-actor" data-uuid="{{m.actor_uuid}}"
+                title="Открыть карточку">{{m.actor_name}}</span>
+          <button type="button" class="con-remove-member fac-del"
+                  data-uuid="{{m.actor_uuid}}">✕</button>
+        </div>
+        {{/each}}
+      </div>
+      {{else}}
+      <div class="con-empty-hint">Нет участников</div>
+      {{/if}}
+    </div>
+
+    {{!-- Бывшие участники --}}
+    <div class="con-section contact-former-drop">
+      <div class="con-section-header">
+        <span class="con-section-title">📋 Бывшие участники</span>
+        <span class="con-drop-hint">Перетащи карточку актора</span>
+      </div>
+      {{#if system.former_members.length}}
+      <div class="con-members-list">
+        {{#each system.former_members as |m|}}
+        <div class="con-former-row">
+          <span class="con-member-name con-open-actor" data-uuid="{{m.actor_uuid}}"
+                title="Открыть карточку">{{m.actor_name}}</span>
+          <input type="text" name="system.former_members.{{@index}}.comment"
+                 value="{{m.comment}}" class="kk9-input con-former-comment"
+                 placeholder="Причина ухода..." />
+          <button type="button" class="con-remove-former fac-del"
+                  data-uuid="{{m.actor_uuid}}">✕</button>
+        </div>
+        {{/each}}
+      </div>
+      {{else}}
+      <div class="con-empty-hint">Нет бывших участников</div>
+      {{/if}}
+    </div>
+
+    {{!-- Известные события --}}
+    <div class="con-section contact-events-drop">
+      <div class="con-section-header">
+        <span class="con-section-title">📖 Известные события</span>
+        <span class="con-drop-hint">Перетащи запись из журнала</span>
+      </div>
+      {{#if system.events.length}}
+      <div class="con-events-list">
+        {{#each system.events as |ev|}}
+        <div class="con-event-row">
+          <span class="con-event-name con-open-journal" data-uuid="{{ev.uuid}}"
+                title="Открыть запись">📖 {{ev.name}}</span>
+          <button type="button" class="con-remove-event fac-del"
+                  data-uuid="{{ev.uuid}}">✕</button>
+        </div>
+        {{/each}}
+      </div>
+      {{else}}
+      <div class="con-empty-hint">Нет событий</div>
+      {{/if}}
+    </div>
+
+    {{!-- Заметки и описание --}}
+    <div class="con-param-block">
+      <span class="con-param-label">Заметки</span>
+      <textarea name="system.notes" class="kk9-textarea con-notes-ta"
+                placeholder="Дополнительная информация...">{{system.notes}}</textarea>
+    </div>
+    <div class="con-param-block">
+      <span class="con-param-label">Описание</span>
+      <textarea name="system.description" class="kk9-textarea con-desc-ta"
+                placeholder="История организации...">{{system.description}}</textarea>
+    </div>
+
   </div>
+
 </form>
+
+<style>
+.contact-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+}
+
+/* ── Шапка ── */
+.contact-sheet .con-header {
+  display: flex; flex-direction: row; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.contact-sheet .con-avatar {
+  width: 48px; height: 48px; border-radius: 4px; object-fit: cover;
+  cursor: pointer; flex-shrink: 0; border: 2px solid var(--border2);
+}
+.contact-sheet .con-header-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.contact-sheet .con-name-row { display: flex; align-items: center; gap: 8px; }
+.contact-sheet .con-name-input {
+  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
+  background: transparent; border: none;
+  border-bottom: 2px solid var(--border2);
+  color: var(--text-head); padding: 0 0 1px; outline: none; min-width: 0;
+}
+.contact-sheet .con-name-input:focus { border-bottom-color: var(--gold); }
+.contact-sheet .con-sub-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.contact-sheet .con-type-tag { font-size: 0.72em; color: var(--text-dim); }
+.contact-sheet .con-sub-dim  { font-size: 0.72em; color: var(--text-dim); }
+
+/* Статус */
+.contact-sheet .con-access-badge {
+  flex-shrink: 0; font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.contact-sheet .con-access-open     { background: rgba(34,197,94,0.1);   color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.contact-sheet .con-access-known    { background: rgba(96,165,250,0.1);  color: #60a5fa; border: 1px solid rgba(96,165,250,0.25); }
+.contact-sheet .con-access-secret   { background: rgba(251,191,36,0.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+.contact-sheet .con-access-forbidden { background: rgba(239,68,68,0.1);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+
+/* ── Тело ── */
+.contact-sheet .con-body {
+  flex: 1; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+.contact-sheet .con-params-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; align-items: end;
+}
+.contact-sheet .con-param-block { display: flex; flex-direction: column; gap: 3px; }
+.contact-sheet .con-param-label {
+  font-size: 0.65em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
+}
+
+/* Секции */
+.contact-sheet .con-section {
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px 12px; background: var(--bg2);
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 44px;
+}
+.contact-sheet .con-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.contact-sheet .con-section-title {
+  font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gold-dim); font-weight: 500;
+}
+.contact-sheet .con-drop-hint {
+  font-size: 0.68em; color: var(--text-dim); font-style: italic;
+}
+.contact-sheet .con-empty-hint {
+  font-size: 0.74em; color: var(--text-dim); font-style: italic; padding: 4px 0;
+}
+
+/* Участники */
+.contact-sheet .con-members-list { display: flex; flex-direction: column; gap: 3px; }
+.contact-sheet .con-member-row,
+.contact-sheet .con-former-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 6px; border-radius: 3px; background: var(--bg3);
+}
+.contact-sheet .con-member-name {
+  flex: 0 0 auto; font-size: 0.84em; color: var(--text);
+  cursor: pointer; min-width: 100px;
+}
+.contact-sheet .con-member-name:hover { color: var(--gold); }
+.contact-sheet .con-former-comment { flex: 1; font-size: 0.8em !important; }
+
+/* События */
+.contact-sheet .con-events-list { display: flex; flex-direction: column; gap: 3px; }
+.contact-sheet .con-event-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 6px; border-radius: 3px; background: var(--bg3);
+}
+.contact-sheet .con-event-name {
+  flex: 1; font-size: 0.84em; color: #60a5fa; cursor: pointer;
+}
+.contact-sheet .con-event-name:hover { color: #93c5fd; }
+
+.contact-sheet .con-goals-ta { min-height: 60px; }
+.contact-sheet .con-notes-ta { min-height: 50px; }
+.contact-sheet .con-desc-ta  { min-height: 70px; }
+</style>

@@ -1,29 +1,119 @@
-<form class="kk9-sheet item-sheet" autocomplete="off">
-  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
-    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
-    <div style="flex:1">
-      <input type="text" name="name" value="{{item.name}}"
-             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
+{{!-- КК9 | Карточка транспорта v1.1 --}}
+<form class="kk9-sheet item-sheet vehicle-sheet" autocomplete="off">
+
+  {{!-- ═══ ШАПКА ═══ --}}
+  <header class="veh-header">
+    <img class="veh-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="veh-header-right">
+      <div class="veh-name-row">
+        <input class="veh-name-input" type="text" name="name"
+               value="{{item.name}}" placeholder="Название транспорта" />
+        <span class="veh-type-badge veh-type-{{system.vehicle_type}}">
+          {{#if (eq system.vehicle_type "ground")}}🚗 Наземный
+          {{else if (eq system.vehicle_type "air")}}✈ Воздушный
+          {{else if (eq system.vehicle_type "water")}}🚢 Водный
+          {{else if (eq system.vehicle_type "magical")}}✨ Магический
+          {{else}}◈ Прочий{{/if}}
+        </span>
+      </div>
+      <div class="veh-sub-row">
+        <span class="veh-sub-dim">⚡ {{system.speed}} км/ч</span>
+        <span class="veh-sub-dim">🛡 {{system.toughness}}</span>
+        <span class="veh-sub-dim">👥 {{system.capacity}} мест</span>
+      </div>
     </div>
   </header>
-  <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип</label>
+
+  {{!-- ═══ ТЕЛО ═══ --}}
+  <div class="veh-body">
+
+    <div class="veh-params-grid">
+      <div class="veh-param-block">
+        <span class="veh-param-label">Тип</span>
         <select name="system.vehicle_type" class="kk9-select">
-          {{#each vehicleTypeOptions}}
-          <option value="{{value}}" {{#if (eq value ../system.vehicle_type)}}selected{{/if}}>{{label}}</option>
-          {{/each}}
-        </select></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Скорость</label>
-        <input type="number" name="system.speed" value="{{system.speed}}" class="kk9-input" /></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Стойкость</label>
-        <input type="number" name="system.toughness" value="{{system.toughness}}" class="kk9-input" /></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Вместимость</label>
-        <input type="number" name="system.capacity" value="{{system.capacity}}" class="kk9-input" /></div>
+          <option value="ground"  {{#if (eq system.vehicle_type "ground")}}selected{{/if}}>🚗 Наземный</option>
+          <option value="air"     {{#if (eq system.vehicle_type "air")}}selected{{/if}}>✈ Воздушный</option>
+          <option value="water"   {{#if (eq system.vehicle_type "water")}}selected{{/if}}>🚢 Водный</option>
+          <option value="magical" {{#if (eq system.vehicle_type "magical")}}selected{{/if}}>✨ Магический</option>
+          <option value="other"   {{#if (eq system.vehicle_type "other")}}selected{{/if}}>◈ Прочий</option>
+        </select>
+      </div>
+      <div class="veh-param-block">
+        <span class="veh-param-label">Скорость (км/ч)</span>
+        <input type="number" name="system.speed" value="{{system.speed}}"
+               class="kk9-input" min="0" />
+      </div>
+      <div class="veh-param-block">
+        <span class="veh-param-label">Стойкость</span>
+        <input type="number" name="system.toughness" value="{{system.toughness}}"
+               class="kk9-input" min="0" />
+      </div>
+      <div class="veh-param-block">
+        <span class="veh-param-label">Вместимость</span>
+        <input type="number" name="system.capacity" value="{{system.capacity}}"
+               class="kk9-input" min="1" />
+      </div>
     </div>
-    <div>
-      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
+
+    <div class="veh-param-block">
+      <span class="veh-param-label">Заметки</span>
+      <textarea name="system.notes" class="kk9-textarea veh-notes-ta"
+                placeholder="Особенности, вооружение, история...">{{system.notes}}</textarea>
     </div>
+
+    <div class="veh-param-block">
+      <span class="veh-param-label">Описание</span>
+      <textarea name="system.description" class="kk9-textarea veh-desc-ta"
+                placeholder="Подробное описание...">{{system.description}}</textarea>
+    </div>
+
   </div>
+
 </form>
+
+<style>
+.vehicle-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+}
+.vehicle-sheet .veh-header {
+  display: flex; flex-direction: row; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.vehicle-sheet .veh-avatar {
+  width: 48px; height: 48px; border-radius: 4px; object-fit: cover;
+  cursor: pointer; flex-shrink: 0; border: 2px solid var(--border2);
+}
+.vehicle-sheet .veh-header-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.vehicle-sheet .veh-name-row { display: flex; align-items: center; gap: 8px; }
+.vehicle-sheet .veh-name-input {
+  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
+  background: transparent; border: none;
+  border-bottom: 2px solid var(--border2);
+  color: var(--text-head); padding: 0 0 1px; outline: none; min-width: 0;
+}
+.vehicle-sheet .veh-name-input:focus { border-bottom-color: var(--gold); }
+.vehicle-sheet .veh-type-badge {
+  flex-shrink: 0; font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+  background: var(--bg3); color: var(--text-dim); border: 1px solid var(--border2);
+}
+.vehicle-sheet .veh-type-magical { background: rgba(168,85,247,0.1); color: #c084fc; border-color: rgba(168,85,247,0.25); }
+.vehicle-sheet .veh-sub-row { display: flex; align-items: center; gap: 10px; }
+.vehicle-sheet .veh-sub-dim { font-size: 0.75em; color: var(--text-dim); }
+.vehicle-sheet .veh-body {
+  flex: 1; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+.vehicle-sheet .veh-params-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; align-items: end;
+}
+.vehicle-sheet .veh-param-block { display: flex; flex-direction: column; gap: 3px; }
+.vehicle-sheet .veh-param-label {
+  font-size: 0.65em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
+}
+.vehicle-sheet .veh-notes-ta { min-height: 70px; }
+.vehicle-sheet .veh-desc-ta  { min-height: 80px; }
+</style>

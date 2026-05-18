@@ -500,7 +500,7 @@ export class KK9ItemSheet extends ItemSheet {
       tabs: [{ navSelector:".sheet-tabs", contentSelector:".sheet-body", initial:"description" }],
       dragDrop: [{
         dragSelector: null,
-        dropSelector: ".faculty-abilities-drop, .faculty-students-drop, .fac-dropouts-drop, .faculty-predecessor-drop, .fac-lore-drop, .weapon-skill-drop, .weapon-status-drop, .artifact-skill-drop, .artifact-status-drop, .artifact-skill-bonus-drop, .spell-skill-drop, .spell-status-drop, .spell-skill-bonus-drop"
+        dropSelector: ".faculty-abilities-drop, .faculty-students-drop, .fac-dropouts-drop, .faculty-predecessor-drop, .fac-lore-drop, .weapon-skill-drop, .weapon-status-drop, .artifact-skill-drop, .artifact-status-drop, .artifact-skill-bonus-drop, .spell-skill-drop, .spell-status-drop, .spell-skill-bonus-drop, .device-skill-drop, .contact-members-drop, .contact-former-drop, .contact-events-drop"
       }]
     });
   }
@@ -528,6 +528,10 @@ export class KK9ItemSheet extends ItemSheet {
       {value:"corporate",label:"Корпоративная"},{value:"underground",label:"Подпольная"},
       {value:"other",label:"Прочая"}
     ];
+    if (this.item.type === "daemon" && this.item.actor) {
+      context.daemonItems = this.item.actor.items.filter(i => ["skill","ability"].includes(i.type));
+    }
+
     if (this.item.type === "faculty") {
       const abilities = context.system.abilities || [];
       context.facultyAbilities = abilities;
@@ -615,6 +619,69 @@ export class KK9ItemSheet extends ItemSheet {
           }
           return;
         }
+        return;
+      }
+    }
+
+    // ── Даймон: drag-drop навыков и способностей ──
+    if (this.item.type === "daemon") {
+      const target = event.target.closest(".daemon-items-drop");
+      if (target && data.type === "Item") {
+        const item = await fromUuid(data.uuid);
+        if (!item || !["skill","ability"].includes(item.type)) return;
+        if (!this.item.actor) { ui.notifications.warn("Даймон должен быть на карточке персонажа."); return; }
+        const existing = this.item.actor.items.find(i => i.name === item.name && ["skill","ability"].includes(i.type));
+        if (existing) { ui.notifications.warn(`«${item.name}» уже есть.`); return; }
+        const itemData = item.toObject();
+        await Item.create(itemData, { parent: this.item.actor });
+        return;
+      }
+    }
+
+    // ── Устройство: drag-drop бонусного навыка ──
+    if (this.item.type === "device") {
+      const target = event.target.closest(".device-skill-drop");
+      if (target && data.type === "Item") {
+        const item = await fromUuid(data.uuid);
+        if (!item || !["skill","ability"].includes(item.type)) return;
+        await this.item.update({ "system.bonus_skill_uuid": item.uuid, "system.bonus_skill_name": item.name });
+        return;
+      }
+    }
+
+    // ── Контакт: участники, бывшие, события ──
+    if (this.item.type === "contact") {
+      const target = event.target.closest(".contact-members-drop, .contact-former-drop, .contact-events-drop");
+      if (!target) return super._onDrop(event);
+
+      if (target.classList.contains("contact-members-drop")) {
+        if (data.type !== "Actor") return;
+        const actor = await fromUuid(data.uuid);
+        if (!actor) return;
+        const members = [...(this.item.system.members || [])];
+        if (members.find(m => m.actor_uuid === data.uuid)) return;
+        members.push({ actor_uuid: data.uuid, actor_name: actor.name });
+        await this.item.update({ "system.members": members });
+        return;
+      }
+      if (target.classList.contains("contact-former-drop")) {
+        if (data.type !== "Actor") return;
+        const actor = await fromUuid(data.uuid);
+        if (!actor) return;
+        const former = [...(this.item.system.former_members || [])];
+        if (former.find(m => m.actor_uuid === data.uuid)) return;
+        former.push({ actor_uuid: data.uuid, actor_name: actor.name, comment: "" });
+        await this.item.update({ "system.former_members": former });
+        return;
+      }
+      if (target.classList.contains("contact-events-drop")) {
+        if (data.type !== "JournalEntry") return;
+        const journal = await fromUuid(data.uuid);
+        if (!journal) return;
+        const events = [...(this.item.system.events || [])];
+        if (events.find(e => e.uuid === data.uuid)) return;
+        events.push({ uuid: data.uuid, name: journal.name });
+        await this.item.update({ "system.events": events });
         return;
       }
     }
@@ -815,6 +882,100 @@ export class KK9ItemSheet extends ItemSheet {
         const bonuses = [...(this.item.system.skill_bonuses || [])];
         bonuses.splice(idx, 1);
         await this.item.update({ "system.skill_bonuses": bonuses });
+      });
+    }
+
+    // ── Даймон: пипы здоровья и навыки ──
+    if (this.item.type === "daemon") {
+      html.find(".health-pip[data-track='daemon-physical']").click(async e => {
+        const val = parseInt(e.currentTarget.dataset.value);
+        const cur = this.item.system.health?.physical?.value ?? 0;
+        await this.item.update({ "system.health.physical.value": cur === val ? val - 1 : val });
+      });
+      html.find(".health-pip[data-track='daemon-mental']").click(async e => {
+        const val = parseInt(e.currentTarget.dataset.value);
+        const cur = this.item.system.health?.mental?.value ?? 0;
+        await this.item.update({ "system.health.mental.value": cur === val ? val - 1 : val });
+      });
+      html.find(".npc-skill-die").change(async e => {
+        e.stopPropagation();
+        const itemId = e.currentTarget.dataset.itemId;
+        const die = parseInt(e.currentTarget.value);
+        if (itemId) await this.item.actor?.items.get(itemId)?.update({ "system.die": die });
+      });
+      html.find(".npc-skill-mod").change(async e => {
+        const itemId = e.currentTarget.dataset.itemId;
+        const mod = parseInt(e.currentTarget.value) || 0;
+        if (itemId) await this.item.actor?.items.get(itemId)?.update({ "system.modifier": mod });
+      });
+      html.find(".npc-item-del").click(async e => {
+        const itemId = e.currentTarget.dataset.itemId;
+        if (itemId) await this.item.actor?.items.get(itemId)?.delete();
+      });
+      html.find(".dm-rollable").click(async e => {
+        const itemId = e.currentTarget.dataset.itemId;
+        const skill = this.item.actor?.items.get(itemId);
+        if (!skill) return;
+        const die = skill.system.die || 4;
+        const mod = skill.system.modifier || 0;
+        const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
+        const roll = new Roll(`1d${die}${modStr}`);
+        await roll.evaluate();
+        await roll.toMessage({
+          speaker: ChatMessage.getSpeaker({ actor: this.item.actor }),
+          flavor: `${this.item.name} — ${skill.name}`
+        });
+      });
+    }
+
+    // ── Контакт: удаление участников/событий + открытие карточек ──
+    if (this.item.type === "contact") {
+      html.find(".con-remove-member").click(async e => {
+        const uuid = e.currentTarget.dataset.uuid;
+        await this.item.update({ "system.members": (this.item.system.members || []).filter(m => m.actor_uuid !== uuid) });
+      });
+      html.find(".con-remove-former").click(async e => {
+        const uuid = e.currentTarget.dataset.uuid;
+        await this.item.update({ "system.former_members": (this.item.system.former_members || []).filter(m => m.actor_uuid !== uuid) });
+      });
+      html.find(".con-remove-event").click(async e => {
+        const uuid = e.currentTarget.dataset.uuid;
+        await this.item.update({ "system.events": (this.item.system.events || []).filter(ev => ev.uuid !== uuid) });
+      });
+      html.find(".con-open-actor").click(async e => {
+        const doc = await fromUuid(e.currentTarget.dataset.uuid);
+        doc?.sheet?.render(true);
+      });
+      html.find(".con-open-journal").click(async e => {
+        const doc = await fromUuid(e.currentTarget.dataset.uuid);
+        doc?.sheet?.render(true);
+      });
+    }
+
+    // ── Устройство: убрать навык ──
+    if (this.item.type === "device") {
+      html.find(".dev-clear-skill").click(async () => {
+        await this.item.update({ "system.bonus_skill_uuid": "", "system.bonus_skill_name": "" });
+      });
+    }
+
+    // ── Спутник: пипы привязанности + бросок инициативы ──
+    if (this.item.type === "companion") {
+      html.find(".cp-bond-pip").click(async e => {
+        const val = parseInt(e.currentTarget.dataset.value);
+        const cur = this.item.system.bond;
+        await this.item.update({ "system.bond": cur === val ? Math.max(1, val - 1) : val });
+      });
+      html.find(".companion-roll-initiative").click(async () => {
+        const die = this.item.system.initiative.die || 6;
+        const mod = this.item.system.initiative.modifier || 0;
+        const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
+        const roll = new Roll(`1d${die}${modStr}`);
+        await roll.evaluate();
+        await roll.toMessage({
+          speaker: ChatMessage.getSpeaker({ actor: this.item.actor }),
+          flavor: `${this.item.name} — Инициатива`
+        });
       });
     }
 
