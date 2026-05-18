@@ -326,14 +326,16 @@ export class SkillDataModel extends foundry.abstract.TypeDataModel {
 export class AbilityDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
-      description: new fields.HTMLField({ initial: "" }),
-      category:    new fields.StringField({ initial: "personal", choices: ["common","personal","learned","magic"] }),
-      faculty_id:  new fields.StringField({ initial: null, nullable: true, blank: false }),
-      die:         new fields.NumberField({ required: true, initial: 4, choices: [4,6,8,10,12,20] }),
-      modifier:    new fields.NumberField({ initial: -2, integer: true })
+      description:     new fields.HTMLField({ initial: "" }),
+      category:        new fields.StringField({ initial: "common", choices: ["common","personal","learned","magic"] }),
+      linkedAttribute: new fields.StringField({ initial: "smarts", choices: ["agility","smarts","spirit","strength","magic"] }),
+      faculty_id:      new fields.StringField({ initial: null, nullable: true, blank: false }),
+      die:             new fields.NumberField({ required: true, initial: 4, choices: [4,6,8,10,12,20] }),
+      modifier:        new fields.NumberField({ initial: -2, integer: true })
     };
   }
 }
+
 
 export class WeaponDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {

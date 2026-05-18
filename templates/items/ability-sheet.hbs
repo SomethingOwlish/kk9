@@ -1,20 +1,219 @@
-<form class="kk9-sheet item-sheet" autocomplete="off">
-  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
-    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
-    <div style="flex:1">
-      <input type="text" name="name" value="{{item.name}}"
-             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
-      <div style="display:flex;gap:10px;margin-top:6px;align-items:center">
-        <label style="font-size:0.75em;color:var(--text-dim)">Категория</label>
-        <select name="system.category" style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 6px;font-size:0.82em">
+{{!-- КК9 | Карточка способности v2.0 --}}
+<form class="kk9-sheet item-sheet ability-sheet" autocomplete="off">
+
+  {{!-- ═══ ШАПКА ═══ --}}
+  <header class="ab-header">
+    <img class="ab-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="ab-header-right">
+      <div class="ab-name-row">
+        <input class="ab-name-input" type="text" name="name"
+               value="{{item.name}}" placeholder="Название способности" />
+        <span class="ab-cat-badge cat-{{system.category}}">
+          {{categoryLabel system.category}}
+        </span>
+      </div>
+      <div class="ab-sub-row">
+        {{#if system.linkedAttribute}}
+        <span class="ab-sub-label">Атрибут</span>
+        <span class="ab-sub-val">
+          {{#if (eq system.linkedAttribute "agility")}}Ловкость
+          {{else if (eq system.linkedAttribute "smarts")}}Смекалка
+          {{else if (eq system.linkedAttribute "spirit")}}Дух
+          {{else if (eq system.linkedAttribute "strength")}}Сила
+          {{else if (eq system.linkedAttribute "magic")}}Магия
+          {{else}}—{{/if}}
+        </span>
+        {{/if}}
+      </div>
+    </div>
+  </header>
+
+  {{!-- ═══ ТЕЛО ═══ --}}
+  <div class="ab-body">
+
+    {{!-- Параметры --}}
+    <div class="ab-params-grid">
+
+      <div class="ab-param-block">
+        <span class="ab-param-label">Категория</span>
+        <select name="system.category" class="kk9-select">
           {{#each categoryOptions}}
           <option value="{{value}}" {{#if (eq value ../system.category)}}selected{{/if}}>{{label}}</option>
           {{/each}}
         </select>
       </div>
+
+      <div class="ab-param-block">
+        <span class="ab-param-label">Связанный атрибут</span>
+        <select name="system.linkedAttribute" class="kk9-select">
+          <option value="agility"  {{#if (eq system.linkedAttribute "agility")}}selected{{/if}}>Ловкость</option>
+          <option value="smarts"   {{#if (eq system.linkedAttribute "smarts")}}selected{{/if}}>Смекалка</option>
+          <option value="spirit"   {{#if (eq system.linkedAttribute "spirit")}}selected{{/if}}>Дух</option>
+          <option value="strength" {{#if (eq system.linkedAttribute "strength")}}selected{{/if}}>Сила</option>
+          <option value="magic"    {{#if (eq system.linkedAttribute "magic")}}selected{{/if}}>Магия</option>
+        </select>
+      </div>
+
+      <div class="ab-param-block">
+        <span class="ab-param-label">Кубик</span>
+        <select name="system.die" class="kk9-select">
+          <option value="4"  {{#if (eq system.die 4)}}selected{{/if}}>d4</option>
+          <option value="6"  {{#if (eq system.die 6)}}selected{{/if}}>d6</option>
+          <option value="8"  {{#if (eq system.die 8)}}selected{{/if}}>d8</option>
+          <option value="10" {{#if (eq system.die 10)}}selected{{/if}}>d10</option>
+          <option value="12" {{#if (eq system.die 12)}}selected{{/if}}>d12</option>
+          <option value="20" {{#if (eq system.die 20)}}selected{{/if}}>d20</option>
+        </select>
+      </div>
+
+      <div class="ab-param-block ab-param-block--sm">
+        <span class="ab-param-label">Модификатор</span>
+        <input type="number" name="system.modifier"
+               value="{{system.modifier}}" class="kk9-input ab-mod-input" />
+      </div>
+
     </div>
-  </header>
-  <div style="padding:12px">
-    {{editor system.description target="system.description" button=true editable=editable}}
+
+    {{!-- Итоговая формула --}}
+    <div class="ab-formula-row">
+      <span class="ab-formula-label">Бросок</span>
+      <span class="ab-formula-val">
+        1d{{system.die}}
+        {{#if system.modifier}}
+          {{#if (gt system.modifier 0)}}+{{system.modifier}}{{else}}{{system.modifier}}{{/if}}
+        {{/if}}
+      </span>
+    </div>
+
+    {{!-- Описание --}}
+    <div class="ab-desc-block">
+      <span class="ab-param-label">Описание</span>
+      <textarea name="system.description" class="kk9-textarea ab-desc-ta"
+                placeholder="Описание способности...">{{system.description}}</textarea>
+    </div>
+
+    {{!-- faculty_id — скрытое техническое поле --}}
+    <input type="hidden" name="system.faculty_id" value="{{system.faculty_id}}" />
+
   </div>
+
 </form>
+
+<style>
+.ability-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+}
+
+/* ── Шапка ── */
+.ability-sheet .ab-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ability-sheet .ab-avatar {
+  width: 48px; height: 48px;
+  border-radius: 50%; object-fit: cover;
+  cursor: pointer; flex-shrink: 0;
+  border: 2px solid var(--border2);
+}
+
+.ability-sheet .ab-header-right {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.ability-sheet .ab-name-row {
+  display: flex; align-items: center; gap: 8px;
+}
+
+.ability-sheet .ab-name-input {
+  flex: 1;
+  font-family: 'Caveat', cursive;
+  font-size: 1.4em; font-weight: 700;
+  background: transparent; border: none;
+  border-bottom: 2px solid var(--border2);
+  color: var(--text-head);
+  padding: 0 0 1px; outline: none;
+  transition: border-color 0.2s; min-width: 0;
+}
+.ability-sheet .ab-name-input:focus { border-bottom-color: var(--gold); }
+
+/* Бейдж категории — используем глобальные cat-* классы */
+.ability-sheet .ab-cat-badge {
+  flex-shrink: 0;
+  font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 8px; border-radius: 10px;
+}
+
+.ability-sheet .ab-sub-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.ability-sheet .ab-sub-label {
+  font-size: 0.65em; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--text-dim);
+}
+.ability-sheet .ab-sub-val {
+  font-size: 0.78em; color: var(--text);
+}
+
+/* ── Тело ── */
+.ability-sheet .ab-body {
+  flex: 1;
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto;
+}
+
+/* Параметры — четыре колонки */
+.ability-sheet .ab-params-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.ability-sheet .ab-param-block {
+  display: flex; flex-direction: column; gap: 3px;
+}
+.ability-sheet .ab-param-block--sm { min-width: 80px; }
+
+.ability-sheet .ab-param-label {
+  font-size: 0.65em;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-dim);
+}
+
+.ability-sheet .ab-mod-input {
+  width: 70px !important;
+  text-align: center;
+}
+
+/* Формула */
+.ability-sheet .ab-formula-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+}
+.ability-sheet .ab-formula-label {
+  font-size: 0.68em; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--text-dim);
+}
+.ability-sheet .ab-formula-val {
+  font-family: 'Caveat', cursive;
+  font-size: 1.1em; font-weight: 700; color: var(--gold);
+}
+
+/* Описание */
+.ability-sheet .ab-desc-block {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ability-sheet .ab-desc-ta { min-height: 80px; }
+</style>
