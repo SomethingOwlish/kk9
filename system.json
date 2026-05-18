@@ -2,61 +2,220 @@
   "id": "kk9",
   "title": "КК9 — Кризисный Комитет №9",
   "description": "Система для игры в мире двух реальностей.",
-  "version": "0.9.2",
+  "version": "0.9.6",
   "compatibility": {
     "minimum": "12",
     "verified": "13"
   },
-  "authors": [{ "name": "SomethingOwlish" }],
-  "esmodules": ["kk9.mjs"],
-  "styles": ["styles/kk9.css"],
-  "languages": [{ "lang": "ru", "name": "Русский", "path": "lang/ru.json" }],
+  "authors": [
+    {
+      "name": "SomethingOwlish"
+    }
+  ],
+  "esmodules": [
+    "kk9.mjs"
+  ],
+  "styles": [
+    "styles/kk9.css"
+  ],
+  "languages": [
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/ru.json"
+    }
+  ],
   "documentTypes": {
     "Actor": {
-      "character": { "htmlFields": ["system.biography"] },
-      "npc-light":  { "htmlFields": ["system.biography"] },
-      "npc-hard":   { "htmlFields": ["system.biography"] },
-      "npc-boss":   { "htmlFields": [] }
+      "character": {
+        "htmlFields": [
+          "system.biography"
+        ]
+      },
+      "npc-light": {
+        "htmlFields": [
+          "system.biography"
+        ]
+      },
+      "npc-hard": {
+        "htmlFields": [
+          "system.biography"
+        ]
+      },
+      "npc-boss": {
+        "htmlFields": []
+      }
     },
     "Item": {
-      "faculty":   { "htmlFields": ["system.description"] },
-      "ability":   { "htmlFields": ["system.description"] },
-      "weapon":    { "htmlFields": ["system.description"] },
-      "gear":      { "htmlFields": ["system.description"] },
-      "artifact":  { "htmlFields": ["system.description"] },
-      "spell":     { "htmlFields": ["system.description"] },
-      "daemon":    { "htmlFields": ["system.description"] },
-      "companion": { "htmlFields": ["system.description"] },
-      "vehicle":   { "htmlFields": ["system.description"] },
-      "device":    { "htmlFields": ["system.description"] },
-      "contact":   { "htmlFields": ["system.description"] },
-      "language":  {},
-      "skill":     { "htmlFields": [] }
+      "faculty": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "ability": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "weapon": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "gear": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "artifact": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "spell": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "daemon": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "companion": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "vehicle": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "device": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "contact": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "language": {},
+      "skill": {
+        "htmlFields": []
+      }
     }
   },
   "socket": false,
   "initiative": "1d6",
-  "grid": { "distance": 2, "units": "м" },
+  "grid": {
+    "distance": 2,
+    "units": "м"
+  },
   "primaryTokenAttribute": "system.health.physical.value",
   "url": "https://github.com/SomethingOwlish/kk9",
   "manifest": "https://raw.githubusercontent.com/SomethingOwlish/kk9/main/system.json",
   "download": "https://github.com/SomethingOwlish/kk9/archive/refs/heads/main.zip",
   "packs": [
-    { "name": "kk9-skills",    "label": "КК9 — Навыки",       "type": "Item",  "system": "kk9" },
-    { "name": "kk9-faculties", "label": "КК9 — Факультеты",   "type": "Item",  "system": "kk9" },
-    { "name": "kk9-abilities", "label": "КК9 — Способности",  "type": "Item",  "system": "kk9" },
-    { "name": "kk9-languages", "label": "КК9 — Языки",        "type": "Item",  "system": "kk9" },
-    { "name": "kk9-weapons",   "label": "КК9 — Оружие",       "type": "Item",  "system": "kk9" },
-    { "name": "kk9-gear",      "label": "КК9 — Снаряжение",   "type": "Item",  "system": "kk9" },
-    { "name": "kk9-artifacts", "label": "КК9 — Артефакты",    "type": "Item",  "system": "kk9" },
-    { "name": "kk9-spells",    "label": "КК9 — Заклинания",   "type": "Item",  "system": "kk9" },
-    { "name": "kk9-daemons",   "label": "КК9 — Даймоны",      "type": "Item",  "system": "kk9" },
-    { "name": "kk9-companions","label": "КК9 — Спутники",     "type": "Item",  "system": "kk9" },
-    { "name": "kk9-vehicles",  "label": "КК9 — Транспорт",    "type": "Item",  "system": "kk9" },
-    { "name": "kk9-devices",   "label": "КК9 — Устройства",   "type": "Item",  "system": "kk9" },
-    { "name": "kk9-contacts",  "label": "КК9 — Контакты",     "type": "Item",  "system": "kk9" },
-    { "name": "kk9-npc-light", "label": "КК9 — НПС лёгкие",  "type": "Actor", "system": "kk9" },
-    { "name": "kk9-npc-hard",  "label": "КК9 — НПС сложные", "type": "Actor", "system": "kk9" },
-    { "name": "kk9-npc-boss",  "label": "КК9 — Боссы",        "type": "Actor", "system": "kk9" }
-  ]
+    {
+      "name": "kk9-skills",
+      "label": "КК9 — Навыки",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-faculties",
+      "label": "КК9 — Факультеты",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-abilities",
+      "label": "КК9 — Способности",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-languages",
+      "label": "КК9 — Языки",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-weapons",
+      "label": "КК9 — Оружие",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-gear",
+      "label": "КК9 — Снаряжение",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-artifacts",
+      "label": "КК9 — Артефакты",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-spells",
+      "label": "КК9 — Заклинания",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-daemons",
+      "label": "КК9 — Даймоны",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-companions",
+      "label": "КК9 — Спутники",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-vehicles",
+      "label": "КК9 — Транспорт",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-devices",
+      "label": "КК9 — Устройства",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-contacts",
+      "label": "КК9 — Контакты",
+      "type": "Item",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-npc-light",
+      "label": "КК9 — НПС лёгкие",
+      "type": "Actor",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-npc-hard",
+      "label": "КК9 — НПС сложные",
+      "type": "Actor",
+      "system": "kk9"
+    },
+    {
+      "name": "kk9-npc-boss",
+      "label": "КК9 — Боссы",
+      "type": "Actor",
+      "system": "kk9"
+    }
+  ],
+  "cover": "systems/kk9/media/system-cover.png",
+  "background": "systems/kk9/media/system-cover.png"
 }

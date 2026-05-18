@@ -165,11 +165,17 @@ export class KK9CharacterSheet extends ActorSheet {
       const die = parseInt(e.currentTarget.value);
       const item = this.actor.items.get(itemId);
       if (!item) return;
-      // Проверяем что кубик навыка не превышает кубик связанного атрибута
+      const attrs = this.actor.system.attributes;
+      // Если есть linkedAttribute (skill) — ограничиваем кубиком этого атрибута
+      // Если нет (learned/common ability в baseSkills) — ограничиваем максимальным атрибутом
       const linkedAttr = item.system.linkedAttribute;
-      const attrDie = this.actor.system.attributes?.[linkedAttr]?.die;
-      if (attrDie && die > attrDie) {
-        ui.notifications.warn(`Кубик навыка не может превышать кубик атрибута (d${attrDie})`);
+      const attrDie = attrs?.[linkedAttr]?.die
+        ?? Math.max(...Object.values(attrs).map(a => a.die));
+      if (die > attrDie) {
+        const label = linkedAttr
+          ? `кубик атрибута (d${attrDie})`
+          : `наивысший атрибут (d${attrDie})`;
+        ui.notifications.warn(`Кубик не может превышать ${label}`);
         this.render();
         return;
       }
@@ -197,7 +203,16 @@ export class KK9CharacterSheet extends ActorSheet {
       const itemId = e.currentTarget.dataset.itemId;
       const die = parseInt(e.currentTarget.value);
       const item = this.actor.items.get(itemId);
-      if (item) await item.update({ "system.die": die });
+      if (!item) return;
+      // Способности ограничены наивысшим кубиком атрибутов персонажа
+      const attrs = this.actor.system.attributes;
+      const maxAttrDie = Math.max(...Object.values(attrs).map(a => a.die));
+      if (die > maxAttrDie) {
+        ui.notifications.warn(`Кубик способности не может превышать наивысший атрибут (d${maxAttrDie})`);
+        this.render();
+        return;
+      }
+      await item.update({ "system.die": die });
     });
 
     html.find(".ability-mod-input").change(async e => {
@@ -378,10 +393,10 @@ class KK9NpcBaseSheet extends ActorSheet {
       const cur = this.actor.system.health?.mental?.value ?? 0;
       await this.actor.update({ "system.health.mental.value": cur === val ? val - 1 : val });
     });
-    html.find(".npc-ko-pip[data-track='npc-physical-ko']").click(async () => {
+    html.find("[data-track='npc-physical-ko']").click(async () => {
       await this.actor.update({ "system.health.physical.knockout": !this.actor.system.health.physical.knockout });
     });
-    html.find(".npc-ko-pip[data-track='npc-mental-ko']").click(async () => {
+    html.find("[data-track='npc-mental-ko']").click(async () => {
       await this.actor.update({ "system.health.mental.knockout": !this.actor.system.health.mental.knockout });
     });
 
