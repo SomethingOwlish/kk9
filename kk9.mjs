@@ -155,16 +155,32 @@ async function _ensureStartScene() {
   if (game.scenes.size > 0) return; // сцены уже есть
 
   console.log("КК9 | Создаём стартовую сцену...");
-  await Scene.create({
+
+  // Размеры под стандартный экран — картинка widescreen 16:9
+  // Foundry показывает сцену 1:1 пиксель при scale=1
+  // При width=1920 height=1080 и padding=0 картинка точно заполнит экран
+  const scene = await Scene.create({
     name: "Кризисный Комитет №9",
     background: { src: KK9_DEFAULTS.sceneBg },
-    width: 3840,
-    height: 2160,
-    grid: { type: 1, size: 100 },
-    initial: { x: 1920, y: 1080, scale: 0.5 },
+    // Без грида
+    grid: { type: 0, size: 100 },
+    // Размер сцены = размер экрана, картинка растянется на всё
+    width: 1920,
+    height: 1080,
+    // Нет паддингов — серые поля исчезают
+    padding: 0,
+    // Начальный вид: центр, масштаб 1 = картинка 1:1 пиксель к пикселю
+    // При этом она займёт ровно весь viewport
+    initial: { x: 960, y: 540, scale: 1.0 },
     active: true,
-    navigation: true
+    navigation: true,
+    // Чёрный фон чтобы не было серого если что
+    backgroundColor: "#000000"
   });
+
+  // После создания активируем сцену — Foundry V13 требует явного вызова
+  if (scene) await scene.activate();
+
   ui.notifications.info("КК9 | Стартовая сцена создана.");
 }
 

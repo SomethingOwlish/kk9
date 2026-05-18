@@ -394,10 +394,30 @@ class KK9NpcBaseSheet extends ActorSheet {
       await this.actor.update({ "system.health.mental.value": cur === val ? val - 1 : val });
     });
     html.find("[data-track='npc-physical-ko']").click(async () => {
-      await this.actor.update({ "system.health.physical.knockout": !this.actor.system.health.physical.knockout });
+      const cur = this.actor.system.health.physical.knockout;
+      if (!cur) {
+        // Включаем КО — заполняем все предыдущие пипы (value = max = 2)
+        await this.actor.update({
+          "system.health.physical.knockout": true,
+          "system.health.physical.value": 2
+        });
+      } else {
+        // Выключаем КО — сбрасываем
+        await this.actor.update({ "system.health.physical.knockout": false });
+      }
     });
     html.find("[data-track='npc-mental-ko']").click(async () => {
-      await this.actor.update({ "system.health.mental.knockout": !this.actor.system.health.mental.knockout });
+      const cur = this.actor.system.health.mental.knockout;
+      if (!cur) {
+        // Включаем КО — заполняем все предыдущие пипы (value = max = 2)
+        await this.actor.update({
+          "system.health.mental.knockout": true,
+          "system.health.mental.value": 2
+        });
+      } else {
+        // Выключаем КО — сбрасываем
+        await this.actor.update({ "system.health.mental.knockout": false });
+      }
     });
 
     html.find(".love-toggle").click(async e => {
