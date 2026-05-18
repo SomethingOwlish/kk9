@@ -1,4 +1,4 @@
-{{!-- КК9 | Лёгкий НПС v2.5 --}}
+{{!-- КК9 | Лёгкий НПС v2.6 --}}
 <form class="kk9-sheet npc-light-sheet" autocomplete="off">
 
   <div class="npc-sidebar">
@@ -57,38 +57,29 @@
 
       {{!-- ОСНОВНОЕ --}}
       <div class="tab" data-group="primary" data-tab="main">
-
         <div class="npc-fields-grid3">
           <div class="npc-field"><label>Возраст</label><input type="text" name="system.age" value="{{system.age}}" /></div>
           <div class="npc-field"><label>Раса</label><input type="text" name="system.race" value="{{system.race}}" /></div>
           <div class="npc-field"><label>Гендер</label><input type="text" name="system.gender" value="{{system.gender}}" /></div>
         </div>
-
         <div class="npc-fields-grid2">
           <div class="npc-field"><label>Мир происхождения</label><input type="text" name="system.world_origin" value="{{system.world_origin}}" placeholder="—" /></div>
           <div class="npc-field"><label>Страна происхождения</label><input type="text" name="system.country_origin" value="{{system.country_origin}}" placeholder="—" /></div>
           <div class="npc-field"><label>Мир проживания</label><input type="text" name="system.world_home" value="{{system.world_home}}" placeholder="—" /></div>
           <div class="npc-field"><label>Страна проживания</label><input type="text" name="system.country_home" value="{{system.country_home}}" placeholder="—" /></div>
         </div>
-
         <div class="npc-field" style="margin-bottom:8px"><label>Организации</label>
           <input type="text" name="system.organizations" value="{{system.organizations}}" placeholder="—" /></div>
-
         <div class="npc-field" style="margin-bottom:8px"><label>Цели</label>
           <textarea name="system.goals" rows="3" placeholder="чего хочет достичь...">{{system.goals}}</textarea></div>
-
         <div class="npc-field" style="margin-bottom:8px"><label>Мотивы</label>
           <textarea name="system.motives" rows="3" placeholder="что движет изнутри...">{{system.motives}}</textarea></div>
-
         <div class="npc-field" style="margin-bottom:8px"><label>Внешние особенности</label>
           <textarea name="system.appearance" rows="2" placeholder="внешность, особые приметы...">{{system.appearance}}</textarea></div>
-
         <div class="section-title">Биография</div>
-        <textarea name="system.biography" rows="6" class="npc-textarea-lg" placeholder="история персонажа...">{{system.biography}}</textarea>
-
+        {{editor system.biography target="system.biography" button=true editable=editable}}
         <div class="section-title" style="margin-top:10px">Заметки</div>
         <textarea name="system.notes" rows="4" class="npc-textarea-lg" placeholder="заметки мастера...">{{system.notes}}</textarea>
-
       </div>
 
       {{!-- КОНФЛИКТ --}}
@@ -113,14 +104,14 @@
           {{/each}}
         </div>
 
-        {{!-- Инициатива, Стойкость, Энергия --}}
-        <div class="derived-bar" style="margin:10px 0;">
-          <div class="derived-btn roll-npc-initiative" title="Бросить инициативу">
+        {{!-- Инициатива, Стойкость, Энергия — в конфликте --}}
+        <div class="derived-bar" style="margin:10px 0">
+          <div class="derived-btn roll-npc-initiative" title="Бросить инициативу (Лов+Смек)">
             <span class="derived-lbl">Инициатива</span>
             <span class="derived-ico">🎲</span>
           </div>
-          <div class="derived-btn roll-npc-toughness" title="Стойкость: 2 + Дух/2 = {{system.toughness}}">
-            <span class="derived-lbl">Стойкость {{system.toughness}}</span>
+          <div class="derived-btn roll-npc-toughness" title="Стойкость: 2 + Дух/2 = {{system.toughness}}. Бросок Духа + навык сопротивления">
+            <span class="derived-lbl">Стойкость</span>
             <span class="derived-ico">🎲</span>
           </div>
           <div class="derived-energy">
@@ -131,7 +122,7 @@
           </div>
         </div>
 
-        {{!-- Состояние: 2 пипа — те же 5 статусов что у сложного НПС --}}
+        {{!-- Состояние: 2 пипа с теми же статусами что у сложного --}}
         <div class="section-title">Состояние</div>
         <div class="health-tracks npc-tracks">
           <div class="health-track">
@@ -140,7 +131,7 @@
               <span class="health-state-badge state-{{system.health.physical.value}}">{{healthLabel system.health.physical.value}}</span>
             </div>
             <div class="track-pips">
-              {{!-- 2 пипа, те же healthLabel статусы что у сложного (1=Царапина, 2=Ранен) --}}
+              {{!-- пипы 1 и 2 = Царапина и Ранен, те же что у сложного --}}
               <div class="health-pip {{#if (gte system.health.physical.value 1)}}pip-filled pip-phys-1{{else}}pip-empty{{/if}}"
                    data-track="npc-physical" data-value="1" title="{{healthLabel 1}}">
                 <span class="pip-txt">{{healthLabel 1}}</span>
@@ -149,7 +140,7 @@
                    data-track="npc-physical" data-value="2" title="{{healthLabel 2}}">
                 <span class="pip-txt">{{healthLabel 2}}</span>
               </div>
-              {{!-- Отключка = статус 5 (Без сознания) --}}
+              {{!-- Отключка = последний статус (Без сознания) --}}
               <div class="health-pip npc-ko-pip {{#if system.health.physical.knockout}}npc-ko-on{{/if}}"
                    data-track="npc-physical-ko" title="{{healthLabel 5}}">{{healthLabel 5}}</div>
             </div>
@@ -174,42 +165,43 @@
           </div>
         </div>
 
-        {{!-- Навыки: название + select кубика + крестик --}}
+        {{!-- Навыки: название + кубик + мод + крестик --}}
         <div class="section-title" style="margin-top:12px">Навыки и способности</div>
-        <div class="npc-unified-list">
+        <div class="npc-skill-list">
           {{#each npcAllItems}}
           <div class="skill-row" data-item-id="{{id}}">
             <span class="skill-name npc-rollable" data-item-id="{{id}}">{{name}}</span>
             <div class="skill-controls">
-              <select class="die-select-sm npc-skill-die-select" data-item-id="{{id}}" onclick="event.stopPropagation()">
-                <option value="4"   {{#if (eq system.die 4)}}selected{{/if}}>d4</option>
-                <option value="6"   {{#if (eq system.die 6)}}selected{{/if}}>d6</option>
-                <option value="8"   {{#if (eq system.die 8)}}selected{{/if}}>d8</option>
-                <option value="10"  {{#if (eq system.die 10)}}selected{{/if}}>d10</option>
-                <option value="12"  {{#if (eq system.die 12)}}selected{{/if}}>d12</option>
-                <option value="20"  {{#if (eq system.die 20)}}selected{{/if}}>d20</option>
+              <select class="die-select-sm npc-skill-die" data-item-id="{{id}}" onclick="event.stopPropagation()">
+                <option value="4"  {{#if (eq system.die 4)}}selected{{/if}}>d4</option>
+                <option value="6"  {{#if (eq system.die 6)}}selected{{/if}}>d6</option>
+                <option value="8"  {{#if (eq system.die 8)}}selected{{/if}}>d8</option>
+                <option value="10" {{#if (eq system.die 10)}}selected{{/if}}>d10</option>
+                <option value="12" {{#if (eq system.die 12)}}selected{{/if}}>d12</option>
+                <option value="20" {{#if (eq system.die 20)}}selected{{/if}}>d20</option>
               </select>
-              <button type="button" class="npc-item-delete btn-delete-xs" data-item-id="{{id}}">✕</button>
+              <input type="number" class="mod-input-sm npc-skill-mod" data-item-id="{{id}}" value="{{system.modifier}}" placeholder="±0" />
+              <button type="button" class="btn-delete-xs npc-item-del" data-item-id="{{id}}">✕</button>
             </div>
           </div>
           {{else}}
-          <p class="drop-hint" style="padding:6px">Перетащи навыки или способности</p>
+          <p class="drop-hint">Перетащи навыки или способности</p>
           {{/each}}
         </div>
 
         {{!-- Снаряжение: название + тип + крестик --}}
         <div class="section-title" style="margin-top:12px">Снаряжение</div>
-        <div class="npc-unified-list">
+        <div class="npc-skill-list">
           {{#each npcGear}}
           <div class="skill-row" data-item-id="{{id}}">
             <span class="skill-name item-name-click" data-item-id="{{id}}">{{name}}</span>
-            <span class="item-badge" style="font-size:0.68em;color:var(--text-dim);flex-shrink:0">{{categoryLabel type}}</span>
             <div class="skill-controls">
-              <button type="button" class="npc-item-delete btn-delete-xs" data-item-id="{{id}}">✕</button>
+              <span class="skill-attr-hint">{{npcItemTypeLabel type}}</span>
+              <button type="button" class="btn-delete-xs npc-item-del" data-item-id="{{id}}">✕</button>
             </div>
           </div>
           {{else}}
-          <p class="drop-hint" style="padding:6px">Перетащи предметы</p>
+          <p class="drop-hint">Перетащи предметы</p>
           {{/each}}
         </div>
 
