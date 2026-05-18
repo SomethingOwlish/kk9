@@ -1,51 +1,796 @@
-{{!-- КК9 | Факультет --}}
+{{!-- КК9 | Карточка факультета v2.4 --}}
 <form class="kk9-sheet item-sheet faculty-sheet" autocomplete="off"
-      style="--faculty-color: {{system.color}}">
-  <header class="faculty-header" style="border-left: 4px solid {{system.color}}; padding:12px; background: var(--bg2); display:flex; gap:12px; align-items:center">
-    <img src="{{item.img}}" data-edit="img" style="width:56px;height:56px;border-radius:50%;border:2px solid {{system.color}};cursor:pointer;object-fit:cover" />
-    <div style="flex:1">
-      <input type="text" name="name" value="{{item.name}}"
-             style="font-family:'Caveat',cursive;font-size:1.5em;background:transparent;border:none;border-bottom:2px solid {{system.color}};color:var(--text-head);width:100%" />
-      <div style="display:flex;gap:12px;margin-top:6px;align-items:center">
-        <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase">Цвет</label>
-        <input type="color" name="system.color" value="{{system.color}}" style="width:32px;height:24px;border:none;background:none;cursor:pointer" />
-        <span style="font-size:0.78em;color:var(--text-dim)">{{system.color}}</span>
-        <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;margin-left:8px">Учитель</label>
-        <input type="text" name="system.teacher" value="{{system.teacher}}"
-               style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 6px;font-size:0.84em" placeholder="Имя учителя" />
+      style="--fcolor: {{system.color}}">
+
+  {{!-- ═══ ШАПКА ═══
+       Структура:
+       [ аватар 48px ] [ правая часть: flex-col ]
+                           строка 1: имя (flex:1) | бейдж
+                           строка 2: поля в ряд
+  --}}
+  <header class="fac-header">
+    <div class="fac-header-glow"></div>
+
+    <img class="fac-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+
+    <div class="fac-header-right">
+
+      {{!-- Строка 1: имя + статус --}}
+      <div class="fac-name-row">
+        <input class="fac-name-input" type="text" name="name"
+               value="{{item.name}}" placeholder="Название факультета" />
+        <label class="fac-status-badge {{#if system.active}}fac-badge-active{{else}}fac-badge-inactive{{/if}}">
+          <input type="checkbox" name="system.active"
+                 {{#if system.active}}checked{{/if}} style="display:none" />
+          {{#if system.active}}● Действует{{else}}◌ Расформирован{{/if}}
+        </label>
       </div>
-    </div>
+
+      {{!-- Строка 2: поля --}}
+      <div class="fac-fields-row">
+        <div class="fac-field">
+          <span class="fac-field-label">Преподаватель</span>
+          <input class="kk9-input" type="text" name="system.teacher"
+                 value="{{system.teacher}}" placeholder="Имя" />
+        </div>
+        <div class="fac-field">
+          <span class="fac-field-label">Общежитие</span>
+          <input class="kk9-input" type="text" name="system.dormitory"
+                 value="{{system.dormitory}}" placeholder="Название, корпус..." />
+        </div>
+        <div class="fac-field fac-field--sm">
+          <span class="fac-field-label">Основан</span>
+          <input class="kk9-input" type="text" name="system.date_founded"
+                 value="{{system.date_founded}}" placeholder="год" />
+        </div>
+        {{#unless system.active}}
+        <div class="fac-field fac-field--sm">
+          <span class="fac-field-label">Расформирован</span>
+          <input class="kk9-input" type="text" name="system.date_reformed"
+                 value="{{system.date_reformed}}" placeholder="год" />
+        </div>
+        {{/unless}}
+        <div class="fac-field fac-field--xs">
+          <span class="fac-field-label">Цвет</span>
+          <input type="color" name="system.color"
+                 value="{{system.color}}" class="fac-color-picker" />
+        </div>
+      </div>
+
+    </div>{{!-- /fac-header-right --}}
   </header>
 
-  <div style="padding:12px">
-    {{!-- Способности факультета --}}
-    <div style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:8px">
-        <span style="font-size:0.78em;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em">Способности факультета</span>
-        <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи skill или ability сюда</span>
-      </div>
-      <div class="faculty-abilities-drop" style="min-height:48px;border:1px dashed var(--border2);border-radius:4px;padding:6px">
-        {{#each facultyAbilities as |ab|}}
-        <div class="faculty-ability-row" style="display:flex;align-items:center;gap:8px;padding:3px 6px;border-radius:3px;background:var(--bg2);margin-bottom:3px">
-          <span style="flex:1;font-size:0.86em;color:var(--text)">{{ab.name}}</span>
-          <span style="font-size:0.72em;color:var(--text-dim);padding:1px 6px;background:var(--bg3);border-radius:8px">
-            {{categoryLabel ab.category}}
-          </span>
-          <button type="button" class="remove-faculty-ability" data-index="{{@index}}"
-                  style="background:transparent;border:none;color:var(--text-dim);cursor:pointer;font-size:0.75em">✕</button>
-        </div>
-        {{else}}
-        <p style="font-size:0.78em;color:var(--text-dim);font-style:italic;text-align:center;padding:8px">
-          Нет навыков. Перетащи skill или ability items сюда.
-        </p>
-        {{/each}}
-      </div>
-    </div>
+  {{!-- ═══ ВКЛАДКИ ═══ --}}
+  <nav class="sheet-tabs" data-group="primary">
+    <a class="item" data-tab="students">Студенты</a>
+    <a class="item" data-tab="abilities">Способности</a>
+    <a class="item" data-tab="description">Характер</a>
+    <a class="item" data-tab="lore">Байки</a>
+  </nav>
 
-    {{!-- Описание --}}
-    <div>
-      <label style="font-size:0.75em;color:var(--text-dim);text-transform:uppercase;display:block;margin-bottom:4px">Описание</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
-    </div>
-  </div>
+  <div class="sheet-body">
+
+    {{!-- ════ СТУДЕНТЫ ════ --}}
+    <div class="tab" data-group="primary" data-tab="students">
+
+      {{!-- Предшественник --}}
+      <div class="fac-predecessor-block faculty-predecessor-drop">
+        <span class="fac-field-label">Предшественник факультета</span>
+        {{#if system.predecessor_name}}
+          <div class="fac-linked-row">
+            <span class="fac-linked-name fac-open-predecessor"
+                  data-uuid="{{system.predecessor_uuid}}">{{system.predecessor_name}}</span>
+            <button type="button" class="faculty-clear-predecessor fac-del">✕</button>
+          </div>
+        {{else}}
+          <span class="fac-drop-hint">Перетащи неактивный факультет</span>
+        {{/if}}
+      </div>
+
+      <div class="section-title" style="margin-top:12px">
+        <span class="faculty-dot" style="background:{{system.color}}"></span>
+        Действующие студенты
+        <span class="fac-hint-right">★ — маркирует старосту</span>
+      </div>
+
+      <div class="fac-courses-grid faculty-students-drop">
+
+        {{!-- КУРС 1 --}}
+        <div class="fac-course-col">
+          <div class="fac-course-hdr">1 курс</div>
+          <div class="fac-sem-block">
+            <div class="fac-sem-lbl">1 сем.</div>
+            {{#each system.students}}{{#if (eq course 1)}}{{#if (eq semester 1)}}
+            <div class="fac-student-row">
+              <button type="button" class="fac-star-btn {{#if isStar}}fac-star-on{{/if}}"
+                      data-uuid="{{actorUuid}}">★</button>
+              <span class="fac-student-name fac-open-actor"
+                    data-uuid="{{actorUuid}}">{{studentName}}</span>
+              <button type="button" class="fac-remove-student fac-del"
+                      data-uuid="{{actorUuid}}">✕</button>
+            </div>
+            {{/if}}{{/if}}{{/each}}
+          </div>
+          <div class="fac-sem-block">
+            <div class="fac-sem-lbl">2 сем.</div>
+            {{#each system.students}}{{#if (eq course 1)}}{{#if (eq semester 2)}}
+            <div class="fac-student-row">
+              <button type="button" class="fac-star-btn {{#if isStar}}fac-star-on{{/if}}"
+                      data-uuid="{{actorUuid}}">★</button>
+              <span class="fac-student-name fac-open-actor"
+                    data-uuid="{{actorUuid}}">{{studentName}}</span>
+              <button type="button" class="fac-remove-student fac-del"
+                      data-uuid="{{actorUuid}}">✕</button>
+            </div>
+            {{/if}}{{/if}}{{/each}}
+          </div>
+        </div>
+
+        {{!-- КУРС 2 --}}
+        <div class="fac-course-col">
+          <div class="fac-course-hdr">2 курс</div>
+          <div class="fac-sem-block">
+            <div class="fac-sem-lbl">1 сем.</div>
+            {{#each system.students}}{{#if (eq course 2)}}{{#if (eq semester 1)}}
+            <div class="fac-student-row">
+              <button type="button" class="fac-star-btn {{#if isStar}}fac-star-on{{/if}}"
+                      data-uuid="{{actorUuid}}">★</button>
+              <span class="fac-student-name fac-open-actor"
+                    data-uuid="{{actorUuid}}">{{studentName}}</span>
+              <button type="button" class="fac-remove-student fac-del"
+                      data-uuid="{{actorUuid}}">✕</button>
+            </div>
+            {{/if}}{{/if}}{{/each}}
+          </div>
+          <div class="fac-sem-block">
+            <div class="fac-sem-lbl">2 сем.</div>
+            {{#each system.students}}{{#if (eq course 2)}}{{#if (eq semester 2)}}
+            <div class="fac-student-row">
+              <button type="button" class="fac-star-btn {{#if isStar}}fac-star-on{{/if}}"
+                      data-uuid="{{actorUuid}}">★</button>
+              <span class="fac-student-name fac-open-actor"
+                    data-uuid="{{actorUuid}}">{{studentName}}</span>
+              <button type="button" class="fac-remove-student fac-del"
+                      data-uuid="{{actorUuid}}">✕</button>
+            </div>
+            {{/if}}{{/if}}{{/each}}
+          </div>
+        </div>
+
+        {{!-- КУРС 3 --}}
+        <div class="fac-course-col">
+          <div class="fac-course-hdr">3 курс</div>
+          <div class="fac-sem-block">
+            <div class="fac-sem-lbl">1 сем.</div>
+            {{#each system.students}}{{#if (eq course 3)}}{{#if (eq semester 1)}}
+            <div class="fac-student-row">
+              <button type="button" class="fac-star-btn {{#if isStar}}fac-star-on{{/if}}"
+                      data-uuid="{{actorUuid}}">★</button>
+              <span class="fac-student-name fac-open-actor"
+                    data-uuid="{{actorUuid}}">{{studentName}}</span>
+              <button type="button" class="fac-remove-student fac-del"
+                      data-uuid="{{actorUuid}}">✕</button>
+            </div>
+            {{/if}}{{/if}}{{/each}}
+          </div>
+          <div class="fac-sem-block">
+            <div class="fac-sem-lbl">2 сем.</div>
+            {{#each system.students}}{{#if (eq course 3)}}{{#if (eq semester 2)}}
+            <div class="fac-student-row">
+              <button type="button" class="fac-star-btn {{#if isStar}}fac-star-on{{/if}}"
+                      data-uuid="{{actorUuid}}">★</button>
+              <span class="fac-student-name fac-open-actor"
+                    data-uuid="{{actorUuid}}">{{studentName}}</span>
+              <button type="button" class="fac-remove-student fac-del"
+                      data-uuid="{{actorUuid}}">✕</button>
+            </div>
+            {{/if}}{{/if}}{{/each}}
+          </div>
+        </div>
+
+        {{!-- КУРС 4 --}}
+        <div class="fac-course-col">
+          <div class="fac-course-hdr">4 курс</div>
+          <div class="fac-sem-block">
+            <div class="fac-sem-lbl">1 сем.</div>
+            {{#each system.students}}{{#if (eq course 4)}}{{#if (eq semester 1)}}
+            <div class="fac-student-row">
+              <button type="button" class="fac-star-btn {{#if isStar}}fac-star-on{{/if}}"
+                      data-uuid="{{actorUuid}}">★</button>
+              <span class="fac-student-name fac-open-actor"
+                    data-uuid="{{actorUuid}}">{{studentName}}</span>
+              <button type="button" class="fac-remove-student fac-del"
+                      data-uuid="{{actorUuid}}">✕</button>
+            </div>
+            {{/if}}{{/if}}{{/each}}
+          </div>
+          <div class="fac-sem-block">
+            <div class="fac-sem-lbl">2 сем.</div>
+            {{#each system.students}}{{#if (eq course 4)}}{{#if (eq semester 2)}}
+            <div class="fac-student-row">
+              <button type="button" class="fac-star-btn {{#if isStar}}fac-star-on{{/if}}"
+                      data-uuid="{{actorUuid}}">★</button>
+              <span class="fac-student-name fac-open-actor"
+                    data-uuid="{{actorUuid}}">{{studentName}}</span>
+              <button type="button" class="fac-remove-student fac-del"
+                      data-uuid="{{actorUuid}}">✕</button>
+            </div>
+            {{/if}}{{/if}}{{/each}}
+          </div>
+        </div>
+
+        {{!-- КУРС 5 --}}
+        <div class="fac-course-col">
+          <div class="fac-course-hdr">5 курс</div>
+          <div class="fac-sem-block">
+            <div class="fac-sem-lbl">1 сем.</div>
+            {{#each system.students}}{{#if (eq course 5)}}{{#if (eq semester 1)}}
+            <div class="fac-student-row">
+              <button type="button" class="fac-star-btn {{#if isStar}}fac-star-on{{/if}}"
+                      data-uuid="{{actorUuid}}">★</button>
+              <span class="fac-student-name fac-open-actor"
+                    data-uuid="{{actorUuid}}">{{studentName}}</span>
+              <button type="button" class="fac-remove-student fac-del"
+                      data-uuid="{{actorUuid}}">✕</button>
+            </div>
+            {{/if}}{{/if}}{{/each}}
+          </div>
+          <div class="fac-sem-block">
+            <div class="fac-sem-lbl">2 сем.</div>
+            {{#each system.students}}{{#if (eq course 5)}}{{#if (eq semester 2)}}
+            <div class="fac-student-row">
+              <button type="button" class="fac-star-btn {{#if isStar}}fac-star-on{{/if}}"
+                      data-uuid="{{actorUuid}}">★</button>
+              <span class="fac-student-name fac-open-actor"
+                    data-uuid="{{actorUuid}}">{{studentName}}</span>
+              <button type="button" class="fac-remove-student fac-del"
+                      data-uuid="{{actorUuid}}">✕</button>
+            </div>
+            {{/if}}{{/if}}{{/each}}
+          </div>
+        </div>
+
+      </div>{{!-- /fac-courses-grid --}}
+
+      {{!-- Не закончили --}}
+      <div class="section-title" style="margin-top:14px">
+        <span style="color:#f87171">◌</span> Не закончили обучение
+      </div>
+      <div class="fac-dropouts-drop fac-dropouts-zone">
+        {{#if system.dropouts.length}}
+          {{#each system.dropouts as |dr|}}
+          <div class="fac-dropout-row">
+            <span class="fac-dropout-name fac-open-actor"
+                  data-uuid="{{dr.actorUuid}}">{{dr.studentName}}</span>
+            <textarea class="kk9-textarea fac-dropout-ta"
+                      name="system.dropouts.{{@index}}.reason"
+                      placeholder="Причина не окончания...">{{dr.reason}}</textarea>
+            <button type="button" class="fac-remove-dropout fac-del"
+                    data-uuid="{{dr.actorUuid}}">✕</button>
+          </div>
+          {{/each}}
+        {{else}}
+          <div class="fac-drop-hint" style="padding:12px;text-align:center">
+            Перетащи персонажа сюда
+          </div>
+        {{/if}}
+      </div>
+
+    </div>{{!-- /tab students --}}
+
+    {{!-- ════ СПОСОБНОСТИ ════ --}}
+    <div class="tab" data-group="primary" data-tab="abilities">
+
+      <div class="section-header-row">
+        <span class="section-title">
+          <span class="faculty-dot" style="background:{{system.color}}"></span>
+          Способности и навыки
+        </span>
+        <span class="fac-drop-hint">Перетащи ability или skill сюда</span>
+      </div>
+
+      <div class="faculty-abilities-drop fac-abilities-zone">
+        {{#if facultyAbilities.length}}
+          {{#each facultyAbilities as |ab|}}
+          <div class="fac-ab-row">
+            <span class="fac-ab-dot"
+              style="background:{{#if (eq ab.category 'magic')}}#a855f7{{else if (eq ab.category 'personal')}}#fcd34d{{else if (eq ab.category 'learned')}}#4ade80{{else}}#94a3b8{{/if}}">
+            </span>
+            <span class="fac-ab-name">{{ab.name}}</span>
+            <span class="fac-ab-cat cat-{{ab.category}}">{{categoryLabel ab.category}}</span>
+            <button type="button" class="remove-faculty-ability fac-del"
+                    data-index="{{@index}}">✕</button>
+          </div>
+          {{/each}}
+        {{else}}
+          <div class="fac-drop-hint" style="padding:18px;text-align:center">
+            Перетащи skill или ability сюда
+          </div>
+        {{/if}}
+      </div>
+
+      <div class="fac-ab-summary">
+        <span class="fac-sum-item cat-common">Общих: {{abCount.common}}</span>
+        <span class="fac-sum-item cat-personal">Личных: {{abCount.personal}}</span>
+        <span class="fac-sum-item cat-learned">Изучаемых: {{abCount.learned}}</span>
+        <span class="fac-sum-item cat-magic">Магических: {{abCount.magic}}</span>
+      </div>
+
+    </div>{{!-- /tab abilities --}}
+
+    {{!-- ════ ХАРАКТЕР ════ --}}
+    <div class="tab" data-group="primary" data-tab="description">
+
+      <div class="fac-traits-grid">
+        <div class="fac-trait-block fac-trait-fit">
+          <div class="fac-trait-ttl">
+            <span style="color:#4ade80">✦</span>
+            Характеристики, которые подходят
+          </div>
+          <textarea class="kk9-textarea fac-trait-ta" name="system.traits_fit"
+                    placeholder="Черты характера, склонности, ценности...">{{system.traits_fit}}</textarea>
+        </div>
+        <div class="fac-trait-block fac-trait-unfit">
+          <div class="fac-trait-ttl">
+            <span style="color:#f87171">✗</span>
+            Характеристики, которые не подходят
+          </div>
+          <textarea class="kk9-textarea fac-trait-ta" name="system.traits_unfit"
+                    placeholder="Черты характера, склонности, ценности...">{{system.traits_unfit}}</textarea>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <div class="section-title">
+          <span class="faculty-dot" style="background:{{system.color}}"></span>
+          О факультете
+        </div>
+        <textarea class="kk9-textarea fac-desc-ta" name="system.description"
+                  placeholder="История, культура, традиции факультета...">{{system.description}}</textarea>
+      </div>
+
+      <div style="margin-top:14px">
+        <div class="section-title" style="color:#a855f7">⚡ Особые правила</div>
+        <textarea class="kk9-textarea fac-desc-ta" name="system.special_rules"
+                  placeholder="Механические особенности, бонусы, ограничения...">{{system.special_rules}}</textarea>
+      </div>
+
+    </div>{{!-- /tab description --}}
+
+    {{!-- ════ БАЙКИ ════ --}}
+    <div class="tab" data-group="primary" data-tab="lore">
+
+      <div class="section-header-row">
+        <span class="section-title">📖 Байки и легенды</span>
+        <span class="fac-drop-hint">Перетащи Journal Entry сюда</span>
+      </div>
+
+      <div class="fac-lore-drop fac-lore-zone">
+        {{#if system.lore_entries.length}}
+          {{#each system.lore_entries as |entry|}}
+          <div class="fac-lore-row">
+            <span class="fac-lore-ico">📖</span>
+            <span class="fac-lore-name fac-open-journal"
+                  data-uuid="{{entry.uuid}}">{{entry.name}}</span>
+            <button type="button" class="fac-remove-lore fac-del"
+                    data-uuid="{{entry.uuid}}">✕</button>
+          </div>
+          {{/each}}
+        {{else}}
+          <div class="fac-drop-hint" style="padding:18px;text-align:center">
+            Перетащи Journal Entry сюда
+          </div>
+        {{/if}}
+      </div>
+
+    </div>{{!-- /tab lore --}}
+
+  </div>{{!-- /sheet-body --}}
 </form>
+
+<style>
+/* ================================================================
+   ШАПКА
+   Структура: flex-row [ аватар | flex-col [ строка-имени | строка-полей ] ]
+   ================================================================ */
+.faculty-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+}
+
+.faculty-sheet .fac-header {
+  position: relative;
+  /* flex-direction: row — аватар слева, правая часть справа */
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.faculty-sheet .fac-header-glow {
+  position: absolute; top: -30px; left: -10px;
+  width: 130px; height: 130px;
+  background: radial-gradient(ellipse,
+    color-mix(in srgb, var(--fcolor,#888) 15%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+.faculty-sheet .fac-avatar {
+  width: 48px; height: 48px;
+  border-radius: 50%; object-fit: cover;
+  cursor: pointer; flex-shrink: 0;
+  border: 2px solid color-mix(in srgb, var(--fcolor,#888) 55%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--fcolor,#888) 18%, transparent);
+}
+
+/* Правая часть — flex-col, занимает всё оставшееся место */
+.faculty-sheet .fac-header-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Строка 1: имя + бейдж */
+.faculty-sheet .fac-name-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.faculty-sheet .fac-name-input {
+  flex: 1;
+  font-family: 'Caveat', cursive;
+  font-size: 1.4em;
+  font-weight: 700;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid color-mix(in srgb, var(--fcolor,#888) 40%, transparent);
+  color: var(--text-head);
+  padding: 0 0 1px;
+  outline: none;
+  transition: border-color 0.2s;
+  min-width: 0;
+}
+.faculty-sheet .fac-name-input:focus {
+  border-bottom-color: var(--fcolor,#888);
+}
+
+.faculty-sheet .fac-status-badge {
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 0.66em;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 2px 9px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.faculty-sheet .fac-badge-active {
+  background: rgba(34,197,94,0.1); color: #4ade80;
+  border: 1px solid rgba(34,197,94,0.3);
+}
+.faculty-sheet .fac-badge-inactive {
+  background: rgba(90,90,90,0.1); color: var(--text-dim);
+  border: 1px solid var(--border2);
+}
+
+/* Строка 2: поля — flex-row */
+.faculty-sheet .fac-fields-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.faculty-sheet .fac-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 80px;
+}
+.faculty-sheet .fac-field--sm { flex: 0 0 68px; min-width: 68px; }
+.faculty-sheet .fac-field--xs { flex: 0 0 36px; min-width: 36px; }
+
+.faculty-sheet .fac-field-label {
+  font-size: 0.62em;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+}
+
+.faculty-sheet .fac-color-picker {
+  width: 32px; height: 24px;
+  padding: 0;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+}
+
+/* ================================================================
+   ОБЩИЕ УТИЛИТЫ
+   ================================================================ */
+.faculty-sheet .fac-drop-hint {
+  font-size: 0.74em; color: var(--text-dim); font-style: italic;
+}
+.faculty-sheet .fac-hint-right {
+  margin-left: auto;
+  font-size: 0.68em; color: var(--text-dim); font-style: italic;
+}
+
+/* Строка с именем flex:1 и крестиком: [ имя ] [ ✕ ] */
+.faculty-sheet .fac-linked-row {
+  display: flex; flex-direction: row; align-items: center; gap: 6px;
+}
+.faculty-sheet .fac-linked-name {
+  flex: 1; font-size: 0.88em; cursor: pointer;
+  color: color-mix(in srgb, var(--fcolor,#888) 80%, var(--text));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.faculty-sheet .fac-linked-name:hover { text-decoration: underline; }
+
+/* ================================================================
+   ПРЕДШЕСТВЕННИК
+   ================================================================ */
+.faculty-sheet .fac-predecessor-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px dashed var(--border2);
+  border-radius: 4px;
+  padding: 5px 10px;
+  background: var(--bg2);
+}
+
+/* ================================================================
+   СЕТКА КУРСОВ
+   ================================================================ */
+.faculty-sheet .fac-courses-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  margin-top: 8px;
+  border: 1px dashed color-mix(in srgb, var(--fcolor,#888) 22%, var(--border));
+  border-radius: 4px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--fcolor,#888) 3%, var(--bg2));
+}
+
+.faculty-sheet .fac-course-col {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.faculty-sheet .fac-course-hdr {
+  font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--fcolor,#888) 70%, var(--text-dim));
+  background: color-mix(in srgb, var(--fcolor,#888) 10%, var(--bg3));
+  padding: 3px 5px;
+  text-align: center;
+  border-bottom: 1px solid color-mix(in srgb, var(--fcolor,#888) 18%, var(--border));
+}
+
+.faculty-sheet .fac-sem-block {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.faculty-sheet .fac-sem-block:last-child { border-bottom: none; }
+
+.faculty-sheet .fac-sem-lbl {
+  font-size: 0.6em; color: var(--text-dim);
+  margin-bottom: 2px; text-transform: uppercase;
+}
+
+/* Строка студента: [ ★ ][ имя flex:1 ][ ✕ ] */
+.faculty-sheet .fac-student-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 2px;
+  background: var(--bg2);
+  border-radius: 2px;
+  margin-bottom: 1px;
+}
+.faculty-sheet .fac-star-btn {
+  background: none; border: none;
+  color: var(--border2); cursor: pointer;
+  font-size: 0.75em; padding: 0; line-height: 1;
+  flex-shrink: 0; transition: color 0.15s;
+  width: 14px; min-width: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.faculty-sheet .fac-star-btn:hover { color: var(--gold); }
+.faculty-sheet .fac-star-on { color: var(--gold) !important; }
+.faculty-sheet .fac-student-name {
+  flex: 1;
+  font-size: 0.72em; color: var(--text);
+  overflow: hidden;
+  word-break: break-word;
+  cursor: pointer; min-width: 0;
+  line-height: 1.2;
+}
+.faculty-sheet .fac-student-name:hover { color: var(--gold); }
+
+/* ================================================================
+   НЕ ЗАКОНЧИЛИ
+   ================================================================ */
+.faculty-sheet .fac-dropouts-zone {
+  margin-top: 6px;
+  border: 1px dashed rgba(239,68,68,0.22);
+  border-radius: 4px; padding: 5px;
+  background: rgba(239,68,68,0.03);
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+/* [ имя 100px ][ textarea flex:1 ][ ✕ ] — всё в одну строку, не вылезает */
+.faculty-sheet .fac-dropout-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 5px 7px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.faculty-sheet .fac-dropout-name {
+  flex-shrink: 0;
+  width: 90px;
+  font-size: 0.83em; color: var(--text);
+  cursor: pointer; padding-top: 3px;
+  overflow: hidden;
+  word-break: break-word;
+  line-height: 1.2;
+}
+.faculty-sheet .fac-dropout-name:hover { color: var(--gold); }
+.faculty-sheet .fac-dropout-ta {
+  flex: 1;
+  min-width: 0;
+  min-height: 46px;
+  max-width: 100%;
+  font-size: 0.81em !important;
+  resize: vertical;
+  margin: 0 !important;
+  padding: 3px 6px !important;
+  box-sizing: border-box;
+}
+/* Крестик прижат к правому краю, не растягивается */
+.faculty-sheet .fac-dropout-row > .btn-delete-xs {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+/* ================================================================
+   СПОСОБНОСТИ
+   ================================================================ */
+.faculty-sheet .fac-abilities-zone {
+  min-height: 48px;
+  border: 1px dashed color-mix(in srgb, var(--fcolor,#888) 28%, var(--border));
+  border-radius: 4px; padding: 4px; margin-top: 8px;
+  background: color-mix(in srgb, var(--fcolor,#888) 4%, var(--bg2));
+  display: flex; flex-direction: column; gap: 2px;
+}
+
+/* [ точка ][ имя flex:1 ][ бейдж ][ ✕ ] */
+.faculty-sheet .fac-ab-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: var(--bg3); border: 1px solid var(--border);
+  transition: background 0.1s;
+}
+.faculty-sheet .fac-ab-row:hover { background: var(--bg4); }
+.faculty-sheet .fac-ab-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.faculty-sheet .fac-ab-name {
+  flex: 1; font-size: 0.86em; color: var(--text);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.faculty-sheet .fac-ab-cat {
+  font-size: 0.68em; padding: 1px 6px; border-radius: 8px; flex-shrink: 0;
+}
+
+.faculty-sheet .fac-ab-summary {
+  display: flex; flex-direction: row; gap: 10px; margin-top: 8px; flex-wrap: wrap;
+}
+.faculty-sheet .fac-sum-item {
+  font-size: 0.72em; padding: 2px 8px; border-radius: 8px;
+}
+
+/* ================================================================
+   ХАРАКТЕР
+   ================================================================ */
+.faculty-sheet .fac-traits-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.faculty-sheet .fac-trait-block {
+  display: flex; flex-direction: column; gap: 6px;
+  border-radius: 4px; padding: 8px 10px;
+}
+.faculty-sheet .fac-trait-fit   { background: rgba(34,197,94,0.05); border: 1px solid rgba(34,197,94,0.18); }
+.faculty-sheet .fac-trait-unfit { background: rgba(239,68,68,0.05);  border: 1px solid rgba(239,68,68,0.18); }
+.faculty-sheet .fac-trait-ttl {
+  display: flex; flex-direction: row; align-items: center; gap: 5px;
+  font-size: 0.7em; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--text-dim);
+}
+.faculty-sheet .fac-trait-ta { min-height: 110px; }
+.faculty-sheet .fac-desc-ta  { min-height: 90px; }
+
+/* ================================================================
+   БАЙКИ
+   ================================================================ */
+.faculty-sheet .fac-lore-zone {
+  min-height: 44px;
+  border: 1px dashed color-mix(in srgb, var(--gold,#c4a44a) 28%, var(--border));
+  border-radius: 4px; padding: 4px; margin-top: 8px;
+  background: color-mix(in srgb, var(--gold,#c4a44a) 3%, var(--bg2));
+  display: flex; flex-direction: column; gap: 3px;
+}
+
+/* [ иконка ][ имя flex:1 ][ ✕ ] */
+.faculty-sheet .fac-lore-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 3px;
+  background: var(--bg3); border: 1px solid var(--border);
+  transition: background 0.1s;
+}
+.faculty-sheet .fac-lore-row:hover { background: var(--bg4); }
+.faculty-sheet .fac-lore-ico  { font-size: 0.88em; flex-shrink: 0; }
+.faculty-sheet .fac-lore-name {
+  flex: 1; font-size: 0.88em; color: var(--gold);
+  cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.faculty-sheet .fac-lore-name:hover { color: var(--text-head); text-decoration: underline; }
+
+/* ── Крестик удаления факультета — не попадает под глобальный патч kk9.css ── */
+.faculty-sheet .fac-del {
+  flex-shrink: 0 !important;
+  width: 14px !important;
+  min-width: 14px !important;
+  height: 14px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--border2) !important;
+  font-size: 0.75em !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: color 0.15s !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.faculty-sheet .fac-del:hover { color: var(--accent2) !important; }
+</style>

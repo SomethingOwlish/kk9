@@ -219,24 +219,97 @@ export class NpcBossDataModel extends foundry.abstract.TypeDataModel {
 // ============================================================
 // ПРЕДМЕТЫ
 // ============================================================
-
 export class FacultyDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
-      description: new fields.HTMLField({ initial: "" }),
-      color:       new fields.StringField({ initial: "#888888" }),
-      color_key:   new fields.StringField({ initial: "" }),
-      teacher:     new fields.StringField({ initial: "" }),
+      // --- Основное ---
+      description:      new fields.HTMLField({ initial: "" }),
+      color:            new fields.StringField({ initial: "#888888" }),
+      color_key:        new fields.StringField({ initial: "" }),
+      teacher:          new fields.StringField({ initial: "" }),
+
+      // --- Статус ---
+      active:           new fields.BooleanField({ initial: true }),
+      date_founded:     new fields.StringField({ initial: "" }),   // текст, напр. "1847 г."
+      date_reformed:    new fields.StringField({ initial: "" }),   // скрыто если active=true
+
+      // --- Общежитие ---
+      dormitory:        new fields.StringField({ initial: "" }),
+
+      // --- Предшественник (ссылка на неактивный факультет) ---
+      predecessor_uuid: new fields.StringField({ initial: "" }),   // uuid Item
+      predecessor_name: new fields.StringField({ initial: "" }),   // кэш имени для отображения
+
+      // --- Способности ---
       abilities: new fields.ArrayField(
         new fields.SchemaField({
           name:     new fields.StringField({ required: true, initial: "" }),
           itemId:   new fields.StringField({ initial: "" }),
           category: new fields.StringField({ initial: "common", choices: ["common","personal","learned","magic"] })
         })
-      )
+      ),
+
+      // --- Студенты: массив { actorId, actorUuid, name, course (1-5), semester (1-2), isStar } ---
+      students: new fields.ArrayField(
+        new fields.SchemaField({
+          actorUuid: new fields.StringField({ required: true, initial: "" }),
+          studentName: new fields.StringField({ initial: "" }),
+          course:    new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
+          semester:  new fields.NumberField({ initial: 1, min: 1, max: 2, integer: true }),
+          isStar:    new fields.BooleanField({ initial: false })   // «Староста»
+        })
+      ),
+
+      // --- Не закончили: массив { actorUuid, name, reason } ---
+      dropouts: new fields.ArrayField(
+        new fields.SchemaField({
+          actorUuid: new fields.StringField({ required: true, initial: "" }),
+          studentName: new fields.StringField({ initial: "" }),
+          reason:    new fields.StringField({ initial: "" })
+        })
+      ),
+
+      // --- Характеристики ---
+      traits_fit:     new fields.HTMLField({ initial: "" }),   // «Подходит»
+      traits_unfit:   new fields.HTMLField({ initial: "" }),   // «Не подходит»
+
+      // --- Особые правила ---
+      special_rules:  new fields.HTMLField({ initial: "" }),
+
+      // --- Байки и легенды: массив ссылок на JournalEntry ---
+      lore_entries: new fields.ArrayField(
+        new fields.SchemaField({
+          uuid:  new fields.StringField({ required: true, initial: "" }),
+          name:  new fields.StringField({ initial: "" })
+        })
+      ),
     };
   }
+
+  // Автомиграция: name → studentName в старых данных
+  migrateData(source) {
+    if (Array.isArray(source.students)) {
+      source.students = source.students.map(s => {
+        if (s.name !== undefined && !s.studentName) {
+          s.studentName = s.name;
+          delete s.name;
+        }
+        return s;
+      });
+    }
+    if (Array.isArray(source.dropouts)) {
+      source.dropouts = source.dropouts.map(d => {
+        if (d.name !== undefined && !d.studentName) {
+          d.studentName = d.name;
+          delete d.name;
+        }
+        return d;
+      });
+    }
+    return super.migrateData(source);
+  }
 }
+
 
 export class SkillDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {

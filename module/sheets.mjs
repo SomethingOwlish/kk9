@@ -1,7 +1,10 @@
 // ============================================================
-// КК9 — Листы v1.2
+// КК9 — Листы v1.4
 // ============================================================
 
+// ============================================================
+// ПЕРСОНАЖ
+// ============================================================
 export class KK9CharacterSheet extends ActorSheet {
 
   static get defaultOptions() {
@@ -38,7 +41,7 @@ export class KK9CharacterSheet extends ActorSheet {
       magic:    context.system.attributes.magic.die,
     };
     context.categoryLabels = { common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая" };
-    context.categoryLabel = (cat) => ({common:"Общая",personal:"Личная",learned:"Изучаемая",magic:"Магическая"})[cat] || cat;
+    context.categoryLabel  = (cat) => ({common:"Общая",personal:"Личная",learned:"Изучаемая",magic:"Магическая"})[cat] || cat;
 
     const facultyId = context.system.faculty;
     let facultyItem = null;
@@ -100,7 +103,11 @@ export class KK9CharacterSheet extends ActorSheet {
       if (!actor || actor.id === this.actor.id) return;
       const relations = this.actor.system.relations || [];
       if (!relations.find(r => r.name === actor.name)) {
-        await this.actor.update({ "system.relations": [...relations, { name:actor.name, status:"neutral", level:0, notes: actor.type==="character" ? "Игровой персонаж" : "", love:false }] });
+        await this.actor.update({ "system.relations": [...relations, {
+          name: actor.name, status: "neutral", level: 0,
+          notes: actor.type === "character" ? "Игровой персонаж" : "",
+          love: false
+        }] });
       }
       return;
     }
@@ -110,7 +117,8 @@ export class KK9CharacterSheet extends ActorSheet {
     if (item.type === "faculty") { await this.actor._applyFaculty(item); return; }
     if (item.type === "language") {
       const langs = this.actor.system.languages || [];
-      if (!langs.find(l => l.name === item.name)) await this.actor.update({ "system.languages": [...langs, { name:item.name, itemId:item.id }] });
+      if (!langs.find(l => l.name === item.name))
+        await this.actor.update({ "system.languages": [...langs, { name: item.name, itemId: item.id }] });
       return;
     }
     if (item.type === "skill") {
@@ -129,7 +137,8 @@ export class KK9CharacterSheet extends ActorSheet {
         const fid = this.actor.system.faculty;
         if (fid) {
           const fi = game.packs.get("kk9.kk9-faculties")?.get(fid);
-          if (fi && (fi.system.abilities || []).find(a => a.name === item.name)) itemData.system.faculty_id = fid;
+          if (fi && (fi.system.abilities || []).find(a => a.name === item.name))
+            itemData.system.faculty_id = fid;
         }
       }
       await Item.create(itemData, { parent: this.actor });
@@ -139,187 +148,163 @@ export class KK9CharacterSheet extends ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // --- Броски ---
+    // Броски
     html.find(".rollable-attribute").click(e => this.actor.rollAttribute(e.currentTarget.dataset.attribute));
     html.find(".rollable-skill").click(e => this.actor.rollSkillItem(e.currentTarget.dataset.itemId));
     html.find(".rollable-ability").click(e => this.actor.rollAbility(e.currentTarget.dataset.itemId));
     html.find(".roll-initiative").click(() => this.actor.rollInitiative());
     html.find(".roll-toughness").click(() => this.actor.rollToughness());
 
-    // --- Здоровье ---
+    // Здоровье
     html.find(".health-pip[data-track='physical']").click(this._onPhysicalPipClick.bind(this));
     html.find(".health-pip[data-track='mental']").click(this._onMentalPipClick.bind(this));
 
-    // --- Открыть предмет ---
+    // Открыть айтем по клику на имя или иконку
     html.find(".item-name-click, .item-img").click(e => {
       const row = e.currentTarget.closest("[data-item-id]");
       if (!row) return;
       this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
     });
 
-    // ============================================================
-    // НАВЫКИ (skills) — сохранение кубика и модификатора
-    // ============================================================
-    html.find(".skill-die-select").change(async e => {
-      const itemId = e.currentTarget.dataset.itemId;
-      const die = parseInt(e.currentTarget.value);
-      const item = this.actor.items.get(itemId);
-      if (!item) return;
-      const attrs = this.actor.system.attributes;
-      // Если есть linkedAttribute (skill) — ограничиваем кубиком этого атрибута
-      // Если нет (learned/common ability в baseSkills) — ограничиваем максимальным атрибутом
-      const linkedAttr = item.system.linkedAttribute;
-      const attrDie = attrs?.[linkedAttr]?.die
-        ?? Math.max(...Object.values(attrs).map(a => a.die));
-      if (die > attrDie) {
-        const label = linkedAttr
-          ? `кубик атрибута (d${attrDie})`
-          : `наивысший атрибут (d${attrDie})`;
-        ui.notifications.warn(`Кубик не может превышать ${label}`);
-        this.render();
-        return;
-      }
-      await item.update({ "system.die": die });
-    });
+    // Создать айтем (кнопка +)
+    html.find(".item-create").click(this._onItemCreate.bind(this));
 
+    // Удалить айтем
+    html.find(".item-delete").click(this._onItemDelete.bind(this));
+    html.find(".btn-delete-skill").click(this._onItemDelete.bind(this));
+
+    // Навыки — кубик и модификатор
+    html.find(".skill-die-select").change(this._onSkillDieChange.bind(this));
     html.find(".skill-mod-input").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
-      const mod = parseInt(e.currentTarget.value) || 0;
-      const item = this.actor.items.get(itemId);
-      if (item) await item.update({ "system.modifier": mod });
+      const mod    = parseInt(e.currentTarget.value) || 0;
+      await this.actor.items.get(itemId)?.update({ "system.modifier": mod });
     });
 
-    // Удалить навык
-    html.find(".btn-delete-skill").click(async e => {
-      e.preventDefault();
-      const itemId = e.currentTarget.dataset.itemId;
-      if (itemId) await this.actor.items.get(itemId)?.delete();
-    });
-
-    // ============================================================
-    // СПОСОБНОСТИ (abilities — факультет, магия, личные) — сохранение
-    // ============================================================
+    // Способности — кубик и модификатор
     html.find(".ability-die-select").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
-      const die = parseInt(e.currentTarget.value);
-      const item = this.actor.items.get(itemId);
-      if (!item) return;
-      // Способности ограничены наивысшим кубиком атрибутов персонажа
-      const attrs = this.actor.system.attributes;
-      const maxAttrDie = Math.max(...Object.values(attrs).map(a => a.die));
-      if (die > maxAttrDie) {
-        ui.notifications.warn(`Кубик способности не может превышать наивысший атрибут (d${maxAttrDie})`);
-        this.render();
-        return;
-      }
-      await item.update({ "system.die": die });
+      const die    = parseInt(e.currentTarget.value);
+      await this.actor.items.get(itemId)?.update({ "system.die": die });
     });
-
     html.find(".ability-mod-input").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
-      const mod = parseInt(e.currentTarget.value) || 0;
-      const item = this.actor.items.get(itemId);
-      if (item) await item.update({ "system.modifier": mod });
+      const mod    = parseInt(e.currentTarget.value) || 0;
+      await this.actor.items.get(itemId)?.update({ "system.modifier": mod });
     });
 
-    // Удалить способность (кнопки .item-delete и .item-delete.btn-delete-xs)
-    html.find(".item-delete").click(e => this._onItemDelete(e));
-
-    // Уровень магического таланта
+    // Магия — уровень
     html.find(".magic-level-select").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
-      const level = e.currentTarget.value;
-      const magicLevels = [...(this.actor.system.magicLevels || [])];
-      const existing = magicLevels.find(ml => ml.itemId === itemId);
-      if (existing) { existing.level = level; }
-      else { magicLevels.push({ itemId, level }); }
-      await this.actor.update({ "system.magicLevels": magicLevels });
+      const level  = parseInt(e.currentTarget.value);
+      const levels = foundry.utils.deepClone(this.actor.system.magicLevels || []);
+      const idx    = levels.findIndex(l => l.itemId === itemId);
+      if (idx >= 0) levels[idx].level = level; else levels.push({ itemId, level });
+      await this.actor.update({ "system.magicLevels": levels });
     });
 
-    // --- Связи ---
+    // Связи
     html.find(".love-toggle").click(this._onLoveToggle.bind(this));
     html.find(".add-relation").click(this._onAddRelation.bind(this));
     html.find(".delete-relation").click(this._onDeleteRelation.bind(this));
+    html.find(".relation-level-range").on("input", e => {
+      const valEl = e.currentTarget.closest(".relation-row")?.querySelector(".relation-level-val");
+      if (valEl) valEl.textContent = e.currentTarget.value;
+    });
 
-    // --- Прочее ---
-    html.find(".add-custom-skill").click(this._onAddCustomSkill.bind(this));
-    html.find(".delete-custom-skill").click(this._onDeleteCustomSkill.bind(this));
+    // Языки
     html.find(".delete-language").click(this._onDeleteLanguage.bind(this));
-    html.find(".item-create").click(this._onItemCreate.bind(this));
+  }
+
+  async _onItemCreate(event) {
+    event.preventDefault();
+    const type     = event.currentTarget.dataset.type;
+    const category = event.currentTarget.dataset.category;
+    const names = {
+      weapon:"Новое оружие", gear:"Новое снаряжение", artifact:"Новый артефакт",
+      spell:"Новое заклинание", daemon:"Новый даймон", ability:"Новая способность",
+      companion:"Новый спутник", vehicle:"Новый транспорт",
+      device:"Новое устройство", contact:"Новый контакт", language:"Новый язык"
+    };
+    const itemData = { name: names[type] || `Новый ${type}`, type };
+    if (category) itemData.system = { category };
+    await Item.create(itemData, { parent: this.actor });
+  }
+
+  async _onItemDelete(event) {
+    event.preventDefault();
+    const el     = event.currentTarget;
+    const itemId = el.dataset.itemId || el.closest("[data-item-id]")?.dataset.itemId;
+    if (!itemId) return;
+    const magicLevels = (this.actor.system.magicLevels || []).filter(ml => ml.itemId !== itemId);
+    if (magicLevels.length !== (this.actor.system.magicLevels || []).length)
+      await this.actor.update({ "system.magicLevels": magicLevels });
+    await this.actor.items.get(itemId)?.delete();
+  }
+
+  async _onSkillDieChange(event) {
+    const itemId = event.currentTarget.dataset.itemId;
+    const die    = parseInt(event.currentTarget.value);
+    const item   = this.actor.items.get(itemId);
+    if (!item) return;
+    const linkedAttr = item.system.linkedAttribute;
+    const attrDie    = this.actor.system.attributes?.[linkedAttr]?.die;
+    if (attrDie && die > attrDie) {
+      ui.notifications.warn(`Кубик навыка не может превышать кубик атрибута (d${attrDie})`);
+      this.render(); return;
+    }
+    await item.update({ "system.die": die });
   }
 
   async _onPhysicalPipClick(event) {
     const val = parseInt(event.currentTarget.dataset.value);
     const cur = this.actor.system.health.physical.value;
-    await this.actor.update({ "system.health.physical.value": val===cur ? val-1 : val });
+    await this.actor.update({ "system.health.physical.value": val === cur ? val - 1 : val });
   }
+
   async _onMentalPipClick(event) {
     const val = parseInt(event.currentTarget.dataset.value);
     const cur = this.actor.system.health.mental.value;
-    await this.actor.update({ "system.health.mental.value": val===cur ? val-1 : val });
+    await this.actor.update({ "system.health.mental.value": val === cur ? val - 1 : val });
   }
+
   async _onLoveToggle(event) {
     event.preventDefault();
-    const idx = parseInt(event.currentTarget.dataset.index);
+    const idx      = parseInt(event.currentTarget.dataset.index);
     const relations = [...(this.actor.system.relations || [])];
-    const wasLoved = relations[idx].love;
+    const wasLoved  = relations[idx]?.love;
     relations.forEach(r => r.love = false);
-    if (!wasLoved) relations[idx].love = true;
+    if (!wasLoved && relations[idx]) relations[idx].love = true;
     await this.actor.update({ "system.relations": relations });
   }
+
   async _onAddRelation(event) {
     event.preventDefault();
     const relations = this.actor.system.relations || [];
-    await this.actor.update({ "system.relations": [...relations, { name:"", status:"neutral", level:0, notes:"", love:false }] });
+    await this.actor.update({ "system.relations": [
+      ...relations, { name:"", status:"neutral", level:0, notes:"", love:false }
+    ]});
   }
+
   async _onDeleteRelation(event) {
     event.preventDefault();
-    const idx = parseInt(event.currentTarget.dataset.index);
-    const rel = [...(this.actor.system.relations || [])];
-    rel.splice(idx, 1);
-    await this.actor.update({ "system.relations": rel });
+    const idx       = parseInt(event.currentTarget.dataset.index);
+    const relations = [...(this.actor.system.relations || [])];
+    relations.splice(idx, 1);
+    await this.actor.update({ "system.relations": relations });
   }
-  async _onAddCustomSkill(event) {
-    event.preventDefault();
-    const cs = this.actor.system.customSkills || [];
-    await this.actor.update({ "system.customSkills": [...cs, { name:"Новый навык", die:4, linkedAttribute:"smarts", modifier:0 }] });
-  }
-  async _onDeleteCustomSkill(event) {
-    event.preventDefault();
-    const idx = parseInt(event.currentTarget.dataset.index);
-    const cs = [...(this.actor.system.customSkills || [])];
-    cs.splice(idx, 1);
-    await this.actor.update({ "system.customSkills": cs });
-  }
+
   async _onDeleteLanguage(event) {
     event.preventDefault();
-    const idx = parseInt(event.currentTarget.dataset.index);
+    const idx  = parseInt(event.currentTarget.dataset.index);
     const list = [...(this.actor.system.languages || [])];
     list.splice(idx, 1);
     await this.actor.update({ "system.languages": list });
   }
-  async _onItemCreate(event) {
-    event.preventDefault();
-    const type = event.currentTarget.dataset.type;
-    const category = event.currentTarget.dataset.category;
-    const names = { weapon:"Оружие", gear:"Снаряжение", artifact:"Артефакт", spell:"Заклинание", daemon:"Даймон", ability:"Способность", companion:"Спутник", vehicle:"Транспорт", device:"Устройство", contact:"Контакт", language:"Язык" };
-    const itemData = { name:`Новая ${names[type]||type}`, type };
-    if (category) itemData["system.category"] = category;
-    await Item.create(itemData, { parent: this.actor });
-  }
-  async _onItemDelete(event) {
-    event.preventDefault();
-    const el = event.currentTarget;
-    const itemId = el.dataset.itemId || el.closest("[data-item-id]")?.dataset.itemId;
-    if (!itemId) return;
-    const magicLevels = (this.actor.system.magicLevels || []).filter(ml => ml.itemId !== itemId);
-    if (magicLevels.length !== (this.actor.system.magicLevels || []).length) await this.actor.update({ "system.magicLevels": magicLevels });
-    await this.actor.items.get(itemId)?.delete();
-  }
 }
 
 // ============================================================
-// НПС — метки типов для снаряжения
+// НПС — метки типов снаряжения
 // ============================================================
 const NPC_ITEM_TYPE_LABELS = {
   weapon:"Оружие", gear:"Снаряжение", artifact:"Артефакт", spell:"Заклинание",
@@ -335,54 +320,63 @@ class KK9NpcBaseSheet extends ActorSheet {
   getData() {
     const c = super.getData();
     c.system = c.data.system;
-    c.attributeLabels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+    c.attributeLabels  = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
     c.npcItemTypeLabel = (type) => NPC_ITEM_TYPE_LABELS[type] || type;
     c.npcAllItems = this.actor.items.filter(i => i.type === "skill" || i.type === "ability");
-    c.npcGear = this.actor.items.filter(i => !["skill","ability"].includes(i.type));
+    c.npcGear     = this.actor.items.filter(i => !["skill","ability"].includes(i.type));
     return c;
   }
 
   activateListeners(html) {
     super.activateListeners(html);
 
-    html.find(".item-name-click").click(e => {
+    // Открыть айтем
+    html.find(".item-name-click, .item-img").click(e => {
       const row = e.currentTarget.closest("[data-item-id]");
       if (!row) return;
       this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
     });
 
+    // Удалить айтем
     html.find(".npc-item-del").click(async e => {
       e.preventDefault();
-      const itemId = e.currentTarget.dataset.itemId || e.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      const itemId = e.currentTarget.dataset.itemId
+        || e.currentTarget.closest("[data-item-id]")?.dataset.itemId;
       if (itemId) await this.actor.items.get(itemId)?.delete();
     });
 
+    // Навык — кубик
     html.find(".npc-skill-die").change(async e => {
       e.stopPropagation();
       const itemId = e.currentTarget.dataset.itemId;
-      const die = parseInt(e.currentTarget.value);
+      const die    = parseInt(e.currentTarget.value);
       if (itemId) await this.actor.items.get(itemId)?.update({ "system.die": die });
     });
 
+    // Навык — модификатор
     html.find(".npc-skill-mod").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
-      const mod = parseInt(e.currentTarget.value) || 0;
+      const mod    = parseInt(e.currentTarget.value) || 0;
       if (itemId) await this.actor.items.get(itemId)?.update({ "system.modifier": mod });
     });
 
+    // Бросок навыка
     html.find(".npc-rollable").click(async e => {
       const itemId = e.currentTarget.dataset.itemId;
-      const item = this.actor.items.get(itemId);
+      const item   = this.actor.items.get(itemId);
       if (!item) return;
-      const die = item.system.die || 4;
-      const mod = item.system.modifier || 0;
+      const die    = item.system.die || 4;
+      const mod    = item.system.modifier || 0;
       const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-      const formula = this._buildRollFormula(die, modStr);
-      const roll = new Roll(formula);
+      const roll   = new Roll(this._buildRollFormula(die, modStr));
       await roll.evaluate();
-      await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — ${item.name}` });
+      await roll.toMessage({
+        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        flavor:  `<strong>${this.actor.name}</strong> — ${item.name}`
+      });
     });
 
+    // Пипы здоровья НПС
     html.find(".health-pip[data-track='npc-physical']").click(async e => {
       const val = parseInt(e.currentTarget.dataset.value);
       const cur = this.actor.system.health?.physical?.value ?? 0;
@@ -393,135 +387,27 @@ class KK9NpcBaseSheet extends ActorSheet {
       const cur = this.actor.system.health?.mental?.value ?? 0;
       await this.actor.update({ "system.health.mental.value": cur === val ? val - 1 : val });
     });
-    html.find("[data-track='npc-physical-ko']").click(async () => {
-      const cur = this.actor.system.health.physical.knockout;
-      if (!cur) {
-        // Включаем КО — заполняем все предыдущие пипы (value = max = 2)
-        await this.actor.update({
-          "system.health.physical.knockout": true,
-          "system.health.physical.value": 2
-        });
-      } else {
-        // Выключаем КО — сбрасываем
-        await this.actor.update({ "system.health.physical.knockout": false });
-      }
-    });
-    html.find("[data-track='npc-mental-ko']").click(async () => {
-      const cur = this.actor.system.health.mental.knockout;
-      if (!cur) {
-        // Включаем КО — заполняем все предыдущие пипы (value = max = 2)
-        await this.actor.update({
-          "system.health.mental.knockout": true,
-          "system.health.mental.value": 2
-        });
-      } else {
-        // Выключаем КО — сбрасываем
-        await this.actor.update({ "system.health.mental.knockout": false });
-      }
-    });
 
-    html.find(".love-toggle").click(async e => {
-      e.preventDefault();
-      const idx = parseInt(e.currentTarget.dataset.index);
-      const relations = [...(this.actor.system.relations || [])];
-      const wasLoved = relations[idx].love;
-      relations.forEach(r => r.love = false);
-      if (!wasLoved) relations[idx].love = true;
+    // Связи НПС
+    html.find(".btn-relation-delete, .delete-relation").click(async e => {
+      const idx       = parseInt(e.currentTarget.dataset.index);
+      const relations = foundry.utils.deepClone(this.actor.system.relations || []);
+      relations.splice(idx, 1);
       await this.actor.update({ "system.relations": relations });
     });
-    html.find(".delete-relation").click(async e => {
-      e.preventDefault();
-      const idx = parseInt(e.currentTarget.dataset.index);
-      const rel = [...(this.actor.system.relations || [])];
-      rel.splice(idx, 1);
-      await this.actor.update({ "system.relations": rel });
+    html.find(".btn-add-relation, .add-relation").click(async () => {
+      const relations = foundry.utils.deepClone(this.actor.system.relations || []);
+      relations.push({ name:"", status:"neutral", level:0, notes:"", love:false });
+      await this.actor.update({ "system.relations": relations });
     });
-    html.find(".add-relation").click(async e => {
-      e.preventDefault();
-      const relations = this.actor.system.relations || [];
-      await this.actor.update({ "system.relations": [...relations, { name:"", status:"neutral", level:0, notes:"", love:false }] });
+    html.find(".relation-level-range").on("input", e => {
+      const valEl = e.currentTarget.closest(".relation-row")?.querySelector(".relation-level-val");
+      if (valEl) valEl.textContent = e.currentTarget.value;
     });
-
-    html.find(".roll-npc-initiative").click(() => this._rollInitiative());
-    html.find(".roll-npc-toughness").click(() => this._rollToughness());
   }
 
   _buildRollFormula(die, modStr) {
     return `1d${die}${modStr}`;
-  }
-
-  async _rollInitiative() {
-    const ag = this.actor.system.attributes.agility?.die || 4;
-    const sm = this.actor.system.attributes.smarts?.die  || 4;
-    const roll = new Roll(`1d${ag} + 1d${sm}`);
-    await roll.evaluate();
-    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — Инициатива` });
-  }
-
-  async _rollToughness() {
-    const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выжидание"];
-    const available = this.actor.items.filter(i =>
-      (i.type === "skill" || i.type === "ability") && resistNames.includes(i.name)
-    );
-    const options = available.map(s =>
-      `<option value="${s.id}|${s.system.die||4}">${s.name} (d${s.system.die||4})</option>`
-    ).join("");
-
-    const result = await Dialog.prompt({
-      title: "Бросок Стойкости",
-      content: `<div style="padding:8px">
-        <p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>
-        ${available.length
-          ? `<select id="resist-skill" style="width:100%"><option value="">— только Дух —</option>${options}</select>`
-          : "<em>Нет доступных навыков сопротивления</em>"}
-      </div>`,
-      label: "Бросить",
-      callback: html => html.find("#resist-skill").val() || null
-    });
-
-    const spiritDie = this.actor.system.attributes.spirit?.die || 4;
-    let formula, flavorExtra = "";
-    if (result) {
-      const [itemId, skillDie] = result.split("|");
-      const skillItem = this.actor.items.get(itemId);
-      flavorExtra = skillItem ? ` + ${skillItem.name}` : "";
-      formula = `1d${spiritDie} + 1d${skillDie}`;
-    } else {
-      formula = `1d${spiritDie}`;
-    }
-    const roll = new Roll(formula);
-    await roll.evaluate();
-    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — Стойкость${flavorExtra}` });
-  }
-
-  async _onDrop(event) {
-    let data;
-    try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return super._onDrop(event); }
-
-    if (data.type === "Actor") {
-      event.preventDefault();
-      const actor = await fromUuid(data.uuid);
-      if (!actor || actor.id === this.actor.id) return;
-      const relations = this.actor.system.relations || [];
-      if (!relations.find(r => r.name === actor.name)) {
-        await this.actor.update({ "system.relations": [...relations, { name:actor.name, status:"neutral", level:0, notes:"", love:false }] });
-      }
-      return;
-    }
-
-    if (data.type === "Item") {
-      event.preventDefault();
-      const item = await Item.fromDropData(data);
-      if (!item) return;
-      if (item.type === "skill" || item.type === "ability") {
-        const existing = this.actor.items.find(i => i.name === item.name && i.type === item.type);
-        if (existing) { ui.notifications.warn(`"${item.name}" уже есть на карточке.`); return; }
-      }
-      await Item.create(item.toObject(), { parent: this.actor });
-      return;
-    }
-
-    return super._onDrop(event);
   }
 }
 
@@ -541,8 +427,8 @@ export class KK9NpcLightSheet extends KK9NpcBaseSheet {
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".rollable-npc-attr").click(async e => {
-      const attr = e.currentTarget.dataset.attribute;
-      const die  = this.actor.system.attributes[attr]?.die;
+      const attr  = e.currentTarget.dataset.attribute;
+      const die   = this.actor.system.attributes[attr]?.die;
       if (!die) return;
       const label = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" }[attr] || attr;
       const roll  = new Roll(`1d${die}`);
@@ -568,8 +454,8 @@ export class KK9NpcHardSheet extends KK9NpcBaseSheet {
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".rollable-npc-attr").click(async e => {
-      const attr = e.currentTarget.dataset.attribute;
-      const die  = this.actor.system.attributes[attr]?.die;
+      const attr  = e.currentTarget.dataset.attribute;
+      const die   = this.actor.system.attributes[attr]?.die;
       if (!die) return;
       const label = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" }[attr] || attr;
       const roll  = new Roll(`1d${die}`);
@@ -592,30 +478,20 @@ export class KK9NpcBossSheet extends KK9NpcBaseSheet {
       dragDrop: [{ dragSelector:null, dropSelector:null }]
     });
   }
-
   _buildRollFormula(die, modStr) {
     return `{1d6${modStr}, 1d${die}${modStr}}kh`;
   }
-
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".rollable-npc-attr-boss").click(async e => {
-      const attr = e.currentTarget.dataset.attribute;
-      const die  = this.actor.system.attributes[attr]?.die;
+      const attr  = e.currentTarget.dataset.attribute;
+      const die   = this.actor.system.attributes[attr]?.die;
       if (!die) return;
       const label = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" }[attr] || attr;
       const roll  = new Roll(`{1d6, 1d${die}}kh`);
       await roll.evaluate();
       await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — ${label} (д6 + д${die}, лучший)` });
     });
-  }
-
-  async _rollInitiative() {
-    const ag = this.actor.system.attributes.agility?.die || 4;
-    const sm = this.actor.system.attributes.smarts?.die  || 4;
-    const roll = new Roll(`{1d6, 1d${ag} + 1d${sm}}kh`);
-    await roll.evaluate();
-    await roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: `<strong>${this.actor.name}</strong> — Инициатива (дикий кубик)` });
   }
 }
 
@@ -626,9 +502,12 @@ export class KK9ItemSheet extends ItemSheet {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["kk9","sheet","item"],
-      width: 560, height: 520,
+      width: 680, height: 700,
       tabs: [{ navSelector:".sheet-tabs", contentSelector:".sheet-body", initial:"description" }],
-      dragDrop: [{ dragSelector:null, dropSelector:".faculty-abilities-drop" }]
+      dragDrop: [{
+        dragSelector: null,
+        dropSelector: ".faculty-abilities-drop, .faculty-students-drop, .fac-dropouts-drop, .faculty-predecessor-drop, .fac-lore-drop"
+      }]
     });
   }
 
@@ -655,7 +534,17 @@ export class KK9ItemSheet extends ItemSheet {
       {value:"corporate",label:"Корпоративная"},{value:"underground",label:"Подпольная"},
       {value:"other",label:"Прочая"}
     ];
-    if (this.item.type === "faculty") context.facultyAbilities = context.system.abilities || [];
+    if (this.item.type === "faculty") {
+      const abilities = context.system.abilities || [];
+      context.facultyAbilities = abilities;
+
+      context.abCount = {
+        common:   abilities.filter(a => a.category === "common").length,
+        personal: abilities.filter(a => a.category === "personal").length,
+        learned:  abilities.filter(a => a.category === "learned").length,
+        magic:    abilities.filter(a => a.category === "magic").length,
+      };
+    }
     return context;
   }
 
@@ -664,24 +553,133 @@ export class KK9ItemSheet extends ItemSheet {
     event.preventDefault();
     let data;
     try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch(e) { return; }
-    if (data.type !== "Item") return;
-    const item = await fromUuid(data.uuid);
-    if (!item || !["ability","skill"].includes(item.type)) return;
-    const abilities = [...(this.item.system.abilities || [])];
-    if (!abilities.find(a => a.itemId === item.id)) {
-      abilities.push({ name:item.name, itemId:item.id, category:item.system.category || (item.type==="skill" ? "common" : "learned") });
-      await this.item.update({ "system.abilities": abilities });
+
+    const target = event.target.closest(
+      ".faculty-abilities-drop, .faculty-students-drop, .fac-dropouts-drop, .faculty-predecessor-drop, .fac-lore-drop"
+    );
+    if (!target) return;
+
+    // Способности и навыки
+    if (target.classList.contains("faculty-abilities-drop")) {
+      if (data.type !== "Item") return;
+      const item = await fromUuid(data.uuid);
+      if (!item || !["ability","skill"].includes(item.type)) return;
+      const abilities = [...(this.item.system.abilities || [])];
+      if (!abilities.find(a => a.itemId === item.id)) {
+        abilities.push({ name: item.name, itemId: item.id, category: item.system.category || (item.type === "skill" ? "common" : "learned") });
+        await this.item.update({ "system.abilities": abilities });
+      }
+      return;
+    }
+
+    // Студенты
+    if (target.classList.contains("faculty-students-drop")) {
+      if (!data.uuid) return;
+      const actor = await fromUuid(data.uuid);
+      if (!actor || !(actor instanceof Actor)) return;
+      const students = [...(this.item.system.students || [])];
+      if (students.find(s => s.actorUuid === data.uuid)) return;
+      const courseInput = await Dialog.prompt({
+        title: `${actor.name} — курс и семестр`,
+        content: `<div style="display:flex;gap:16px;align-items:center;padding:10px 0">
+          <label>Курс: <select id="fac-course">${[1,2,3,4,5].map(i=>`<option value="${i}">${i}</option>`).join("")}</select></label>
+          <label>Семестр: <select id="fac-sem"><option value="1">1</option><option value="2">2</option></select></label>
+        </div>`,
+        callback: html => ({ course: parseInt(html.find("#fac-course").val()), semester: parseInt(html.find("#fac-sem").val()) }),
+        options: { width: 300 }
+      }).catch(() => null);
+      if (!courseInput) return;
+      students.push({ actorUuid: data.uuid, studentName: actor.name, course: courseInput.course, semester: courseInput.semester, isStar: false });
+      await this.item.update({ "system.students": students });
+      return;
+    }
+
+    // Не закончили
+    if (target.classList.contains("fac-dropouts-drop")) {
+      if (!data.uuid) return;
+      const actor = await fromUuid(data.uuid);
+      if (!actor || !(actor instanceof Actor)) return;
+      const dropouts = [...(this.item.system.dropouts || [])];
+      if (dropouts.find(d => d.actorUuid === data.uuid)) return;
+      dropouts.push({ actorUuid: data.uuid, studentName: actor.name, reason: "" });
+      await this.item.update({ "system.dropouts": dropouts });
+      return;
+    }
+
+    // Предшественник
+    if (target.classList.contains("faculty-predecessor-drop")) {
+      if (data.type !== "Item") return;
+      const fi = await fromUuid(data.uuid);
+      if (!fi || fi.type !== "faculty") return;
+      if (fi.system.active) { ui.notifications.warn("Предшественником может быть только неактивный факультет."); return; }
+      await this.item.update({ "system.predecessor_uuid": data.uuid, "system.predecessor_name": fi.name });
+      return;
+    }
+
+    // Байки
+    if (target.classList.contains("fac-lore-drop")) {
+      if (data.type !== "JournalEntry") return;
+      const journal = await fromUuid(data.uuid);
+      if (!journal) return;
+      const lore = [...(this.item.system.lore_entries || [])];
+      if (lore.find(l => l.uuid === data.uuid)) return;
+      lore.push({ uuid: data.uuid, name: journal.name });
+      await this.item.update({ "system.lore_entries": lore });
+      return;
     }
   }
 
   activateListeners(html) {
     super.activateListeners(html);
+
     html.find(".roll-damage").click(() => this.item.rollDamage());
+
+    // Факультет — убрать способность
     html.find(".remove-faculty-ability").click(async e => {
       const idx = parseInt(e.currentTarget.dataset.index);
-      const abilities = [...(this.item.system.abilities||[])];
+      const abilities = [...(this.item.system.abilities || [])];
       abilities.splice(idx, 1);
       await this.item.update({ "system.abilities": abilities });
+    });
+
+    // Факультет — звёздочка
+    html.find(".fac-star-btn").click(async e => {
+      const uuid = e.currentTarget.dataset.uuid;
+      const students = (this.item.system.students || []).map(s =>
+        s.actorUuid === uuid ? { ...s, isStar: !s.isStar } : s
+      );
+      await this.item.update({ "system.students": students });
+    });
+
+    // Факультет — удалить студента
+    html.find(".fac-remove-student").click(async e => {
+      const uuid = e.currentTarget.dataset.uuid;
+      await this.item.update({ "system.students": (this.item.system.students || []).filter(s => s.actorUuid !== uuid) });
+    });
+
+    // Факультет — удалить из отсева
+    html.find(".fac-remove-dropout").click(async e => {
+      const uuid = e.currentTarget.dataset.uuid;
+      await this.item.update({ "system.dropouts": (this.item.system.dropouts || []).filter(d => d.actorUuid !== uuid) });
+    });
+
+    // Факультет — убрать предшественника
+    html.find(".faculty-clear-predecessor").click(async () => {
+      await this.item.update({ "system.predecessor_uuid": "", "system.predecessor_name": "" });
+    });
+
+    // Факультет — удалить байку
+    html.find(".fac-remove-lore").click(async e => {
+      const uuid = e.currentTarget.dataset.uuid;
+      await this.item.update({ "system.lore_entries": (this.item.system.lore_entries || []).filter(l => l.uuid !== uuid) });
+    });
+
+    // Факультет — открыть по клику
+    html.find(".fac-open-actor, .fac-open-predecessor, .fac-open-journal").click(async e => {
+      const uuid = e.currentTarget.dataset.uuid;
+      if (!uuid) return;
+      const doc = await fromUuid(uuid);
+      doc?.sheet?.render(true);
     });
   }
 }
