@@ -1,30 +1,259 @@
-<form class="kk9-sheet item-sheet" autocomplete="off">
-  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
-    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
-    <div style="flex:1">
-      <input type="text" name="name" value="{{item.name}}"
-             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
+{{!-- КК9 | Карточка оружия v2.0 --}}
+<form class="kk9-sheet item-sheet weapon-sheet" autocomplete="off">
+
+  {{!-- ═══ ШАПКА ═══ --}}
+  <header class="wp-header">
+    <img class="wp-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="wp-header-right">
+      <div class="wp-name-row">
+        <input class="wp-name-input" type="text" name="name"
+               value="{{item.name}}" placeholder="Название оружия" />
+        <label class="wp-equipped-badge {{#if system.equipped}}wp-equipped-on{{/if}}"
+               title="Экипировано">
+          <input type="checkbox" name="system.equipped"
+                 {{#if system.equipped}}checked{{/if}} style="display:none" />
+          {{#if system.equipped}}⚔ Экипировано{{else}}◌ Убрано{{/if}}
+        </label>
+      </div>
+      <div class="wp-sub-row">
+        <span class="wp-size-tag">
+          {{#if (eq system.size "pocket")}}Карманный
+          {{else if (eq system.size "finger")}}Пальчиковый
+          {{else if (eq system.size "small")}}Маленький
+          {{else if (eq system.size "medium")}}Средний
+          {{else if (eq system.size "large")}}Крупный
+          {{else if (eq system.size "huge")}}Огромный
+          {{else if (eq system.size "immovable")}}Не переносимое
+          {{/if}}
+        </span>
+        <span class="wp-dmg-tag wp-dmg-{{system.damage_level}}">
+          {{#if (eq system.damage_level "light")}}Лёгкий урон
+          {{else if (eq system.damage_level "heavy")}}Тяжёлый урон
+          {{else if (eq system.damage_level "lethal")}}Летальный
+          {{/if}}
+        </span>
+        <span class="wp-dtype-tag">
+          {{#if (eq system.damage_type "physical")}}⚔ Физика{{else}}🧠 Менталка{{/if}}
+        </span>
+      </div>
     </div>
   </header>
-  <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Урон</label>
-        <input type="text" name="system.damage" value="{{system.damage}}" placeholder="Str+d6" class="kk9-input" /></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Дальность</label>
-        <input type="text" name="system.range" value="{{system.range}}" placeholder="Ближний" class="kk9-input" /></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Бронепробивание</label>
-        <input type="number" name="system.ap" value="{{system.ap}}" class="kk9-input" /></div>
-      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Скорострельность</label>
-        <input type="number" name="system.rof" value="{{system.rof}}" class="kk9-input" /></div>
+
+  {{!-- ═══ ТЕЛО ═══ --}}
+  <div class="wp-body">
+
+    {{!-- Навык для броска --}}
+    <div class="wp-skill-block weapon-skill-drop">
+      <span class="wp-param-label">Навык для атаки</span>
+      {{#if system.skill_name}}
+        <div class="wp-skill-row">
+          <span class="wp-skill-name">📖 {{system.skill_name}}</span>
+          <button type="button" class="wp-clear-skill fac-del"
+                  title="Убрать навык">✕</button>
+        </div>
+      {{else}}
+        <div class="wp-skill-empty">
+          Перетащи навык или способность
+          <span class="wp-unskilled-hint">(без навыка — d4−2)</span>
+        </div>
+      {{/if}}
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <label style="font-size:0.75em;color:var(--text-dim)">Экипировано</label>
-      <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
+
+    {{!-- Параметры урона --}}
+    <div class="wp-params-grid">
+      <div class="wp-param-block">
+        <span class="wp-param-label">Уровень урона</span>
+        <select name="system.damage_level" class="kk9-select">
+          <option value="light"  {{#if (eq system.damage_level "light")}}selected{{/if}}>Лёгкий (1 уровень)</option>
+          <option value="heavy"  {{#if (eq system.damage_level "heavy")}}selected{{/if}}>Тяжёлый (2 уровня)</option>
+          <option value="lethal" {{#if (eq system.damage_level "lethal")}}selected{{/if}}>Летальный (3 уровня)</option>
+        </select>
+      </div>
+      <div class="wp-param-block">
+        <span class="wp-param-label">Тип урона</span>
+        <select name="system.damage_type" class="kk9-select">
+          <option value="physical" {{#if (eq system.damage_type "physical")}}selected{{/if}}>Физический</option>
+          <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
+        </select>
+      </div>
     </div>
-    <button type="button" class="roll-damage btn-roll" style="align-self:flex-start">🎲 Бросить урон</button>
-    <div>
-      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
+
+    {{!-- Параметры оружия --}}
+    <div class="wp-params-grid wp-params-grid--4">
+      <div class="wp-param-block">
+        <span class="wp-param-label">Дальность (м)</span>
+        <input type="number" name="system.range" value="{{system.range}}"
+               class="kk9-input" min="0" />
+      </div>
+      <div class="wp-param-block">
+        <span class="wp-param-label">Размер</span>
+        <select name="system.size" class="kk9-select">
+          <option value="pocket"    {{#if (eq system.size "pocket")}}selected{{/if}}>Карманный</option>
+          <option value="finger"    {{#if (eq system.size "finger")}}selected{{/if}}>Пальчиковый</option>
+          <option value="small"     {{#if (eq system.size "small")}}selected{{/if}}>Маленький</option>
+          <option value="medium"    {{#if (eq system.size "medium")}}selected{{/if}}>Средний</option>
+          <option value="large"     {{#if (eq system.size "large")}}selected{{/if}}>Крупный</option>
+          <option value="huge"      {{#if (eq system.size "huge")}}selected{{/if}}>Огромный</option>
+          <option value="immovable" {{#if (eq system.size "immovable")}}selected{{/if}}>Не переносимое</option>
+        </select>
+      </div>
+      <div class="wp-param-block">
+        <span class="wp-param-label">Броня (AP)</span>
+        <input type="number" name="system.ap" value="{{system.ap}}"
+               class="kk9-input" min="0" />
+      </div>
+      <div class="wp-param-block">
+        <span class="wp-param-label">Темп стрельбы</span>
+        <input type="number" name="system.rof" value="{{system.rof}}"
+               class="kk9-input" min="1" />
+      </div>
     </div>
+
+    {{!-- Статус при попадании --}}
+    <div class="wp-status-section">
+      <div class="wp-status-header">
+        <label class="wp-status-toggle">
+          <input type="checkbox" name="system.has_status"
+                 {{#if system.has_status}}checked{{/if}} />
+          <span>Применяет статус при попадании</span>
+        </label>
+      </div>
+      {{#if system.has_status}}
+      <div class="wp-status-drop weapon-status-drop">
+        {{#if system.status_name}}
+          <div class="wp-status-row">
+            <span class="wp-status-name">{{system.status_name}}</span>
+            <button type="button" class="wp-clear-status fac-del">✕</button>
+          </div>
+        {{else}}
+          <div class="wp-status-empty">Перетащи статус-итем сюда</div>
+        {{/if}}
+      </div>
+      {{/if}}
+    </div>
+
+    {{!-- Заметки --}}
+    <div class="wp-param-block">
+      <span class="wp-param-label">Заметки</span>
+      <textarea name="system.notes" class="kk9-textarea wp-notes-ta"
+                placeholder="Особенности, описание...">{{system.notes}}</textarea>
+    </div>
+
+    {{!-- Кнопка атаки --}}
+    {{#if system.equipped}}
+    <button type="button" class="wp-attack-btn weapon-attack-roll">
+      ⚔ Атаковать
+    </button>
+    {{/if}}
+
   </div>
 </form>
+
+<style>
+.weapon-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+}
+.weapon-sheet .wp-header {
+  display: flex; flex-direction: row; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.weapon-sheet .wp-avatar {
+  width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
+  cursor: pointer; flex-shrink: 0; border: 2px solid var(--border2);
+}
+.weapon-sheet .wp-header-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.weapon-sheet .wp-name-row { display: flex; align-items: center; gap: 8px; }
+.weapon-sheet .wp-name-input {
+  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
+  background: transparent; border: none;
+  border-bottom: 2px solid var(--border2);
+  color: var(--text-head); padding: 0 0 1px; outline: none; min-width: 0;
+  transition: border-color 0.2s;
+}
+.weapon-sheet .wp-name-input:focus { border-bottom-color: var(--accent2); }
+.weapon-sheet .wp-equipped-badge {
+  flex-shrink: 0; cursor: pointer; font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+  background: rgba(90,90,90,0.12); color: var(--text-dim);
+  border: 1px solid var(--border2);
+}
+.weapon-sheet .wp-equipped-on {
+  background: rgba(160,41,30,0.15); color: #c0392b;
+  border-color: rgba(160,41,30,0.35);
+}
+.weapon-sheet .wp-sub-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.weapon-sheet .wp-size-tag  { font-size: 0.72em; color: var(--text-dim); }
+.weapon-sheet .wp-dtype-tag { font-size: 0.72em; color: var(--text-dim); }
+.weapon-sheet .wp-dmg-tag {
+  font-size: 0.7em; padding: 1px 7px; border-radius: 8px; font-weight: 500;
+}
+.weapon-sheet .wp-dmg-light  { background: rgba(250,204,21,0.12); color: #fde047; border: 1px solid rgba(253,224,71,0.25); }
+.weapon-sheet .wp-dmg-heavy  { background: rgba(249,115,22,0.12); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); }
+.weapon-sheet .wp-dmg-lethal { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+.weapon-sheet .wp-body {
+  flex: 1; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+.weapon-sheet .wp-params-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;
+}
+.weapon-sheet .wp-params-grid--4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.weapon-sheet .wp-param-block { display: flex; flex-direction: column; gap: 3px; }
+.weapon-sheet .wp-param-label {
+  font-size: 0.65em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
+}
+
+/* Навык для броска */
+.weapon-sheet .wp-skill-block {
+  border: 1px dashed var(--border2); border-radius: 4px;
+  padding: 6px 10px; background: var(--bg2);
+  display: flex; flex-direction: column; gap: 3px; min-height: 46px;
+}
+.weapon-sheet .wp-skill-row { display: flex; align-items: center; gap: 8px; }
+.weapon-sheet .wp-skill-name { flex: 1; font-size: 0.88em; color: var(--text); }
+.weapon-sheet .wp-skill-empty {
+  font-size: 0.76em; color: var(--text-dim); font-style: italic;
+}
+.weapon-sheet .wp-unskilled-hint {
+  font-size: 0.88em; color: var(--text-dim); margin-left: 4px;
+}
+
+/* Статус */
+.weapon-sheet .wp-status-section {
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px 10px; background: var(--bg2);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.weapon-sheet .wp-status-header { display: flex; align-items: center; }
+.weapon-sheet .wp-status-toggle {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.82em; color: var(--text); cursor: pointer;
+}
+.weapon-sheet .wp-status-drop {
+  border: 1px dashed rgba(168,85,247,0.3); border-radius: 4px;
+  padding: 5px 10px; background: rgba(168,85,247,0.04); min-height: 34px;
+}
+.weapon-sheet .wp-status-row { display: flex; align-items: center; gap: 8px; }
+.weapon-sheet .wp-status-name { flex: 1; font-size: 0.86em; color: #c084fc; }
+.weapon-sheet .wp-status-empty {
+  font-size: 0.76em; color: var(--text-dim); font-style: italic;
+}
+
+.weapon-sheet .wp-notes-ta { min-height: 60px; }
+
+/* Кнопка атаки */
+.weapon-sheet .wp-attack-btn {
+  width: 100%; padding: 8px;
+  background: rgba(160,41,30,0.2); border: 1px solid rgba(160,41,30,0.4);
+  border-radius: 4px; color: #c0392b; font-family: 'Jost', sans-serif;
+  font-size: 0.9em; font-weight: 500; letter-spacing: 0.06em;
+  cursor: pointer; transition: all 0.15s;
+}
+.weapon-sheet .wp-attack-btn:hover {
+  background: rgba(160,41,30,0.35); color: #e74c3c;
+}
+</style>

@@ -1647,3 +1647,110 @@
 }
 .npc-item-icon { font-size: 0.9em; width: 16px; text-align: center; flex-shrink: 0; }
 
+Ф/* ============================================================
+   КК9 — Активные статусы v0.9.0
+   ДОБАВИТЬ В КОНЕЦ styles/kk9.css
+   ============================================================ */
+
+.active-statuses-block {
+  margin: 6px 8px;
+  border: 1px dashed var(--border2);
+  border-radius: 4px;
+  padding: 5px 8px;
+  background: var(--bg2);
+  min-height: 28px;
+  cursor: default;
+}
+
+.active-statuses-block.actor-status-drop {
+  transition: border-color 0.15s;
+}
+.active-statuses-block.actor-status-drop:hover {
+  border-color: var(--gold-dim);
+}
+
+.active-statuses-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.active-statuses-title {
+  font-size: 0.66em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.active-statuses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.active-status-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: var(--bg3);
+  border-left: 2px solid var(--border2);
+}
+
+/* Цвет по типу статуса */
+.active-status-row.status-type-poison { border-left-color: #4ade80; }
+.active-status-row.status-type-shock  { border-left-color: #fde047; }
+.active-status-row.status-type-magic  { border-left-color: #c084fc; }
+.active-status-row.status-type-bleed  { border-left-color: #f87171; }
+.active-status-row.status-type-acid   { border-left-color: #fbbf24; }
+
+.active-status-icon { font-size: 0.8em; flex-shrink: 0; }
+
+.active-status-name {
+  flex: 1;
+  font-size: 0.78em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active-status-uses {
+  font-size: 0.68em;
+  color: var(--gold);
+  background: rgba(196,164,74,0.1);
+  padding: 0 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.active-statuses-empty {
+  font-size: 0.7em;
+  color: var(--text-dim);
+  font-style: italic;
+  text-align: center;
+  padding: 4px;
+}
+
+/* Крестик удаления статуса — не попадает под глобальный патч */
+.active-status-row .fac-del {
+  flex-shrink: 0 !important;
+  width: 14px !important;
+  min-width: 14px !important;
+  height: 14px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-dim) !important;
+  font-size: 0.72em !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: color 0.15s !important;
+  opacity: 1 !important;
+}
+.active-status-row .fac-del:hover { color: var(--accent2) !important; }

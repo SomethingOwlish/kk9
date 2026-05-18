@@ -1,5 +1,5 @@
 // ============================================================
-// КК9 — Листы v1.4
+// КК9 — Листы v1.5
 // ============================================================
 
 // ============================================================
@@ -98,6 +98,16 @@ export class KK9CharacterSheet extends ActorSheet {
     let data;
     try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch(e) { return; }
 
+    // Статус на персонажа (drag-drop из айтемов)
+    if (data.type === "Item") {
+      const item = await fromUuid(data.uuid);
+      if (item?.type === "status") {
+        const { applyStatusToActor } = await import("./weapon-combat.mjs");
+        await applyStatusToActor(this.actor, item);
+        return;
+      }
+    }
+
     if (data.type === "Actor") {
       const actor = await fromUuid(data.uuid);
       if (!actor || actor.id === this.actor.id) return;
@@ -148,52 +158,36 @@ export class KK9CharacterSheet extends ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Броски
     html.find(".rollable-attribute").click(e => this.actor.rollAttribute(e.currentTarget.dataset.attribute));
     html.find(".rollable-skill").click(e => this.actor.rollSkillItem(e.currentTarget.dataset.itemId));
     html.find(".rollable-ability").click(e => this.actor.rollAbility(e.currentTarget.dataset.itemId));
     html.find(".roll-initiative").click(() => this.actor.rollInitiative());
     html.find(".roll-toughness").click(() => this.actor.rollToughness());
 
-    // Здоровье
     html.find(".health-pip[data-track='physical']").click(this._onPhysicalPipClick.bind(this));
     html.find(".health-pip[data-track='mental']").click(this._onMentalPipClick.bind(this));
 
-    // Открыть айтем по клику на имя или иконку
     html.find(".item-name-click, .item-img").click(e => {
       const row = e.currentTarget.closest("[data-item-id]");
       if (!row) return;
       this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
     });
 
-    // Создать айтем (кнопка +)
     html.find(".item-create").click(this._onItemCreate.bind(this));
-
-    // Удалить айтем
     html.find(".item-delete").click(this._onItemDelete.bind(this));
     html.find(".btn-delete-skill").click(this._onItemDelete.bind(this));
 
-    // Навыки — кубик и модификатор
     html.find(".skill-die-select").change(this._onSkillDieChange.bind(this));
     html.find(".skill-mod-input").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
-      const mod    = parseInt(e.currentTarget.value) || 0;
-      await this.actor.items.get(itemId)?.update({ "system.modifier": mod });
+      await this.actor.items.get(itemId)?.update({ "system.modifier": parseInt(e.currentTarget.value) || 0 });
     });
-
-    // Способности — кубик и модификатор
     html.find(".ability-die-select").change(async e => {
-      const itemId = e.currentTarget.dataset.itemId;
-      const die    = parseInt(e.currentTarget.value);
-      await this.actor.items.get(itemId)?.update({ "system.die": die });
+      await this.actor.items.get(e.currentTarget.dataset.itemId)?.update({ "system.die": parseInt(e.currentTarget.value) });
     });
     html.find(".ability-mod-input").change(async e => {
-      const itemId = e.currentTarget.dataset.itemId;
-      const mod    = parseInt(e.currentTarget.value) || 0;
-      await this.actor.items.get(itemId)?.update({ "system.modifier": mod });
+      await this.actor.items.get(e.currentTarget.dataset.itemId)?.update({ "system.modifier": parseInt(e.currentTarget.value) || 0 });
     });
-
-    // Магия — уровень
     html.find(".magic-level-select").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
       const level  = parseInt(e.currentTarget.value);
@@ -203,7 +197,6 @@ export class KK9CharacterSheet extends ActorSheet {
       await this.actor.update({ "system.magicLevels": levels });
     });
 
-    // Связи
     html.find(".love-toggle").click(this._onLoveToggle.bind(this));
     html.find(".add-relation").click(this._onAddRelation.bind(this));
     html.find(".delete-relation").click(this._onDeleteRelation.bind(this));
@@ -211,9 +204,15 @@ export class KK9CharacterSheet extends ActorSheet {
       const valEl = e.currentTarget.closest(".relation-row")?.querySelector(".relation-level-val");
       if (valEl) valEl.textContent = e.currentTarget.value;
     });
-
-    // Языки
     html.find(".delete-language").click(this._onDeleteLanguage.bind(this));
+
+    // Удалить активный статус
+    html.find(".actor-remove-status").click(async e => {
+      const idx = parseInt(e.currentTarget.dataset.index);
+      const statuses = foundry.utils.deepClone(this.actor.system.active_statuses || []);
+      statuses.splice(idx, 1);
+      await this.actor.update({ "system.active_statuses": statuses });
+    });
   }
 
   async _onItemCreate(event) {
@@ -270,7 +269,7 @@ export class KK9CharacterSheet extends ActorSheet {
 
   async _onLoveToggle(event) {
     event.preventDefault();
-    const idx      = parseInt(event.currentTarget.dataset.index);
+    const idx       = parseInt(event.currentTarget.dataset.index);
     const relations = [...(this.actor.system.relations || [])];
     const wasLoved  = relations[idx]?.love;
     relations.forEach(r => r.love = false);
@@ -281,9 +280,7 @@ export class KK9CharacterSheet extends ActorSheet {
   async _onAddRelation(event) {
     event.preventDefault();
     const relations = this.actor.system.relations || [];
-    await this.actor.update({ "system.relations": [
-      ...relations, { name:"", status:"neutral", level:0, notes:"", love:false }
-    ]});
+    await this.actor.update({ "system.relations": [...relations, { name:"", status:"neutral", level:0, notes:"", love:false }] });
   }
 
   async _onDeleteRelation(event) {
@@ -309,7 +306,7 @@ export class KK9CharacterSheet extends ActorSheet {
 const NPC_ITEM_TYPE_LABELS = {
   weapon:"Оружие", gear:"Снаряжение", artifact:"Артефакт", spell:"Заклинание",
   daemon:"Даймон", companion:"Спутник", vehicle:"Транспорт", device:"Устройство",
-  contact:"Контакт", language:"Язык"
+  contact:"Контакт", language:"Язык", status:"Статус"
 };
 
 // ============================================================
@@ -330,14 +327,12 @@ class KK9NpcBaseSheet extends ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Открыть айтем
     html.find(".item-name-click, .item-img").click(e => {
       const row = e.currentTarget.closest("[data-item-id]");
       if (!row) return;
       this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
     });
 
-    // Удалить айтем
     html.find(".npc-item-del").click(async e => {
       e.preventDefault();
       const itemId = e.currentTarget.dataset.itemId
@@ -345,7 +340,6 @@ class KK9NpcBaseSheet extends ActorSheet {
       if (itemId) await this.actor.items.get(itemId)?.delete();
     });
 
-    // Навык — кубик
     html.find(".npc-skill-die").change(async e => {
       e.stopPropagation();
       const itemId = e.currentTarget.dataset.itemId;
@@ -353,14 +347,12 @@ class KK9NpcBaseSheet extends ActorSheet {
       if (itemId) await this.actor.items.get(itemId)?.update({ "system.die": die });
     });
 
-    // Навык — модификатор
     html.find(".npc-skill-mod").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
       const mod    = parseInt(e.currentTarget.value) || 0;
       if (itemId) await this.actor.items.get(itemId)?.update({ "system.modifier": mod });
     });
 
-    // Бросок навыка
     html.find(".npc-rollable").click(async e => {
       const itemId = e.currentTarget.dataset.itemId;
       const item   = this.actor.items.get(itemId);
@@ -376,7 +368,6 @@ class KK9NpcBaseSheet extends ActorSheet {
       });
     });
 
-    // Пипы здоровья НПС
     html.find(".health-pip[data-track='npc-physical']").click(async e => {
       const val = parseInt(e.currentTarget.dataset.value);
       const cur = this.actor.system.health?.physical?.value ?? 0;
@@ -388,7 +379,6 @@ class KK9NpcBaseSheet extends ActorSheet {
       await this.actor.update({ "system.health.mental.value": cur === val ? val - 1 : val });
     });
 
-    // Связи НПС
     html.find(".btn-relation-delete, .delete-relation").click(async e => {
       const idx       = parseInt(e.currentTarget.dataset.index);
       const relations = foundry.utils.deepClone(this.actor.system.relations || []);
@@ -404,11 +394,17 @@ class KK9NpcBaseSheet extends ActorSheet {
       const valEl = e.currentTarget.closest(".relation-row")?.querySelector(".relation-level-val");
       if (valEl) valEl.textContent = e.currentTarget.value;
     });
+
+    // Удалить активный статус
+    html.find(".actor-remove-status").click(async e => {
+      const idx = parseInt(e.currentTarget.dataset.index);
+      const statuses = foundry.utils.deepClone(this.actor.system.active_statuses || []);
+      statuses.splice(idx, 1);
+      await this.actor.update({ "system.active_statuses": statuses });
+    });
   }
 
-  _buildRollFormula(die, modStr) {
-    return `1d${die}${modStr}`;
-  }
+  _buildRollFormula(die, modStr) { return `1d${die}${modStr}`; }
 }
 
 // ============================================================
@@ -466,7 +462,7 @@ export class KK9NpcHardSheet extends KK9NpcBaseSheet {
 }
 
 // ============================================================
-// НЕПОБЕДИМЫЙ НПС — дикий кубик
+// НЕПОБЕДИМЫЙ НПС
 // ============================================================
 export class KK9NpcBossSheet extends KK9NpcBaseSheet {
   static get defaultOptions() {
@@ -478,9 +474,7 @@ export class KK9NpcBossSheet extends KK9NpcBaseSheet {
       dragDrop: [{ dragSelector:null, dropSelector:null }]
     });
   }
-  _buildRollFormula(die, modStr) {
-    return `{1d6${modStr}, 1d${die}${modStr}}kh`;
-  }
+  _buildRollFormula(die, modStr) { return `{1d6${modStr}, 1d${die}${modStr}}kh`; }
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".rollable-npc-attr-boss").click(async e => {
@@ -506,7 +500,7 @@ export class KK9ItemSheet extends ItemSheet {
       tabs: [{ navSelector:".sheet-tabs", contentSelector:".sheet-body", initial:"description" }],
       dragDrop: [{
         dragSelector: null,
-        dropSelector: ".faculty-abilities-drop, .faculty-students-drop, .fac-dropouts-drop, .faculty-predecessor-drop, .fac-lore-drop"
+        dropSelector: ".faculty-abilities-drop, .faculty-students-drop, .fac-dropouts-drop, .faculty-predecessor-drop, .fac-lore-drop, .weapon-skill-drop, .weapon-status-drop"
       }]
     });
   }
@@ -537,7 +531,6 @@ export class KK9ItemSheet extends ItemSheet {
     if (this.item.type === "faculty") {
       const abilities = context.system.abilities || [];
       context.facultyAbilities = abilities;
-
       context.abCount = {
         common:   abilities.filter(a => a.category === "common").length,
         personal: abilities.filter(a => a.category === "personal").length,
@@ -549,17 +542,37 @@ export class KK9ItemSheet extends ItemSheet {
   }
 
   async _onDrop(event) {
-    if (this.item.type !== "faculty") return super._onDrop(event);
     event.preventDefault();
     let data;
     try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch(e) { return; }
+
+    // ── Оружие: drag-drop навыка или статуса ──
+    if (this.item.type === "weapon") {
+      const target = event.target.closest(".weapon-skill-drop, .weapon-status-drop");
+      if (target) {
+        if (data.type !== "Item") return;
+        const item = await fromUuid(data.uuid);
+        if (!item) return;
+        if (target.classList.contains("weapon-skill-drop") && ["skill","ability"].includes(item.type)) {
+          await this.item.update({ "system.skill_uuid": item.uuid, "system.skill_name": item.name });
+          return;
+        }
+        if (target.classList.contains("weapon-status-drop") && item.type === "status") {
+          await this.item.update({ "system.status_uuid": item.uuid, "system.status_name": item.name });
+          return;
+        }
+        return;
+      }
+    }
+
+    // ── Факультет ──
+    if (this.item.type !== "faculty") return super._onDrop(event);
 
     const target = event.target.closest(
       ".faculty-abilities-drop, .faculty-students-drop, .fac-dropouts-drop, .faculty-predecessor-drop, .fac-lore-drop"
     );
     if (!target) return;
 
-    // Способности и навыки
     if (target.classList.contains("faculty-abilities-drop")) {
       if (data.type !== "Item") return;
       const item = await fromUuid(data.uuid);
@@ -572,7 +585,6 @@ export class KK9ItemSheet extends ItemSheet {
       return;
     }
 
-    // Студенты
     if (target.classList.contains("faculty-students-drop")) {
       if (!data.uuid) return;
       const actor = await fromUuid(data.uuid);
@@ -594,7 +606,6 @@ export class KK9ItemSheet extends ItemSheet {
       return;
     }
 
-    // Не закончили
     if (target.classList.contains("fac-dropouts-drop")) {
       if (!data.uuid) return;
       const actor = await fromUuid(data.uuid);
@@ -606,7 +617,6 @@ export class KK9ItemSheet extends ItemSheet {
       return;
     }
 
-    // Предшественник
     if (target.classList.contains("faculty-predecessor-drop")) {
       if (data.type !== "Item") return;
       const fi = await fromUuid(data.uuid);
@@ -616,7 +626,6 @@ export class KK9ItemSheet extends ItemSheet {
       return;
     }
 
-    // Байки
     if (target.classList.contains("fac-lore-drop")) {
       if (data.type !== "JournalEntry") return;
       const journal = await fromUuid(data.uuid);
@@ -634,7 +643,22 @@ export class KK9ItemSheet extends ItemSheet {
 
     html.find(".roll-damage").click(() => this.item.rollDamage());
 
-    // Факультет — убрать способность
+    // ── Оружие ──
+    if (this.item.type === "weapon") {
+      html.find(".weapon-attack-roll").click(async () => {
+        if (!this.item.actor) { ui.notifications.warn("Оружие должно быть на карточке персонажа."); return; }
+        const { rollWeaponAttack } = await import("./weapon-combat.mjs");
+        await rollWeaponAttack(this.item, this.item.actor);
+      });
+      html.find(".wp-clear-skill").click(async () => {
+        await this.item.update({ "system.skill_uuid": "", "system.skill_name": "" });
+      });
+      html.find(".wp-clear-status").click(async () => {
+        await this.item.update({ "system.status_uuid": "", "system.status_name": "" });
+      });
+    }
+
+    // ── Факультет: убрать способность ──
     html.find(".remove-faculty-ability").click(async e => {
       const idx = parseInt(e.currentTarget.dataset.index);
       const abilities = [...(this.item.system.abilities || [])];
@@ -642,7 +666,7 @@ export class KK9ItemSheet extends ItemSheet {
       await this.item.update({ "system.abilities": abilities });
     });
 
-    // Факультет — звёздочка
+    // ── Факультет: звёздочка ──
     html.find(".fac-star-btn").click(async e => {
       const uuid = e.currentTarget.dataset.uuid;
       const students = (this.item.system.students || []).map(s =>
@@ -651,30 +675,30 @@ export class KK9ItemSheet extends ItemSheet {
       await this.item.update({ "system.students": students });
     });
 
-    // Факультет — удалить студента
+    // ── Факультет: удалить студента ──
     html.find(".fac-remove-student").click(async e => {
       const uuid = e.currentTarget.dataset.uuid;
       await this.item.update({ "system.students": (this.item.system.students || []).filter(s => s.actorUuid !== uuid) });
     });
 
-    // Факультет — удалить из отсева
+    // ── Факультет: удалить из отсева ──
     html.find(".fac-remove-dropout").click(async e => {
       const uuid = e.currentTarget.dataset.uuid;
       await this.item.update({ "system.dropouts": (this.item.system.dropouts || []).filter(d => d.actorUuid !== uuid) });
     });
 
-    // Факультет — убрать предшественника
+    // ── Факультет: убрать предшественника ──
     html.find(".faculty-clear-predecessor").click(async () => {
       await this.item.update({ "system.predecessor_uuid": "", "system.predecessor_name": "" });
     });
 
-    // Факультет — удалить байку
+    // ── Факультет: удалить байку ──
     html.find(".fac-remove-lore").click(async e => {
       const uuid = e.currentTarget.dataset.uuid;
       await this.item.update({ "system.lore_entries": (this.item.system.lore_entries || []).filter(l => l.uuid !== uuid) });
     });
 
-    // Факультет — открыть по клику
+    // ── Факультет: открыть по клику ──
     html.find(".fac-open-actor, .fac-open-predecessor, .fac-open-journal").click(async e => {
       const uuid = e.currentTarget.dataset.uuid;
       if (!uuid) return;

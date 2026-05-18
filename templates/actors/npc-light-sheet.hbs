@@ -75,7 +75,7 @@
         <div class="npc-field" style="margin-bottom:8px"><label>Внешние особенности</label>
           <textarea name="system.appearance" rows="2" placeholder="внешность, особые приметы...">{{system.appearance}}</textarea></div>
         <div class="section-title">Биография</div>
-        {{editor system.biography target="system.biography" button=true editable=editable}}
+        <textarea name="system.biography" rows="6" class="npc-textarea-lg" placeholder="история персонажа...">{{system.biography}}</textarea>
         <div class="section-title" style="margin-top:10px">Заметки</div>
         <textarea name="system.notes" rows="4" class="npc-textarea-lg" placeholder="заметки мастера...">{{system.notes}}</textarea>
       </div>
@@ -119,9 +119,7 @@
           </div>
         </div>
 
-        {{!-- Состояние: 2 пипа + КО-пип.
-             КО-пип использует pip-phys-5 / pip-ment-5 — те же классы что 5й пип у сложного НПС.
-             Так дизайн и цвета идентичны. --}}
+        {{!-- Состояние: 2 пипа + КО-пип --}}
         <div class="section-title">Состояние</div>
         <div class="health-tracks npc-tracks">
           <div class="health-track">
@@ -138,7 +136,6 @@
                    data-track="npc-physical" data-value="2" title="{{healthLabel 2}}">
                 <span class="pip-txt">{{healthLabel 2}}</span>
               </div>
-              {{!-- КО = pip-phys-5 (Без сознания) — идентично 5му пипу сложного НПС --}}
               <div class="health-pip {{#if system.health.physical.knockout}}pip-filled pip-phys-5{{else}}pip-empty{{/if}}"
                    data-track="npc-physical-ko" title="{{healthLabel 5}}">
                 <span class="pip-txt">{{healthLabel 5}}</span>
@@ -159,13 +156,33 @@
                    data-track="npc-mental" data-value="2" title="{{mentalLabel 2}}">
                 <span class="pip-txt">{{mentalLabel 2}}</span>
               </div>
-              {{!-- КО = pip-ment-5 (Диссоциация) — идентично 5му пипу сложного НПС --}}
               <div class="health-pip {{#if system.health.mental.knockout}}pip-filled pip-ment-5{{else}}pip-empty{{/if}}"
                    data-track="npc-mental-ko" title="{{mentalLabel 5}}">
                 <span class="pip-txt">{{mentalLabel 5}}</span>
               </div>
             </div>
           </div>
+        </div>
+
+        {{!-- Активные статусы --}}
+        <div class="active-statuses-block actor-status-drop" title="Перетащи статус-итем сюда">
+          <div class="active-statuses-header">
+            <span class="active-statuses-title">⚡ Активные статусы</span>
+          </div>
+          {{#if system.active_statuses.length}}
+          <div class="active-statuses-list">
+            {{#each system.active_statuses as |st|}}
+            <div class="active-status-row status-type-{{st.status_type}}">
+              <span class="active-status-icon">{{#if (eq st.status_type "poison")}}☠{{else if (eq st.status_type "shock")}}⚡{{else if (eq st.status_type "magic")}}✦{{else if (eq st.status_type "bleed")}}🩸{{else if (eq st.status_type "acid")}}⚗{{/if}}</span>
+              <span class="active-status-name">{{st.statusName}}</span>
+              {{#if (ne st.uses -1)}}<span class="active-status-uses">{{st.uses}}×</span>{{/if}}
+              <button type="button" class="actor-remove-status fac-del" data-index="{{@index}}">✕</button>
+            </div>
+            {{/each}}
+          </div>
+          {{else}}
+          <div class="active-statuses-empty">Нет активных статусов · перетащи статус-итем</div>
+          {{/if}}
         </div>
 
         <div class="section-title" style="margin-top:12px">Навыки и способности</div>

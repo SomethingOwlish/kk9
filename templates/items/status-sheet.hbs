@@ -1,0 +1,158 @@
+{{!-- КК9 | Карточка статуса v1.0 --}}
+<form class="kk9-sheet item-sheet status-sheet" autocomplete="off">
+
+  {{!-- ═══ ШАПКА ═══ --}}
+  <header class="st-header">
+    <img class="st-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="st-header-right">
+      <div class="st-name-row">
+        <input class="st-name-input" type="text" name="name"
+               value="{{item.name}}" placeholder="Название статуса" />
+        <span class="st-type-badge st-type-{{system.status_type}}">
+          {{#if (eq system.status_type "poison")}}☠ Яд
+          {{else if (eq system.status_type "shock")}}⚡ Шок
+          {{else if (eq system.status_type "magic")}}✦ Магия
+          {{else if (eq system.status_type "bleed")}}🩸 Кровотечение
+          {{else if (eq system.status_type "acid")}}⚗ Кислота
+          {{/if}}
+        </span>
+      </div>
+    </div>
+  </header>
+
+  {{!-- ═══ ТЕЛО ═══ --}}
+  <div class="st-body">
+
+    {{!-- Основные параметры --}}
+    <div class="st-params-grid">
+
+      <div class="st-param-block">
+        <span class="st-param-label">Тип статуса</span>
+        <select name="system.status_type" class="kk9-select">
+          <option value="poison" {{#if (eq system.status_type "poison")}}selected{{/if}}>☠ Яд</option>
+          <option value="shock"  {{#if (eq system.status_type "shock")}}selected{{/if}}>⚡ Шок</option>
+          <option value="magic"  {{#if (eq system.status_type "magic")}}selected{{/if}}>✦ Магия</option>
+          <option value="bleed"  {{#if (eq system.status_type "bleed")}}selected{{/if}}>🩸 Кровотечение</option>
+          <option value="acid"   {{#if (eq system.status_type "acid")}}selected{{/if}}>⚗ Кислота</option>
+        </select>
+      </div>
+
+      <div class="st-param-block">
+        <span class="st-param-label">Частота</span>
+        <select name="system.frequency" class="kk9-select">
+          <option value="per_turn"   {{#if (eq system.frequency "per_turn")}}selected{{/if}}>Раз в ход</option>
+          <option value="per_combat" {{#if (eq system.frequency "per_combat")}}selected{{/if}}>Раз в бой</option>
+          <option value="per_hour"   {{#if (eq system.frequency "per_hour")}}selected{{/if}}>Раз в час</option>
+          <option value="per_day"    {{#if (eq system.frequency "per_day")}}selected{{/if}}>Раз в день</option>
+          <option value="rare"       {{#if (eq system.frequency "rare")}}selected{{/if}}>Редко</option>
+        </select>
+      </div>
+
+      <div class="st-param-block">
+        <span class="st-param-label">Применений</span>
+        <input type="number" name="system.uses" value="{{system.uses}}"
+               class="kk9-input st-uses-input"
+               title="-1 = бесконечно" />
+        <span class="st-uses-hint">−1 = ∞</span>
+      </div>
+
+    </div>
+
+    {{!-- Урон --}}
+    <div class="st-params-grid">
+
+      <div class="st-param-block">
+        <span class="st-param-label">Урон при срабатывании</span>
+        <select name="system.damage" class="kk9-select">
+          <option value="none"   {{#if (eq system.damage "none")}}selected{{/if}}>Нет урона</option>
+          <option value="light"  {{#if (eq system.damage "light")}}selected{{/if}}>Лёгкий (1 уровень)</option>
+          <option value="heavy"  {{#if (eq system.damage "heavy")}}selected{{/if}}>Тяжёлый (2 уровня)</option>
+          <option value="lethal" {{#if (eq system.damage "lethal")}}selected{{/if}}>Летальный (3 уровня)</option>
+        </select>
+      </div>
+
+      <div class="st-param-block">
+        <span class="st-param-label">Тип урона</span>
+        <select name="system.damage_type" class="kk9-select">
+          <option value="physical" {{#if (eq system.damage_type "physical")}}selected{{/if}}>Физический</option>
+          <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
+        </select>
+      </div>
+
+    </div>
+
+    {{!-- Эффект --}}
+    <div class="st-param-block">
+      <span class="st-param-label">Эффект</span>
+      <textarea name="system.effect" class="kk9-textarea st-effect-ta"
+                placeholder="Описание эффекта статуса...">{{system.effect}}</textarea>
+    </div>
+
+    {{!-- Описание --}}
+    <div class="st-param-block">
+      <span class="st-param-label">Описание</span>
+      <textarea name="system.description" class="kk9-textarea st-desc-ta"
+                placeholder="Подробное описание...">{{system.description}}</textarea>
+    </div>
+
+  </div>
+
+</form>
+
+<style>
+.status-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+}
+
+.status-sheet .st-header {
+  display: flex; flex-direction: row;
+  align-items: center; gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.status-sheet .st-avatar {
+  width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
+  cursor: pointer; flex-shrink: 0; border: 2px solid var(--border2);
+}
+.status-sheet .st-header-right { flex: 1; min-width: 0; }
+.status-sheet .st-name-row { display: flex; align-items: center; gap: 8px; }
+.status-sheet .st-name-input {
+  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
+  background: transparent; border: none;
+  border-bottom: 2px solid var(--border2);
+  color: var(--text-head); padding: 0 0 1px; outline: none;
+  transition: border-color 0.2s; min-width: 0;
+}
+.status-sheet .st-name-input:focus { border-bottom-color: var(--gold); }
+
+/* Бейджи типов статусов */
+.status-sheet .st-type-badge {
+  flex-shrink: 0; font-size: 0.66em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.status-sheet .st-type-poison  { background: rgba(134,239,172,0.12); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
+.status-sheet .st-type-shock   { background: rgba(253,224,71,0.12);  color: #fde047; border: 1px solid rgba(253,224,71,0.3); }
+.status-sheet .st-type-magic   { background: rgba(192,132,252,0.12); color: #c084fc; border: 1px solid rgba(192,132,252,0.3); }
+.status-sheet .st-type-bleed   { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+.status-sheet .st-type-acid    { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+
+.status-sheet .st-body {
+  flex: 1; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+.status-sheet .st-params-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: end;
+}
+.status-sheet .st-param-block { display: flex; flex-direction: column; gap: 3px; }
+.status-sheet .st-param-label {
+  font-size: 0.65em; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--text-dim);
+}
+.status-sheet .st-uses-input  { width: 80px !important; text-align: center; }
+.status-sheet .st-uses-hint   { font-size: 0.65em; color: var(--text-dim); }
+.status-sheet .st-effect-ta   { min-height: 60px; }
+.status-sheet .st-desc-ta     { min-height: 60px; }
+</style>

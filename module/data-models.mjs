@@ -1,5 +1,5 @@
 // ============================================================
-// КК9 — Дата-модели v1.1
+// КК9 — Дата-модели v1.2 (0.9.0)
 // ============================================================
 
 const { fields } = foundry.data;
@@ -15,6 +15,20 @@ function npcAttributeField() {
   return new fields.SchemaField({
     die: new fields.NumberField({ required: true, initial: 6, choices: [4, 6, 8, 10, 12, 20, 100], integer: true })
   });
+}
+
+function activeStatusesField() {
+  return new fields.ArrayField(
+    new fields.SchemaField({
+      uuid:        new fields.StringField({ required: true, initial: "" }),
+      statusName:  new fields.StringField({ initial: "" }),
+      status_type: new fields.StringField({ initial: "shock" }),
+      damage:      new fields.StringField({ initial: "none" }),
+      damage_type: new fields.StringField({ initial: "physical" }),
+      frequency:   new fields.StringField({ initial: "per_turn" }),
+      uses:        new fields.NumberField({ initial: -1, integer: true })
+    })
+  );
 }
 
 function npcCommonFields() {
@@ -50,11 +64,11 @@ function npcCommonFields() {
       magic:    npcAttributeField(),
     }),
     toughness: new fields.NumberField({ initial: 5, integer: true }),
-    // energy как SchemaField value/max — max вычисляется через prepareDerivedData
     energy: new fields.SchemaField({
       value: new fields.NumberField({ required: true, initial: 0, min: 0, integer: true }),
       max:   new fields.NumberField({ required: true, initial: 10, integer: true })
     }),
+    active_statuses: activeStatusesField(),
   };
 }
 
@@ -137,7 +151,8 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
           notes:  new fields.StringField({ initial: "" }),
           love:   new fields.BooleanField({ initial: false })
         })
-      )
+      ),
+      active_statuses: activeStatusesField(),
     };
   }
 
@@ -148,7 +163,7 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
 }
 
 // ============================================================
-// НПС ЛЁГКИЙ — 2 ячейки + Отключка. Только свои кубики.
+// НПС ЛЁГКИЙ — 2 ячейки + Отключка
 // ============================================================
 export class NpcLightDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
@@ -167,16 +182,14 @@ export class NpcLightDataModel extends foundry.abstract.TypeDataModel {
     };
   }
   prepareDerivedData() {
-    // Стойкость = 2 + Дух/2 (та же формула что у персонажа)
     this.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
-    // Энергия max = возраст + кубик Духа
     const ageNum = parseInt(this.age) || 0;
     this.energy.max = ageNum + this.attributes.spirit.die;
   }
 }
 
 // ============================================================
-// НПС СЛОЖНЫЙ — 5 ячеек как у игрока. Только свои кубики.
+// НПС СЛОЖНЫЙ — 5 ячеек
 // ============================================================
 export class NpcHardDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
@@ -200,7 +213,7 @@ export class NpcHardDataModel extends foundry.abstract.TypeDataModel {
 }
 
 // ============================================================
-// НПС НЕПОБЕДИМЫЙ — нет шкал. Дикий кубик.
+// НПС НЕПОБЕДИМЫЙ — нет шкал, дикий кубик
 // ============================================================
 export class NpcBossDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
@@ -219,28 +232,20 @@ export class NpcBossDataModel extends foundry.abstract.TypeDataModel {
 // ============================================================
 // ПРЕДМЕТЫ
 // ============================================================
+
 export class FacultyDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
-      // --- Основное ---
       description:      new fields.HTMLField({ initial: "" }),
       color:            new fields.StringField({ initial: "#888888" }),
       color_key:        new fields.StringField({ initial: "" }),
       teacher:          new fields.StringField({ initial: "" }),
-
-      // --- Статус ---
       active:           new fields.BooleanField({ initial: true }),
-      date_founded:     new fields.StringField({ initial: "" }),   // текст, напр. "1847 г."
-      date_reformed:    new fields.StringField({ initial: "" }),   // скрыто если active=true
-
-      // --- Общежитие ---
+      date_founded:     new fields.StringField({ initial: "" }),
+      date_reformed:    new fields.StringField({ initial: "" }),
       dormitory:        new fields.StringField({ initial: "" }),
-
-      // --- Предшественник (ссылка на неактивный факультет) ---
-      predecessor_uuid: new fields.StringField({ initial: "" }),   // uuid Item
-      predecessor_name: new fields.StringField({ initial: "" }),   // кэш имени для отображения
-
-      // --- Способности ---
+      predecessor_uuid: new fields.StringField({ initial: "" }),
+      predecessor_name: new fields.StringField({ initial: "" }),
       abilities: new fields.ArrayField(
         new fields.SchemaField({
           name:     new fields.StringField({ required: true, initial: "" }),
@@ -248,45 +253,34 @@ export class FacultyDataModel extends foundry.abstract.TypeDataModel {
           category: new fields.StringField({ initial: "common", choices: ["common","personal","learned","magic"] })
         })
       ),
-
-      // --- Студенты: массив { actorId, actorUuid, name, course (1-5), semester (1-2), isStar } ---
       students: new fields.ArrayField(
         new fields.SchemaField({
-          actorUuid: new fields.StringField({ required: true, initial: "" }),
+          actorUuid:   new fields.StringField({ required: true, initial: "" }),
           studentName: new fields.StringField({ initial: "" }),
-          course:    new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
-          semester:  new fields.NumberField({ initial: 1, min: 1, max: 2, integer: true }),
-          isStar:    new fields.BooleanField({ initial: false })   // «Староста»
+          course:      new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
+          semester:    new fields.NumberField({ initial: 1, min: 1, max: 2, integer: true }),
+          isStar:      new fields.BooleanField({ initial: false })
         })
       ),
-
-      // --- Не закончили: массив { actorUuid, name, reason } ---
       dropouts: new fields.ArrayField(
         new fields.SchemaField({
-          actorUuid: new fields.StringField({ required: true, initial: "" }),
+          actorUuid:   new fields.StringField({ required: true, initial: "" }),
           studentName: new fields.StringField({ initial: "" }),
-          reason:    new fields.StringField({ initial: "" })
+          reason:      new fields.StringField({ initial: "" })
         })
       ),
-
-      // --- Характеристики ---
-      traits_fit:     new fields.HTMLField({ initial: "" }),   // «Подходит»
-      traits_unfit:   new fields.HTMLField({ initial: "" }),   // «Не подходит»
-
-      // --- Особые правила ---
-      special_rules:  new fields.HTMLField({ initial: "" }),
-
-      // --- Байки и легенды: массив ссылок на JournalEntry ---
+      traits_fit:    new fields.HTMLField({ initial: "" }),
+      traits_unfit:  new fields.HTMLField({ initial: "" }),
+      special_rules: new fields.HTMLField({ initial: "" }),
       lore_entries: new fields.ArrayField(
         new fields.SchemaField({
-          uuid:  new fields.StringField({ required: true, initial: "" }),
-          name:  new fields.StringField({ initial: "" })
+          uuid: new fields.StringField({ required: true, initial: "" }),
+          name: new fields.StringField({ initial: "" })
         })
       ),
     };
   }
 
-  // Автомиграция: name → studentName в старых данных
   migrateData(source) {
     if (Array.isArray(source.students)) {
       source.students = source.students.map(s => {
@@ -309,7 +303,6 @@ export class FacultyDataModel extends foundry.abstract.TypeDataModel {
     return super.migrateData(source);
   }
 }
-
 
 export class SkillDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
@@ -336,18 +329,23 @@ export class AbilityDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-
 export class WeaponDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
-      description: new fields.HTMLField({ initial: "" }),
-      damage:      new fields.StringField({ initial: "" }),
-      range:       new fields.StringField({ initial: "" }),
-      ap:          new fields.NumberField({ initial: 0, integer: true }),
-      rof:         new fields.NumberField({ initial: 1, integer: true }),
-      weight:      new fields.NumberField({ initial: 0 }),
-      equipped:    new fields.BooleanField({ initial: false }),
-      notes:       new fields.StringField({ initial: "" })
+      description:  new fields.HTMLField({ initial: "" }),
+      skill_uuid:   new fields.StringField({ initial: "" }),
+      skill_name:   new fields.StringField({ initial: "" }),
+      damage_level: new fields.StringField({ initial: "light", choices: ["light","heavy","lethal"] }),
+      damage_type:  new fields.StringField({ initial: "physical", choices: ["physical","mental"] }),
+      range:        new fields.NumberField({ initial: 0, integer: true }),
+      size:         new fields.StringField({ initial: "medium", choices: ["pocket","finger","small","medium","large","huge","immovable"] }),
+      ap:           new fields.NumberField({ initial: 0, integer: true }),
+      rof:          new fields.NumberField({ initial: 1, integer: true }),
+      equipped:     new fields.BooleanField({ initial: false }),
+      has_status:   new fields.BooleanField({ initial: false }),
+      status_uuid:  new fields.StringField({ initial: "" }),
+      status_name:  new fields.StringField({ initial: "" }),
+      notes:        new fields.StringField({ initial: "" })
     };
   }
 }
@@ -477,6 +475,23 @@ export class LanguageDataModel extends foundry.abstract.TypeDataModel {
     return {
       description: new fields.StringField({ initial: "" }),
       region:      new fields.StringField({ initial: "" })
+    };
+  }
+}
+
+// ============================================================
+// СТАТУС (новый тип v0.9.0)
+// ============================================================
+export class StatusDataModel extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    return {
+      description:  new fields.HTMLField({ initial: "" }),
+      status_type:  new fields.StringField({ initial: "shock", choices: ["poison","shock","magic","bleed","acid"] }),
+      effect:       new fields.StringField({ initial: "" }),
+      damage:       new fields.StringField({ initial: "none", choices: ["none","light","heavy","lethal"] }),
+      damage_type:  new fields.StringField({ initial: "physical", choices: ["physical","mental"] }),
+      frequency:    new fields.StringField({ initial: "per_turn", choices: ["per_turn","per_combat","per_hour","per_day","rare"] }),
+      uses:         new fields.NumberField({ initial: -1, integer: true })
     };
   }
 }

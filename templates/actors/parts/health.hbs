@@ -1,4 +1,4 @@
-{{!-- Шкалы здоровья --}}
+{{!-- Шкалы здоровья v1.1 — добавлен блок активных статусов --}}
 <div class="health-tracks">
 
   {{!-- Физическое --}}
@@ -39,4 +39,35 @@
     </div>
   </div>
 
+</div>
+
+{{!-- Активные статусы — drag-drop зона под шкалами --}}
+<div class="active-statuses-block actor-status-drop" title="Перетащи статус-итем сюда">
+  <div class="active-statuses-header">
+    <span class="active-statuses-title">⚡ Активные статусы</span>
+  </div>
+  {{#if system.active_statuses.length}}
+  <div class="active-statuses-list">
+    {{#each system.active_statuses as |st|}}
+    <div class="active-status-row status-type-{{st.status_type}}">
+      <span class="active-status-icon">
+        {{#if (eq st.status_type "poison")}}☠
+        {{else if (eq st.status_type "shock")}}⚡
+        {{else if (eq st.status_type "magic")}}✦
+        {{else if (eq st.status_type "bleed")}}🩸
+        {{else if (eq st.status_type "acid")}}⚗
+        {{/if}}
+      </span>
+      <span class="active-status-name">{{st.statusName}}</span>
+      {{#if (ne st.uses -1)}}
+      <span class="active-status-uses">{{st.uses}}×</span>
+      {{/if}}
+      <button type="button" class="actor-remove-status fac-del"
+              data-index="{{@index}}">✕</button>
+    </div>
+    {{/each}}
+  </div>
+  {{else}}
+  <div class="active-statuses-empty">Нет активных статусов · перетащи статус-итем</div>
+  {{/if}}
 </div>
