@@ -1,5 +1,5 @@
 // ============================================================
-// КК9 — Главный файл v0.9.0
+// КК9 — Главный файл v0.9.1 (ИСПРАВЛЕНО: drag & drop)
 // ============================================================
 
 import {
@@ -12,10 +12,15 @@ import {
 
 import { KK9Actor, KK9Item } from "./module/documents.mjs";
 
+// FIX: Персонаж и айтем — из sheets.mjs (НПС-листы убраны оттуда)
 import {
-  KK9CharacterSheet, KK9NpcLightSheet, KK9NpcHardSheet,
-  KK9NpcBossSheet, KK9ItemSheet
+  KK9CharacterSheet, KK9ItemSheet
 } from "./module/sheets.mjs";
+
+// FIX: НПС-листы — из npc-sheets.mjs (единственный источник правды)
+import {
+  KK9NpcLightSheet, KK9NpcHardSheet, KK9NpcBossSheet
+} from "./module/npc-sheets.mjs";
 
 import { registerCombatHooks, registerChatListeners } from "./module/weapon-combat.mjs";
 
@@ -35,7 +40,7 @@ const SKILL_TYPES = new Set(["skill","ability","faculty","language"]);
 // INIT
 // ============================================================
 Hooks.once("init", function () {
-  console.log("КК9 | Инициализация v0.9.0");
+  console.log("КК9 | Инициализация v0.9.1");
 
   CONFIG.Actor.documentClass = KK9Actor;
   CONFIG.Item.documentClass  = KK9Item;
@@ -154,17 +159,14 @@ Hooks.once("ready", async function() {
 // ============================================================
 // Хук renderChatMessage
 // ============================================================
-
 Hooks.on("renderChatMessage", (message, html, data) => {
   const el = html[0] ?? html;
 
   el.classList.add("kk9-chat-message");
 
   if (message.flags?.kk9?.isRoll) {
-    // Добавляем класс — CSS скроет шапку надёжнее чем инлайн
     el.classList.add("kk9-roll-message");
 
-    // Инлайн как запасной вариант
     const header = el.querySelector(".message-header");
     if (header) header.style.display = "none";
 
@@ -173,7 +175,7 @@ Hooks.on("renderChatMessage", (message, html, data) => {
     });
   }
 
-  // Красим .message-sender по факультету (для не-бросков)
+  // Красим .message-sender по факультету
   const actorId = message.flags?.kk9?.actorId ?? message.speaker?.actor;
   if (actorId) {
     const actor = game.actors?.get(actorId);
@@ -183,49 +185,110 @@ Hooks.on("renderChatMessage", (message, html, data) => {
         purple:"#a855f7", red:"#ef4444", brown:"#92400e", mercury:"#94a3b8", invisible:"#6b7280"
       };
       const fKey  = actor.system?.faculty_key || actor.system?.faculty;
-      const color = (fKey && fKey !== "none") ? (fColors[fKey] || "#c4a44a") : "#c4a44a";
-      const sender = el.querySelector(".message-sender");
-      if (sender) sender.style.color = color;
+      const color = (fKey && fKey !== "none") ? (fColors[fKey] || "#888") : null;
+      if (color) {
+        const sender = el.querySelector(".message-sender");
+        if (sender) sender.style.color = color;
+      }
     }
   }
 });
+
+// ============================================================
+// Handlebars helpers
+// ============================================================
+function _registerHelpers() {
+  Handlebars.registerHelper("eq",  (a, b) => a === b);
+  Handlebars.registerHelper("ne",  (a, b) => a !== b);
+  Handlebars.registerHelper("gt",  (a, b) => a > b);
+  Handlebars.registerHelper("lt",  (a, b) => a < b);
+  Handlebars.registerHelper("gte", (a, b) => a >= b);
+  Handlebars.registerHelper("add", (a, b) => a + b);
+  Handlebars.registerHelper("lookup", (obj, key) => obj?.[key] ?? key);
+
+  Handlebars.registerHelper("times", function(n, block) {
+    let r = "";
+    for (let i = 0; i < n; i++) r += block.fn(i + 1);
+    return r;
+  });
+
+  Handlebars.registerHelper("healthLabel", (v) =>
+    ["Здоров","Царапина","Ранен","Тяжело ранен","Критически","Без сознания"][v] || "Здоров"
+  );
+  Handlebars.registerHelper("mentalLabel", (v) =>
+    ["Стабилен","Тревога","Потрясён","Сломлен","Кризис","Диссоциация"][v] || "Стабилен"
+  );
+  Handlebars.registerHelper("talentLabel", (v) =>
+    ({ common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая" })[v] || v
+  );
+  Handlebars.registerHelper("categoryLabel", (v) =>
+    ({ common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая" })[v] || v
+  );
+  Handlebars.registerHelper("orgTypeLabel", (v) => ({
+    academic:"Академическая", criminal:"Криминальная", government:"Правительственная",
+    magical:"Магическая", corporate:"Корпоративная", underground:"Подпольная", other:"Прочая"
+  })[v] || v);
+  Handlebars.registerHelper("typeIcon", (type) => ({
+    weapon:"⚔", gear:"🎒", artifact:"✨", spell:"🔮",
+    daemon:"👁", companion:"🐾", vehicle:"🚗", device:"⚙",
+    contact:"📇", language:"🗣", skill:"📖", ability:"⚡", status:"⚡"
+  })[type] || "📦");
+  Handlebars.registerHelper("colorHex", (color) => ({
+    black:"#1a1a1a", white:"#f0f0f0", gold:"#c4a44a", silver:"#c0c0c0",
+    red:"#e53935", orange:"#fb8c00", green:"#43a047", blue:"#1e88e5",
+    purple:"#8e24aa", yellow:"#fdd835", pink:"#f06292", pearl:"#e8d5c0", grey:"#9e9e9e"
+  })[color] || "#888888");
+
+  Handlebars.registerHelper("npcItemTypeLabel", (type) => ({
+    weapon:"Оружие", gear:"Снаряжение", artifact:"Артефакт", spell:"Заклинание",
+    daemon:"Даймон", companion:"Спутник", vehicle:"Транспорт", device:"Устройство",
+    contact:"Контакт", language:"Язык", status:"Статус"
+  })[type] || type);
+}
+
+// ============================================================
+// Preload templates
+// ============================================================
+async function _preloadTemplates() {
+  return loadTemplates([
+    "systems/kk9/templates/actors/character-sheet.hbs",
+    "systems/kk9/templates/actors/npc-light-sheet.hbs",
+    "systems/kk9/templates/actors/npc-hard-sheet.hbs",
+    "systems/kk9/templates/actors/npc-boss-sheet.hbs",
+    "systems/kk9/templates/actors/parts/attributes.hbs",
+    "systems/kk9/templates/actors/parts/skills.hbs",
+    "systems/kk9/templates/actors/parts/health.hbs",
+    "systems/kk9/templates/actors/parts/relations.hbs",
+    "systems/kk9/templates/actors/parts/items.hbs",
+    "systems/kk9/templates/actors/parts/biography.hbs",
+    "systems/kk9/templates/items/faculty-sheet.hbs",
+    "systems/kk9/templates/items/skill-sheet.hbs",
+    "systems/kk9/templates/items/ability-sheet.hbs",
+    "systems/kk9/templates/items/weapon-sheet.hbs",
+    "systems/kk9/templates/items/status-sheet.hbs",
+    "systems/kk9/templates/items/gear-sheet.hbs",
+    "systems/kk9/templates/items/artifact-sheet.hbs",
+    "systems/kk9/templates/items/spell-sheet.hbs",
+    "systems/kk9/templates/items/daemon-sheet.hbs",
+    "systems/kk9/templates/items/companion-sheet.hbs",
+    "systems/kk9/templates/items/vehicle-sheet.hbs",
+    "systems/kk9/templates/items/device-sheet.hbs",
+    "systems/kk9/templates/items/contact-sheet.hbs",
+    "systems/kk9/templates/items/language-sheet.hbs"
+  ]);
+}
 
 // ============================================================
 // Хук renderSidebarTab — стилизуем вкладку чата при открытии
 // ============================================================
 Hooks.on("renderSidebarTab", (app, html) => {
   if (app.tabName !== "chat") return;
-  // Гарантируем шрифты в полях ввода
   const textarea = html.find?.("#chat-message, textarea")?.[0];
   if (textarea) {
     textarea.style.fontFamily = "'Jost', sans-serif";
     textarea.style.fontSize   = "0.9em";
   }
 });
-
-// ============================================================
-// Стартовая сцена
-// ============================================================
-async function _ensureStartScene() {
-  if (game.scenes.size > 0) return;
-
-  console.log("КК9 | Создаём стартовую сцену...");
-
-  const scene = await Scene.create({
-    name: "Кризисный Комитет №9",
-    background: { src: KK9_DEFAULTS.sceneBg },
-    grid: { type: 0, size: 100 },
-    width: 1920, height: 1080,
-    padding: 0,
-    initial: { x: 960, y: 540, scale: 1.0 },
-    active: true,
-    navigation: true,
-    backgroundColor: "#000000"
-  });
-
-  if (scene) await scene.activate();
-  ui.notifications.info("КК9 | Стартовая сцена создана.");
-}
 
 // ============================================================
 // Компендиумы
@@ -321,85 +384,25 @@ async function _ensureCompendiums() {
 }
 
 // ============================================================
-// Handlebars helpers
+// Стартовая сцена
 // ============================================================
-function _registerHelpers() {
-  Handlebars.registerHelper("eq",  (a, b) => a === b);
-  Handlebars.registerHelper("ne",  (a, b) => a !== b);
-  Handlebars.registerHelper("gt",  (a, b) => a > b);
-  Handlebars.registerHelper("lt",  (a, b) => a < b);
-  Handlebars.registerHelper("gte", (a, b) => a >= b);
-  Handlebars.registerHelper("add", (a, b) => a + b);
-  Handlebars.registerHelper("lookup", (obj, key) => obj?.[key] ?? key);
+async function _ensureStartScene() {
+  if (game.scenes.size > 0) return;
 
-  Handlebars.registerHelper("times", function(n, block) {
-    let r = "";
-    for (let i = 0; i < n; i++) r += block.fn(i + 1);
-    return r;
+  console.log("КК9 | Создаём стартовую сцену...");
+
+  const scene = await Scene.create({
+    name: "Кризисный Комитет №9",
+    background: { src: KK9_DEFAULTS.sceneBg },
+    grid: { type: 0, size: 100 },
+    width: 1920, height: 1080,
+    padding: 0,
+    initial: { x: 960, y: 540, scale: 1.0 },
+    active: true,
+    navigation: true,
+    backgroundColor: "#000000"
   });
 
-  Handlebars.registerHelper("healthLabel", (v) =>
-    ["Здоров","Царапина","Ранен","Тяжело ранен","Критически","Без сознания"][v] || "Здоров"
-  );
-  Handlebars.registerHelper("mentalLabel", (v) =>
-    ["Стабилен","Тревога","Потрясён","Сломлен","Кризис","Диссоциация"][v] || "Стабилен"
-  );
-  Handlebars.registerHelper("talentLabel", (v) =>
-    ({ common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая" })[v] || v
-  );
-  Handlebars.registerHelper("categoryLabel", (v) =>
-    ({ common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая" })[v] || v
-  );
-  Handlebars.registerHelper("orgTypeLabel", (v) => ({
-    academic:"Академическая", criminal:"Криминальная", government:"Правительственная",
-    magical:"Магическая", corporate:"Корпоративная", underground:"Подпольная", other:"Прочая"
-  })[v] || v);
-  Handlebars.registerHelper("typeIcon", (type) => ({
-    weapon:"⚔", gear:"🎒", artifact:"✨", spell:"🔮",
-    daemon:"👁", companion:"🐾", vehicle:"🚗", device:"⚙",
-    contact:"📇", language:"🗣", skill:"📖", ability:"⚡", status:"⚡"
-  })[type] || "📦");
-  Handlebars.registerHelper("colorHex", (color) => ({
-    black:"#1a1a1a", white:"#f0f0f0", gold:"#c4a44a", silver:"#c0c0c0",
-    red:"#e53935", orange:"#fb8c00", green:"#43a047", blue:"#1e88e5",
-    purple:"#8e24aa", yellow:"#fdd835", pink:"#f06292", pearl:"#e8d5c0", grey:"#9e9e9e"
-  })[color] || "#888888");
-
-  Handlebars.registerHelper("npcItemTypeLabel", (type) => ({
-    weapon:"Оружие", gear:"Снаряжение", artifact:"Артефакт", spell:"Заклинание",
-    daemon:"Даймон", companion:"Спутник", vehicle:"Транспорт", device:"Устройство",
-    contact:"Контакт", language:"Язык", status:"Статус"
-  })[type] || type);
-}
-
-// ============================================================
-// Preload templates
-// ============================================================
-async function _preloadTemplates() {
-  return loadTemplates([
-    "systems/kk9/templates/actors/character-sheet.hbs",
-    "systems/kk9/templates/actors/npc-light-sheet.hbs",
-    "systems/kk9/templates/actors/npc-hard-sheet.hbs",
-    "systems/kk9/templates/actors/npc-boss-sheet.hbs",
-    "systems/kk9/templates/actors/parts/attributes.hbs",
-    "systems/kk9/templates/actors/parts/skills.hbs",
-    "systems/kk9/templates/actors/parts/health.hbs",
-    "systems/kk9/templates/actors/parts/relations.hbs",
-    "systems/kk9/templates/actors/parts/items.hbs",
-    "systems/kk9/templates/actors/parts/biography.hbs",
-    "systems/kk9/templates/items/faculty-sheet.hbs",
-    "systems/kk9/templates/items/skill-sheet.hbs",
-    "systems/kk9/templates/items/ability-sheet.hbs",
-    "systems/kk9/templates/items/weapon-sheet.hbs",
-    "systems/kk9/templates/items/status-sheet.hbs",
-    "systems/kk9/templates/items/gear-sheet.hbs",
-    "systems/kk9/templates/items/artifact-sheet.hbs",
-    "systems/kk9/templates/items/spell-sheet.hbs",
-    "systems/kk9/templates/items/daemon-sheet.hbs",
-    "systems/kk9/templates/items/companion-sheet.hbs",
-    "systems/kk9/templates/items/vehicle-sheet.hbs",
-    "systems/kk9/templates/items/device-sheet.hbs",
-    "systems/kk9/templates/items/contact-sheet.hbs",
-    "systems/kk9/templates/items/language-sheet.hbs"
-  ]);
+  if (scene) await scene.activate();
+  ui.notifications.info("КК9 | Стартовая сцена создана.");
 }
