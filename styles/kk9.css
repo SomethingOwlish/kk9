@@ -1754,3 +1754,582 @@
   opacity: 1 !important;
 }
 .active-status-row .fac-del:hover { color: var(--accent2) !important; }
+
+/* ----------------------------------------------------------
+   ГЛОБАЛЬНЫЙ РЕДИЗАЙН САЙДБАРА FOUNDRY (чат-вкладка)
+   ---------------------------------------------------------- */
+
+/* Основной фон сайдбара */
+#sidebar,
+#chat,
+#chat-log,
+.sidebar-tab {
+  background: #1c1c1c !important;
+  color: #b8b0a4 !important;
+  font-family: 'Jost', sans-serif !important;
+  border-color: #3a3a3a !important;
+}
+
+/* Заголовки вкладок сайдбара */
+#sidebar-tabs .item {
+  background: #1c1c1c !important;
+  color: #6a6560 !important;
+  border-color: #3a3a3a !important;
+  font-family: 'Jost', sans-serif !important;
+  font-size: 0.85em !important;
+  transition: color 0.15s !important;
+}
+#sidebar-tabs .item:hover  { color: #b8b0a4 !important; }
+#sidebar-tabs .item.active { color: #c4a44a !important; border-bottom: 2px solid #c4a44a !important; background: #232323 !important; }
+
+/* Поле ввода чата */
+#chat-form textarea,
+#chat-message {
+  background: #232323 !important;
+  border: 1px solid #3a3a3a !important;
+  border-radius: 3px !important;
+  color: #b8b0a4 !important;
+  font-family: 'Jost', sans-serif !important;
+  font-size: 0.9em !important;
+  resize: none !important;
+  transition: border-color 0.15s !important;
+}
+#chat-form textarea:focus,
+#chat-message:focus {
+  border-color: #c4a44a !important;
+  outline: none !important;
+  box-shadow: 0 0 0 1px rgba(196,164,74,0.2) !important;
+}
+
+/* Кнопка отправки */
+#chat-form button[type="submit"],
+#chat-controls button {
+  background: #2a2a2a !important;
+  border: 1px solid #4a4a4a !important;
+  color: #6a6560 !important;
+  font-family: 'Jost', sans-serif !important;
+  border-radius: 3px !important;
+  transition: all 0.15s !important;
+}
+#chat-form button:hover,
+#chat-controls button:hover {
+  border-color: #c4a44a !important;
+  color: #c4a44a !important;
+}
+
+/* Контролы чата (настройки броска) */
+#chat-controls {
+  background: #1c1c1c !important;
+  border-color: #3a3a3a !important;
+}
+#chat-controls select,
+#chat-controls label {
+  background: #232323 !important;
+  border-color: #3a3a3a !important;
+  color: #6a6560 !important;
+  font-family: 'Jost', sans-serif !important;
+  font-size: 0.8em !important;
+}
+
+/* Разделитель дня в чате */
+.message-timestamp {
+  color: #3a3a3a !important;
+  font-size: 0.7em !important;
+  font-family: 'Jost', sans-serif !important;
+  text-align: center !important;
+  border-top: 1px solid #2a2a2a !important;
+  margin: 8px 0 !important;
+  padding-top: 4px !important;
+}
+
+/* ----------------------------------------------------------
+   БАЗОВОЕ СООБЩЕНИЕ ЧАТА
+   ---------------------------------------------------------- */
+
+/* Сам блок сообщения */
+#chat-log .chat-message,
+.chat-message {
+  background: #1e1e1e !important;
+  border: 1px solid #2a2a2a !important;
+  border-radius: 4px !important;
+  margin: 4px 4px 4px 4px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  transition: border-color 0.15s !important;
+  box-shadow: none !important;
+}
+.chat-message:hover {
+  border-color: #3a3a3a !important;
+}
+
+/* Шапка сообщения (автор + время) — Foundry рендерит её сам */
+.chat-message .message-header {
+  background: #232323 !important;
+  border-bottom: 1px solid #2a2a2a !important;
+  padding: 4px 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+.chat-message .message-header .message-sender {
+  font-family: 'Jost', sans-serif !important;
+  font-size: 0.78em !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: #7a6430 !important; /* gold-dim */
+}
+.chat-message .message-header .message-metadata {
+  font-size: 0.7em !important;
+  color: #4a4040 !important;
+  margin-left: auto !important;
+}
+
+/* Контент сообщения */
+.chat-message .message-content {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+/* Простые текстовые сообщения (не броски) */
+.chat-message .message-content p,
+.chat-message .message-content > *:not(.kk9-chat-roll) {
+  padding: 8px 10px !important;
+  font-family: 'Jost', sans-serif !important;
+  font-size: 0.88em !important;
+  color: #b8b0a4 !important;
+  line-height: 1.5 !important;
+}
+
+/* ----------------------------------------------------------
+   КК9 — КАСТОМНЫЙ БЛОК БРОСКА
+   ---------------------------------------------------------- */
+
+.kk9-chat-roll {
+  --accent: #c4a44a;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Шапка: портрет + имя + что делает */
+.kk9-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #1e1e1e;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.kk9-chat-portrait {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+  /* Лёгкая виньетка по краям */
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.6);
+}
+
+.kk9-chat-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.kk9-chat-name {
+  font-family: 'Caveat', cursive;
+  font-size: 1.15em;
+  font-weight: 700;
+  line-height: 1.1;
+  /* цвет приходит инлайном из JS */
+}
+
+.kk9-chat-label {
+  font-family: 'Jost', sans-serif;
+  font-size: 0.8em;
+  color: #6a6560;
+  letter-spacing: 0.04em;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ----------------------------------------------------------
+   ПЛАШКА РЕЗУЛЬТАТА
+   ---------------------------------------------------------- */
+
+.kk9-chat-result-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-family: 'Jost', sans-serif;
+  font-size: 0.92em;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  position: relative;
+  /* Цветная полоска слева */
+}
+.kk9-chat-result-bar::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent, #c4a44a);
+  border-radius: 0 0 0 3px;
+}
+
+/* Успех */
+.kk9-result-success {
+  background: rgba(196,164,74,0.06);
+  color: #c4a44a;
+}
+.kk9-result-success::before { background: #c4a44a; }
+
+/* Неудача */
+.kk9-result-failure {
+  background: rgba(100,100,100,0.06);
+  color: #6a6560;
+}
+.kk9-result-failure::before { background: #4a4a4a; }
+
+/* Глаза змеи — критический провал */
+.kk9-result-snake {
+  background: rgba(139,0,0,0.1);
+  color: #c0392b;
+  animation: kk9-snake-pulse 2s ease-in-out infinite;
+}
+.kk9-result-snake::before { background: #7f1d1d; }
+
+@keyframes kk9-snake-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+
+/* Урон */
+.kk9-result-damage {
+  background: rgba(160,41,30,0.08);
+  color: #ef4444;
+}
+.kk9-result-damage::before { background: #c0392b; }
+
+.kk9-result-icon {
+  font-size: 0.9em;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.kk9-result-text {
+  flex: 1;
+}
+
+/* ----------------------------------------------------------
+   СВЁРНУТЫЕ КУБИКИ (details/summary)
+   ---------------------------------------------------------- */
+
+.kk9-dice-details {
+  border-top: 1px solid #252525;
+  background: #181818;
+}
+
+.kk9-dice-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-family: 'Jost', sans-serif;
+  font-size: 0.72em;
+  color: #4a4a4a;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  transition: color 0.1s;
+}
+.kk9-dice-summary::-webkit-details-marker { display: none; }
+.kk9-dice-summary::before {
+  content: '▶';
+  font-size: 0.7em;
+  transition: transform 0.15s;
+}
+details[open] .kk9-dice-summary::before { transform: rotate(90deg); }
+.kk9-dice-summary:hover { color: #7a6430; }
+
+.kk9-dice-body {
+  padding: 6px 10px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Отдельный кубик */
+.kk9-die {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 2px 6px;
+  background: #252525;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  font-family: 'Jost', sans-serif;
+  font-size: 0.78em;
+  color: #b8b0a4;
+}
+
+/* Отброшенный кубик (kh — худший) */
+.kk9-die-discarded {
+  opacity: 0.35;
+  text-decoration: line-through;
+  color: #4a4a4a;
+}
+
+/* Итоговое число */
+.kk9-die-total {
+  font-family: 'Caveat', cursive;
+  font-size: 1.1em;
+  font-weight: 700;
+  color: #c4a44a;
+  margin-left: 4px;
+}
+
+/* ----------------------------------------------------------
+   СКРОЛЛБАР ЧАТА
+   ---------------------------------------------------------- */
+#chat-log::-webkit-scrollbar { width: 4px; }
+#chat-log::-webkit-scrollbar-track { background: #1c1c1c; }
+#chat-log::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 2px; }
+
+/* ----------------------------------------------------------
+   DICE TOOLTIP — убираем стандартный foundry tooltip на кубах
+   ---------------------------------------------------------- */
+.dice-tooltip { display: none !important; }
+
+/* ----------------------------------------------------------
+   ФОНОВЫЙ DICE ROLL в Foundry (стандартный) — прячем в пользу нашего
+   ---------------------------------------------------------- */
+.chat-message .dice-roll .dice-result,
+.chat-message .dice-roll .dice-formula,
+.chat-message .dice-roll .dice-total {
+  display: none !important;
+}
+
+/* ----------------------------------------------------------
+   СООБЩЕНИЯ НЕ-БРОСКИ (ic, ooc, whisper)
+   ---------------------------------------------------------- */
+.chat-message.ic   { border-left: 2px solid #3a3a3a !important; }
+.chat-message.ooc  { border-left: 2px solid #4a4a4a !important; }
+.chat-message.blind,
+.chat-message.whisper {
+  background: #1a1520 !important;
+  border-color: rgba(168,85,247,0.2) !important;
+}
+.chat-message.whisper .message-header { background: rgba(168,85,247,0.06) !important; }
+.chat-message.blind .message-header .message-sender,
+.chat-message.whisper .message-header .message-sender { color: #7c3aed !important; }
+
+/* ----------------------------------------------------------
+   FOUNDRY: окно чата (правая панель) — убираем лишние бордеры
+   ---------------------------------------------------------- */
+#sidebar { border-left: 1px solid #2a2a2a !important; }
+.app.sidebar-tab { box-shadow: none !important; }
+
+/* ----------------------------------------------------------
+   КОЛЁСО БРОСКА (chat-controls select для типа броска)
+   ---------------------------------------------------------- */
+#chat-controls select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+/* ----------------------------------------------------------
+   ПОДПИСЬ АКТОРА (мелкий курсив внизу блока)
+   ---------------------------------------------------------- */
+.kk9-chat-actor-byline {
+  font-family: 'Jost', sans-serif;
+  font-size: 0.68em;
+  font-style: italic;
+  color: #3a3a3a;
+  text-align: right;
+  padding: 2px 10px 4px;
+  letter-spacing: 0.03em;
+  background: #181818;
+  border-top: 1px solid #222;
+}
+
+/* ----------------------------------------------------------
+   ВЗОРВАННЫЙ КУБИК (exploding die)
+   ---------------------------------------------------------- */
+.kk9-die-exploded {
+  background: rgba(196,164,74,0.12) !important;
+  border-color: rgba(196,164,74,0.4) !important;
+  color: #c4a44a !important;
+}
+
+/* ----------------------------------------------------------
+   Скрываем шапку Foundry для наших бросков через CSS-класс
+   (хук добавляет display:none инлайном, это запасной вариант)
+   ---------------------------------------------------------- */
+.kk9-chat-message.kk9-hide-header .message-header {
+  display: none !important;
+}
+
+/* ----------------------------------------------------------
+   ПРИЧИНЫ МОДИФИКАТОРОВ (штрафы здоровья / состояние предмета)
+   ---------------------------------------------------------- */
+.kk9-chat-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #191919;
+  border-top: 1px solid #222;
+}
+
+.kk9-reason {
+  font-family: 'Jost', sans-serif;
+  font-size: 0.7em;
+  color: #7f1d1d;
+  background: rgba(127,29,29,0.12);
+  border: 1px solid rgba(127,29,29,0.25);
+  border-radius: 10px;
+  padding: 1px 7px;
+  letter-spacing: 0.03em;
+}
+
+/* Позитивные причины (идеальное состояние) */
+.kk9-reason[data-positive] {
+  color: #166534;
+  background: rgba(22,101,52,0.12);
+  border-color: rgba(22,101,52,0.25);
+}
+
+/* ============================================================
+   КК9 — Состояние предметов (condition)
+   Добавить в конец styles/kk9.css
+   ============================================================ */
+
+/* Бейдж в шапке карточки */
+.kk9-condition-badge {
+  font-family: 'Jost', sans-serif;
+  font-size: 0.65em;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.kk9-condition-badge.condition-perfect { background: rgba(196,164,74,0.15); color: #c4a44a; border: 1px solid rgba(196,164,74,0.3); }
+.kk9-condition-badge.condition-good    { background: rgba(100,100,110,0.15); color: #8a8a96; border: 1px solid rgba(100,100,110,0.25); }
+.kk9-condition-badge.condition-worn    { background: rgba(180,90,20,0.15);   color: #b45a14; border: 1px solid rgba(180,90,20,0.3); }
+.kk9-condition-badge.condition-broken  { background: rgba(127,29,29,0.2);    color: #c0392b; border: 1px solid rgba(127,29,29,0.4); }
+
+/* Строка состояния */
+.kk9-condition-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.kk9-condition-label {
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+/* Пипы состояния */
+.kk9-condition-pips {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.kk9-cond-pip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  cursor: pointer;
+  font-size: 0.8em;
+  color: var(--text-dim);
+  transition: all 0.15s;
+  user-select: none;
+}
+.kk9-cond-pip:hover {
+  border-color: var(--gold-dim);
+  color: var(--text);
+}
+
+/* Активные состояния */
+.kk9-cond-pip.cond-active.cond-broken {
+  background: rgba(127,29,29,0.25);
+  border-color: #7f1d1d;
+  color: #c0392b;
+  box-shadow: 0 0 6px rgba(192,57,43,0.3);
+}
+.kk9-cond-pip.cond-active.cond-worn {
+  background: rgba(180,90,20,0.2);
+  border-color: #b45a14;
+  color: #c0782b;
+}
+.kk9-cond-pip.cond-active.cond-good {
+  background: rgba(100,100,110,0.2);
+  border-color: #6a6a76;
+  color: #a0a0b0;
+}
+.kk9-cond-pip.cond-active.cond-perfect {
+  background: rgba(196,164,74,0.18);
+  border-color: rgba(196,164,74,0.6);
+  color: #c4a44a;
+  box-shadow: 0 0 6px rgba(196,164,74,0.2);
+}
+
+/* Подписи справа от пипов — для артефакта */
+.kk9-cond-pip + .kk9-cond-pip { }
+
+/* Метка эффекта рядом с активным пипом */
+.kk9-condition-row .kk9-cond-hint {
+  font-size: 0.68em;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-left: 4px;
+}
+
+
+/* ----------------------------------------------------------
+   Скрыть шапку Foundry для наших бросков — двойной приоритет
+   ---------------------------------------------------------- */
+.kk9-roll-message .message-header,
+.kk9-roll-message > .message-header,
+li.chat-message.kk9-roll-message .message-header {
+  display: none !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}

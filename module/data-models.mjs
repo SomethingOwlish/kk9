@@ -344,7 +344,7 @@ export class WeaponDataModel extends foundry.abstract.TypeDataModel {
       ap:           new fields.NumberField({ initial: 0, integer: true }),
       rof:          new fields.NumberField({ initial: 1, integer: true }),
       equipped:     new fields.BooleanField({ initial: false }),
-      condition:    new fields.StringField({ initial: "perfect", choices: ["perfect","good","worn","broken"] }),
+condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] }),
       has_status:   new fields.BooleanField({ initial: false }),
       status_uuid:  new fields.StringField({ initial: "" }),
       status_name:  new fields.StringField({ initial: "" }),
@@ -361,7 +361,7 @@ export class GearDataModel extends foundry.abstract.TypeDataModel {
       description: new fields.HTMLField({ initial: "" }),
       gear_type:   new fields.StringField({ initial: "utility", choices: ["attack","defense","utility"] }),
       size:        new fields.StringField({ initial: "medium",  choices: ["pocket","finger","small","medium","large","huge","immovable"] }),
-      condition:   new fields.StringField({ initial: "perfect", choices: ["perfect","good","worn","broken"] }),
+     condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] }),
       quantity:    new fields.NumberField({ initial: 1, min: 0, integer: true }),
       equipped:    new fields.BooleanField({ initial: false }),
     };
@@ -405,6 +405,7 @@ export class ArtifactDataModel extends foundry.abstract.TypeDataModel {
 
       // Состояние
       equipped:   new fields.BooleanField({ initial: false }),
+condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] }),
       active:     new fields.BooleanField({ initial: false }),
       destroyed:  new fields.BooleanField({ initial: false }),
 
@@ -452,7 +453,7 @@ export class SpellDataModel extends foundry.abstract.TypeDataModel {
     const { fields } = foundry.data;
     return {
       description: new fields.HTMLField({ initial: "" }),
-
+condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] }),
       // Стоимость энергии
       cost: new fields.NumberField({ required: true, initial: 1, min: 0, integer: true }),
 
@@ -576,6 +577,7 @@ export class DaemonDataModel extends foundry.abstract.TypeDataModel {
 
       // Стойкость
       toughness: new fields.NumberField({ initial: 5, integer: true }),
+condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] })
     };
   }
 }
@@ -593,6 +595,7 @@ export class CompanionDataModel extends foundry.abstract.TypeDataModel {
       }),
       bond:        new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
       character:   new fields.StringField({ initial: "" }),
+condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] })
     };
   }
 }
@@ -610,6 +613,7 @@ export class VehicleDataModel extends foundry.abstract.TypeDataModel {
       speed:    new fields.NumberField({ initial: 60, integer: true }),
       toughness: new fields.NumberField({ initial: 8, integer: true }),
       capacity:  new fields.NumberField({ initial: 4, integer: true }),
+condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] }),
       notes:     new fields.StringField({ initial: "" })
     };
   }
@@ -645,7 +649,7 @@ export class DeviceDataModel extends foundry.abstract.TypeDataModel {
       // Совместимость с мирами
       works_upper:  new fields.BooleanField({ initial: true }),
       works_lower:  new fields.BooleanField({ initial: true }),
-
+condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] }),
       notes:        new fields.StringField({ initial: "" })
     };
   }

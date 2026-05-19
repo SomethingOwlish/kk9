@@ -152,6 +152,58 @@ Hooks.once("ready", async function() {
 });
 
 // ============================================================
+// Хук renderChatMessage
+// ============================================================
+
+Hooks.on("renderChatMessage", (message, html, data) => {
+  const el = html[0] ?? html;
+
+  el.classList.add("kk9-chat-message");
+
+  if (message.flags?.kk9?.isRoll) {
+    // Добавляем класс — CSS скроет шапку надёжнее чем инлайн
+    el.classList.add("kk9-roll-message");
+
+    // Инлайн как запасной вариант
+    const header = el.querySelector(".message-header");
+    if (header) header.style.display = "none";
+
+    el.querySelectorAll(".dice-roll, .dice-tooltip, .dice-formula, .dice-total").forEach(e => {
+      e.style.display = "none";
+    });
+  }
+
+  // Красим .message-sender по факультету (для не-бросков)
+  const actorId = message.flags?.kk9?.actorId ?? message.speaker?.actor;
+  if (actorId) {
+    const actor = game.actors?.get(actorId);
+    if (actor) {
+      const fColors = {
+        white:"#e8e8e8", black:"#888888", blue:"#3b82f6", green:"#22c55e",
+        purple:"#a855f7", red:"#ef4444", brown:"#92400e", mercury:"#94a3b8", invisible:"#6b7280"
+      };
+      const fKey  = actor.system?.faculty_key || actor.system?.faculty;
+      const color = (fKey && fKey !== "none") ? (fColors[fKey] || "#c4a44a") : "#c4a44a";
+      const sender = el.querySelector(".message-sender");
+      if (sender) sender.style.color = color;
+    }
+  }
+});
+
+// ============================================================
+// Хук renderSidebarTab — стилизуем вкладку чата при открытии
+// ============================================================
+Hooks.on("renderSidebarTab", (app, html) => {
+  if (app.tabName !== "chat") return;
+  // Гарантируем шрифты в полях ввода
+  const textarea = html.find?.("#chat-message, textarea")?.[0];
+  if (textarea) {
+    textarea.style.fontFamily = "'Jost', sans-serif";
+    textarea.style.fontSize   = "0.9em";
+  }
+});
+
+// ============================================================
 // Стартовая сцена
 // ============================================================
 async function _ensureStartScene() {

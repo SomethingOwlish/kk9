@@ -1,484 +1,151 @@
 {{!-- КК9 | Карточка артефакта v2.0 --}}
 <form class="kk9-sheet item-sheet artifact-sheet" autocomplete="off">
-
-  {{!-- ═══ ЕСЛИ УНИЧТОЖЕН — только шапка и предупреждение ═══ --}}
-  {{#if system.destroyed}}
-
-  <header class="art-header art-destroyed-header">
-    <img class="art-avatar art-avatar-destroyed" src="{{item.img}}" data-edit="img" />
-    <div class="art-header-right">
-      <div class="art-name-row">
-        <input class="art-name-input" type="text" name="name" value="{{item.name}}" />
-        <span class="art-badge art-badge-destroyed">💀 Уничтожен</span>
-      </div>
+  <header class="sheet-header" style="display:flex;gap:10px;align-items:center">
+    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
+    <div class="header-fields" style="flex:1;min-width:0">
+      <input class="name-input" type="text" name="name" value="{{item.name}}" />
+      <select name="system.rarity" class="rarity-select rarity-{{system.rarity}}">
+        {{#each rarityOptions}}
+        <option value="{{value}}" {{#if (eq value ../system.rarity)}}selected{{/if}}>{{label}}</option>
+        {{/each}}
+      </select>
     </div>
-  </header>
-  <div class="art-body">
-    <div class="art-destroyed-msg">
-      Артефакт уничтожен. Применить нельзя. Можно носить с собой как реликвию.
-    </div>
-    <label class="art-toggle-row">
-      <input type="checkbox" name="system.destroyed" checked />
-      <span>Артефакт уничтожен</span>
-    </label>
-  </div>
-
-  {{else}}
-
-  {{!-- ═══ НОРМАЛЬНОЕ СОСТОЯНИЕ ═══ --}}
-  <header class="art-header">
-    <img class="art-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
-    <div class="art-header-right">
-
-      {{!-- Строка 1: имя + редкость --}}
-      <div class="art-name-row">
-        <input class="art-name-input" type="text" name="name"
-               value="{{item.name}}" placeholder="Название артефакта" />
-        <span class="art-rarity-badge art-rarity-{{system.rarity}}">
-          {{#if (eq system.rarity "common")}}Обычный
-          {{else if (eq system.rarity "uncommon")}}Необычный
-          {{else if (eq system.rarity "rare")}}Редкий
-          {{else if (eq system.rarity "unique")}}Уникальный
-          {{else}}⚰ Древний{{/if}}
-        </span>
-        {{#if system.active}}
-        <span class="art-badge art-badge-active">✦ Активен</span>
-        {{/if}}
-      </div>
-
-      {{!-- Строка 2: тип + размер + статус --}}
-      <div class="art-sub-row">
-        <span class="art-type-tag art-type-{{system.artifact_type}}">
-          {{#if (eq system.artifact_type "attack")}}⚔ Атакующий
-          {{else if (eq system.artifact_type "defense")}}🛡 Защитный
-          {{else if (eq system.artifact_type "binding")}}🔗 Связующий
-          {{else if (eq system.artifact_type "spatial")}}🌀 Пространственный
-          {{else if (eq system.artifact_type "utility")}}⚙ Утилитарный
-          {{else if (eq system.artifact_type "buff")}}✨ Бафф
-          {{else if (eq system.artifact_type "transforming")}}🔄 Трансформирующий
-          {{else if (eq system.artifact_type "wand")}}🪄 Волшебная палочка
-          {{else}}🔮 Пророческий{{/if}}
-        </span>
-        <span class="art-sub-dim">
-          {{#if (eq system.size "pocket")}}Карманный
-          {{else if (eq system.size "finger")}}Пальчиковый
-          {{else if (eq system.size "small")}}Маленький
-          {{else if (eq system.size "medium")}}Средний
-          {{else if (eq system.size "large")}}Крупный
-          {{else if (eq system.size "huge")}}Огромный
-          {{else}}Не переносимый{{/if}}
-        </span>
-        <span class="art-sub-dim art-class-tag">
-          {{#if (eq system.artifact_class "complex")}}★ Сложный{{else}}Простой{{/if}}
-        </span>
-        {{#if system.equipped}}<span class="art-badge art-badge-equipped">Экипирован</span>{{/if}}
-      </div>
-
-    </div>
-  </header>
-
-  {{!-- ═══ ТЕЛО ═══ --}}
-  <div class="art-body">
-
-    {{!-- Основные параметры --}}
-    <div class="art-params-grid">
-      <div class="art-param-block">
-        <span class="art-param-label">Тип</span>
-        <select name="system.artifact_type" class="kk9-select">
-          <option value="attack"      {{#if (eq system.artifact_type "attack")}}selected{{/if}}>⚔ Атакующий</option>
-          <option value="defense"     {{#if (eq system.artifact_type "defense")}}selected{{/if}}>🛡 Защитный</option>
-          <option value="binding"     {{#if (eq system.artifact_type "binding")}}selected{{/if}}>🔗 Связующий</option>
-          <option value="spatial"     {{#if (eq system.artifact_type "spatial")}}selected{{/if}}>🌀 Пространственный</option>
-          <option value="utility"     {{#if (eq system.artifact_type "utility")}}selected{{/if}}>⚙ Утилитарный</option>
-          <option value="buff"        {{#if (eq system.artifact_type "buff")}}selected{{/if}}>✨ Бафф</option>
-          <option value="transforming" {{#if (eq system.artifact_type "transforming")}}selected{{/if}}>🔄 Трансформирующий</option>
-          <option value="prophetic"   {{#if (eq system.artifact_type "prophetic")}}selected{{/if}}>🔮 Пророческий</option>
-          <option value="wand"        {{#if (eq system.artifact_type "wand")}}selected{{/if}}>🪄 Волшебная палочка</option>
-        </select>
-      </div>
-      <div class="art-param-block">
-        <span class="art-param-label">Редкость</span>
-        <select name="system.rarity" class="kk9-select">
-          <option value="common"   {{#if (eq system.rarity "common")}}selected{{/if}}>Обычный</option>
-          <option value="uncommon" {{#if (eq system.rarity "uncommon")}}selected{{/if}}>Необычный</option>
-          <option value="rare"     {{#if (eq system.rarity "rare")}}selected{{/if}}>Редкий</option>
-          <option value="unique"   {{#if (eq system.rarity "unique")}}selected{{/if}}>Уникальный</option>
-          <option value="ancient"  {{#if (eq system.rarity "ancient")}}selected{{/if}}>⚰ Древний</option>
-        </select>
-      </div>
-      <div class="art-param-block">
-        <span class="art-param-label">Размер</span>
-        <select name="system.size" class="kk9-select">
-          <option value="pocket"    {{#if (eq system.size "pocket")}}selected{{/if}}>Карманный</option>
-          <option value="finger"    {{#if (eq system.size "finger")}}selected{{/if}}>Пальчиковый</option>
-          <option value="small"     {{#if (eq system.size "small")}}selected{{/if}}>Маленький</option>
-          <option value="medium"    {{#if (eq system.size "medium")}}selected{{/if}}>Средний</option>
-          <option value="large"     {{#if (eq system.size "large")}}selected{{/if}}>Крупный</option>
-          <option value="huge"      {{#if (eq system.size "huge")}}selected{{/if}}>Огромный</option>
-          <option value="immovable" {{#if (eq system.size "immovable")}}selected{{/if}}>Не переносимый</option>
-        </select>
-      </div>
-      <div class="art-param-block">
-        <span class="art-param-label">Класс</span>
-        <select name="system.artifact_class" class="kk9-select">
-          <option value="simple"  {{#if (eq system.artifact_class "simple")}}selected{{/if}}>Простой</option>
-          <option value="complex" {{#if (eq system.artifact_class "complex")}}selected{{/if}}>★ Сложный</option>
-        </select>
-      </div>
-      {{#if (eq system.artifact_class "complex")}}
-      <div class="art-param-block">
-        <span class="art-param-label">Возраст (лет)</span>
-        <input type="number" name="system.artifact_age" value="{{system.artifact_age}}"
-               class="kk9-input" min="0" />
-      </div>
-      {{/if}}
-    </div>
-
-    {{!-- Создатель + условие активации --}}
-    <div class="art-params-grid art-params-grid--2">
-      <div class="art-param-block">
-        <span class="art-param-label">Создатель</span>
-        <input type="text" name="system.creator" value="{{system.creator}}"
-               class="kk9-input" placeholder="Имя или организация..." />
-      </div>
-      <div class="art-param-block">
-        <span class="art-param-label">Условие активации</span>
-        <input type="text" name="system.activation_condition"
-               value="{{system.activation_condition}}"
-               class="kk9-input" placeholder="Произнести слово, коснуться крови..." />
-      </div>
-    </div>
-
-    {{!-- Чекбоксы --}}
-    <div class="art-toggles-row">
-      <label class="art-toggle {{#if system.equipped}}art-toggle-on{{/if}}">
-        <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
-        {{#if system.equipped}}✓ Экипирован{{else}}◌ Не экипирован{{/if}}
-      </label>
-      <label class="art-toggle {{#if system.active}}art-toggle-active{{/if}}">
-        <input type="checkbox" name="system.active" {{#if system.active}}checked{{/if}} />
-        {{#if system.active}}✦ Активен{{else}}◌ Не активен{{/if}}
-      </label>
-      <label class="art-toggle art-toggle-destroy">
-        <input type="checkbox" name="system.destroyed" {{#if system.destroyed}}checked{{/if}} />
-        💀 Уничтожен
-      </label>
-    </div>
-
-    {{!-- ── АТАКУЮЩИЕ ПАРАМЕТРЫ (только для attack) ── --}}
-    {{#if (eq system.artifact_type "attack")}}
-    <div class="art-section">
-      <div class="art-section-title">⚔ Атака</div>
-
-      {{!-- Навык для броска --}}
-      <div class="art-skill-drop artifact-skill-drop">
-        <span class="art-param-label">Навык для атаки</span>
-        {{#if system.skill_name}}
-        <div class="art-linked-row">
-          <span class="art-linked-name">📖 {{system.skill_name}}</span>
-          <button type="button" class="art-clear-skill fac-del">✕</button>
-        </div>
-        {{else}}
-        <div class="art-drop-hint">Перетащи навык или способность <span class="art-dim">(без навыка — d4−2)</span></div>
-        {{/if}}
-      </div>
-
-      <div class="art-params-grid">
-        <div class="art-param-block">
-          <span class="art-param-label">Уровень урона</span>
-          <select name="system.damage_level" class="kk9-select">
-            <option value="light"  {{#if (eq system.damage_level "light")}}selected{{/if}}>Лёгкий (1 ур.)</option>
-            <option value="heavy"  {{#if (eq system.damage_level "heavy")}}selected{{/if}}>Тяжёлый (2 ур.)</option>
-            <option value="lethal" {{#if (eq system.damage_level "lethal")}}selected{{/if}}>Летальный (3 ур.)</option>
-          </select>
-        </div>
-        <div class="art-param-block">
-          <span class="art-param-label">Тип урона</span>
-          <select name="system.damage_type" class="kk9-select">
-            <option value="physical" {{#if (eq system.damage_type "physical")}}selected{{/if}}>Физический</option>
-            <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
-          </select>
-        </div>
-      </div>
-
-      {{!-- Статус --}}
-      <div class="art-status-section">
-        <label class="art-toggle-row">
-          <input type="checkbox" name="system.has_status" {{#if system.has_status}}checked{{/if}} />
-          <span class="art-param-label">Применяет статус при попадании</span>
-        </label>
-        {{#if system.has_status}}
-        <div class="artifact-status-drop art-status-drop">
-          {{#if system.status_name}}
-          <div class="art-linked-row">
-            <span class="art-linked-name art-status-name">{{system.status_name}}</span>
-            <button type="button" class="art-clear-status fac-del">✕</button>
-          </div>
-          {{else}}
-          <div class="art-drop-hint">Перетащи статус-итем сюда</div>
-          {{/if}}
-        </div>
-        {{/if}}
-      </div>
-
-      {{!-- Кнопка атаки --}}
-      {{#if system.equipped}}
-      <button type="button" class="art-attack-btn artifact-attack-roll">
-        ⚔ Атаковать артефактом
-      </button>
-      {{/if}}
-    </div>
+    {{!-- Бейдж состояния --}}
+    {{#if system.destroyed}}
+      <span class="kk9-condition-badge condition-broken">уничтожен</span>
+    {{else if system.active}}
+      <span class="kk9-condition-badge condition-perfect">активен</span>
+    {{else}}
+      <span class="kk9-condition-badge condition-good">неактивен</span>
     {{/if}}
+  </header>
 
-    {{!-- ── БОНУСЫ (для buff и любого экипированного+активного) ── --}}
-    {{#if (eq system.artifact_type "buff")}}
-    <div class="art-section">
-      <div class="art-section-title">
-        ✨ Бонусы
-        {{#if system.equipped}}{{#if system.active}}
-        <span class="art-applied-hint">● применяются</span>
-        {{else}}
-        <span class="art-dim">◌ не активен</span>
-        {{/if}}{{/if}}
+  <nav class="sheet-tabs" data-group="primary">
+    <a class="item" data-tab="description">Описание</a>
+    <a class="item" data-tab="details">Параметры</a>
+  </nav>
+
+  <div class="sheet-body">
+
+    {{!-- ОПИСАНИЕ --}}
+    <div class="tab" data-group="primary" data-tab="description">
+      {{editor system.description target="system.description" button=true editable=editable}}
+    </div>
+
+    {{!-- ПАРАМЕТРЫ --}}
+    <div class="tab" data-group="primary" data-tab="details">
+
+      {{!-- Состояние артефакта --}}
+      <div class="kk9-condition-row" style="margin-bottom:12px">
+        <span class="kk9-condition-label">Состояние</span>
+        <div class="kk9-condition-pips">
+          <label class="kk9-cond-pip {{#if system.destroyed}}cond-active cond-broken{{/if}}" title="Уничтожен — не работает">
+            <input type="checkbox" name="system.destroyed" {{#if system.destroyed}}checked{{/if}} style="display:none">
+            <span>✕</span>
+          </label>
+          <label class="kk9-cond-pip {{#unless system.destroyed}}{{#unless system.active}}cond-active cond-good{{/unless}}{{/unless}}" title="Экипирован, но не активен">
+            <span>◆</span>
+          </label>
+          <label class="kk9-cond-pip {{#if system.active}}{{#unless system.destroyed}}cond-active cond-perfect{{/unless}}{{/if}}" title="Активен — даёт бонусы">
+            <input type="checkbox" name="system.active" {{#if system.active}}checked{{/if}} style="display:none">
+            <span>★</span>
+          </label>
+        </div>
+        <span style="font-size:0.7em;color:var(--text-dim);margin-left:8px">
+          {{#if system.destroyed}}уничтожен{{else if system.active}}активен — бонусы работают{{else}}неактивен{{/if}}
+        </span>
+      </div>
+
+      {{!-- Экипирован --}}
+      <div class="stat-row" style="margin-bottom:8px">
+        <label style="font-size:0.8em;color:var(--text-dim)">Экипирован</label>
+        <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
+      </div>
+
+      {{!-- Тип и класс --}}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип</label>
+          <select name="system.artifact_type" class="kk9-select">
+            <option value="attack"      {{#if (eq system.artifact_type "attack")}}selected{{/if}}>Атака</option>
+            <option value="defense"     {{#if (eq system.artifact_type "defense")}}selected{{/if}}>Защита</option>
+            <option value="binding"     {{#if (eq system.artifact_type "binding")}}selected{{/if}}>Связывание</option>
+            <option value="spatial"     {{#if (eq system.artifact_type "spatial")}}selected{{/if}}>Пространственный</option>
+            <option value="utility"     {{#if (eq system.artifact_type "utility")}}selected{{/if}}>Утилита</option>
+            <option value="buff"        {{#if (eq system.artifact_type "buff")}}selected{{/if}}>Усиление</option>
+            <option value="transforming"{{#if (eq system.artifact_type "transforming")}}selected{{/if}}>Трансформация</option>
+            <option value="prophetic"   {{#if (eq system.artifact_type "prophetic")}}selected{{/if}}>Пророческий</option>
+            <option value="wand"        {{#if (eq system.artifact_type "wand")}}selected{{/if}}>Палочка</option>
+          </select></div>
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Класс</label>
+          <select name="system.artifact_class" class="kk9-select">
+            <option value="simple"  {{#if (eq system.artifact_class "simple")}}selected{{/if}}>Простой</option>
+            <option value="complex" {{#if (eq system.artifact_class "complex")}}selected{{/if}}>Сложный</option>
+          </select></div>
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Размер</label>
+          <select name="system.size" class="kk9-select">
+            <option value="finger"    {{#if (eq system.size "finger")}}selected{{/if}}>Пальцевый</option>
+            <option value="pocket"    {{#if (eq system.size "pocket")}}selected{{/if}}>Карманный</option>
+            <option value="small"     {{#if (eq system.size "small")}}selected{{/if}}>Малый</option>
+            <option value="medium"    {{#if (eq system.size "medium")}}selected{{/if}}>Средний</option>
+            <option value="large"     {{#if (eq system.size "large")}}selected{{/if}}>Большой</option>
+            <option value="huge"      {{#if (eq system.size "huge")}}selected{{/if}}>Огромный</option>
+            <option value="immovable" {{#if (eq system.size "immovable")}}selected{{/if}}>Неподвижный</option>
+          </select></div>
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Возраст (лет)</label>
+          <input type="number" name="system.artifact_age" value="{{system.artifact_age}}" class="kk9-input" /></div>
+      </div>
+
+      {{!-- Создатель и условие активации --}}
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Создатель</label>
+          <input type="text" name="system.creator" value="{{system.creator}}" class="kk9-input" placeholder="Имя создателя" /></div>
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Условие активации</label>
+          <input type="text" name="system.activation_condition" value="{{system.activation_condition}}" class="kk9-input" placeholder="Как активировать" /></div>
       </div>
 
       {{!-- Бонусы к атрибутам --}}
-      <div class="art-bonuses-grid">
-        <div class="art-bonus-row">
-          <span class="art-bonus-label">Ловкость</span>
-          <input type="number" name="system.bonuses.agility" value="{{system.bonuses.agility}}" class="kk9-input art-bonus-input" />
+      <div class="section-title" style="margin-bottom:6px">Бонусы к атрибутам</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+        {{#each system.bonuses as |val key|}}
+        <div>
+          <label style="font-size:0.68em;color:var(--text-dim);display:block;text-transform:uppercase;letter-spacing:0.05em">{{key}}</label>
+          <input type="number" name="system.bonuses.{{key}}" value="{{val}}" class="kk9-input" style="text-align:center" />
         </div>
-        <div class="art-bonus-row">
-          <span class="art-bonus-label">Смекалка</span>
-          <input type="number" name="system.bonuses.smarts" value="{{system.bonuses.smarts}}" class="kk9-input art-bonus-input" />
-        </div>
-        <div class="art-bonus-row">
-          <span class="art-bonus-label">Дух</span>
-          <input type="number" name="system.bonuses.spirit" value="{{system.bonuses.spirit}}" class="kk9-input art-bonus-input" />
-        </div>
-        <div class="art-bonus-row">
-          <span class="art-bonus-label">Сила</span>
-          <input type="number" name="system.bonuses.strength" value="{{system.bonuses.strength}}" class="kk9-input art-bonus-input" />
-        </div>
-        <div class="art-bonus-row">
-          <span class="art-bonus-label">Магия</span>
-          <input type="number" name="system.bonuses.magic" value="{{system.bonuses.magic}}" class="kk9-input art-bonus-input" />
-        </div>
-        <div class="art-bonus-row">
-          <span class="art-bonus-label">Стойкость</span>
-          <input type="number" name="system.bonuses.toughness" value="{{system.bonuses.toughness}}" class="kk9-input art-bonus-input" />
-        </div>
+        {{/each}}
       </div>
 
-      {{!-- Бонусы к навыкам/способностям — drag-drop --}}
-      <div class="art-param-label" style="margin-top:10px;margin-bottom:4px">
-        Бонусы к навыкам и способностям
-      </div>
-      <div class="artifact-skill-bonus-drop art-skill-bonus-drop">
-        {{#if system.skill_bonuses.length}}
-          {{#each system.skill_bonuses as |sb|}}
-          <div class="art-skill-bonus-row">
-            <span class="art-skill-bonus-name">{{sb.item_name}}</span>
-            <input type="number" name="system.skill_bonuses.{{@index}}.bonus"
-                   value="{{sb.bonus}}" class="kk9-input art-skill-bonus-input" />
-            <button type="button" class="art-remove-skill-bonus fac-del"
-                    data-index="{{@index}}">✕</button>
-          </div>
-          {{/each}}
+      {{!-- Бонусы к навыкам — drag-drop --}}
+      <div class="section-title" style="margin-bottom:6px">Бонусы к навыкам</div>
+      <div class="artifact-skill-bonuses-drop" style="min-height:32px;border:1px dashed var(--border2);border-radius:3px;padding:4px 8px;margin-bottom:6px">
+        {{#each system.skill_bonuses}}
+        <div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+          <span style="flex:1;font-size:0.84em;color:var(--text)">{{item_name}}</span>
+          <input type="number" name="system.skill_bonuses.{{@index}}.bonus" value="{{bonus}}" class="kk9-input" style="width:50px;text-align:center" />
+          <button type="button" class="btn-delete-xs artifact-skill-bonus-del" data-index="{{@index}}">✕</button>
+        </div>
         {{else}}
-          <div class="art-drop-hint">Перетащи навык или способность сюда</div>
-        {{/if}}
+        <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи навык или способность</span>
+        {{/each}}
       </div>
+
+      {{!-- Атакующие параметры --}}
+      {{#if (eq system.artifact_type "attack")}}
+      <div class="section-title" style="margin-bottom:6px">Атака</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Уровень урона</label>
+          <select name="system.damage_level" class="kk9-select">
+            <option value="light"  {{#if (eq system.damage_level "light")}}selected{{/if}}>Лёгкий</option>
+            <option value="heavy"  {{#if (eq system.damage_level "heavy")}}selected{{/if}}>Тяжёлый</option>
+            <option value="lethal" {{#if (eq system.damage_level "lethal")}}selected{{/if}}>Летальный</option>
+          </select></div>
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип урона</label>
+          <select name="system.damage_type" class="kk9-select">
+            <option value="physical" {{#if (eq system.damage_type "physical")}}selected{{/if}}>Физический</option>
+            <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
+          </select></div>
+      </div>
+      {{/if}}
+
     </div>
-    {{/if}}
-
-    {{!-- Описание --}}
-    <div class="art-param-block">
-      <span class="art-param-label">Описание</span>
-      <textarea name="system.description" class="kk9-textarea art-desc-ta"
-                placeholder="История и описание артефакта...">{{system.description}}</textarea>
-    </div>
-
-    {{!-- Уничтожить --}}
-    <label class="art-toggle art-toggle-destroy" style="margin-top:4px">
-      <input type="checkbox" name="system.destroyed" />
-      💀 Отметить как уничтоженный
-    </label>
-
   </div>
-  {{/if}}
-
 </form>
-
-<style>
-.artifact-sheet {
-  flex-direction: column !important;
-  overflow-y: auto;
-}
-
-/* ── Шапка ── */
-.artifact-sheet .art-header {
-  display: flex; flex-direction: row; align-items: center; gap: 12px;
-  padding: 10px 14px; background: var(--bg2);
-  border-bottom: 1px solid var(--border); flex-shrink: 0;
-}
-.artifact-sheet .art-destroyed-header {
-  opacity: 0.55;
-  filter: grayscale(0.6);
-}
-.artifact-sheet .art-avatar {
-  width: 48px; height: 48px; border-radius: 4px; object-fit: cover;
-  cursor: pointer; flex-shrink: 0;
-  border: 2px solid rgba(196,164,74,0.4);
-  box-shadow: 0 0 12px rgba(196,164,74,0.1);
-}
-.artifact-sheet .art-avatar-destroyed {
-  border-color: var(--border2);
-  box-shadow: none;
-}
-.artifact-sheet .art-header-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.artifact-sheet .art-name-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-.artifact-sheet .art-name-input {
-  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
-  background: transparent; border: none;
-  border-bottom: 2px solid rgba(196,164,74,0.4);
-  color: var(--text-head); padding: 0 0 1px; outline: none; min-width: 0;
-  transition: border-color 0.2s;
-}
-.artifact-sheet .art-name-input:focus { border-bottom-color: var(--gold); }
-.artifact-sheet .art-sub-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.artifact-sheet .art-sub-dim { font-size: 0.72em; color: var(--text-dim); }
-
-/* Бейджи */
-.artifact-sheet .art-badge {
-  font-size: 0.64em; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em;
-  padding: 2px 7px; border-radius: 8px; white-space: nowrap; flex-shrink: 0;
-}
-.artifact-sheet .art-badge-active   { background: rgba(196,164,74,0.12); color: var(--gold); border: 1px solid rgba(196,164,74,0.3); }
-.artifact-sheet .art-badge-equipped { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
-.artifact-sheet .art-badge-destroyed { background: rgba(100,100,100,0.15); color: var(--text-dim); border: 1px solid var(--border2); }
-
-/* Редкость */
-.artifact-sheet .art-rarity-badge {
-  font-size: 0.64em; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em;
-  padding: 2px 7px; border-radius: 8px; flex-shrink: 0;
-}
-.artifact-sheet .art-rarity-common   { background:#1e293b; color:#94a3b8; }
-.artifact-sheet .art-rarity-uncommon { background:#052e16; color:#4ade80; }
-.artifact-sheet .art-rarity-rare     { background:#0f172a; color:#60a5fa; }
-.artifact-sheet .art-rarity-unique   { background:#2e1065; color:#c084fc; }
-.artifact-sheet .art-rarity-ancient  { background:#3f1800; color:#fb923c; border: 1px solid rgba(251,146,60,0.3); }
-
-/* Тип */
-.artifact-sheet .art-type-tag {
-  font-size: 0.72em; padding: 2px 8px; border-radius: 8px;
-  background: rgba(196,164,74,0.08); color: var(--gold-dim);
-  border: 1px solid rgba(196,164,74,0.15);
-}
-.artifact-sheet .art-class-tag { font-size: 0.72em; color: var(--gold-dim); }
-
-/* ── Тело ── */
-.artifact-sheet .art-body {
-  flex: 1; padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
-}
-.artifact-sheet .art-params-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: end;
-}
-.artifact-sheet .art-params-grid--2 {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-}
-.artifact-sheet .art-param-block { display: flex; flex-direction: column; gap: 3px; }
-.artifact-sheet .art-param-label {
-  font-size: 0.65em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
-}
-
-/* Чекбоксы */
-.artifact-sheet .art-toggles-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.artifact-sheet .art-toggle {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 0.8em; cursor: pointer; color: var(--text);
-  padding: 4px 10px; border-radius: 4px;
-  background: var(--bg2); border: 1px solid var(--border);
-  transition: all 0.15s;
-}
-.artifact-sheet .art-toggle input { margin: 0; }
-.artifact-sheet .art-toggle-on     { background: rgba(34,197,94,0.08);  border-color: rgba(34,197,94,0.3);  color: #4ade80; }
-.artifact-sheet .art-toggle-active { background: rgba(196,164,74,0.1);  border-color: rgba(196,164,74,0.3); color: var(--gold); }
-.artifact-sheet .art-toggle-destroy { color: #f87171; }
-.artifact-sheet .art-toggle-row { display: flex; align-items: center; gap: 6px; font-size: 0.82em; color: var(--text); cursor: pointer; }
-
-/* Секции */
-.artifact-sheet .art-section {
-  border: 1px solid var(--border); border-radius: 4px;
-  padding: 10px 12px; background: var(--bg2);
-  display: flex; flex-direction: column; gap: 8px;
-}
-.artifact-sheet .art-section-title {
-  font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--gold-dim); font-weight: 500;
-  display: flex; align-items: center; gap: 8px;
-}
-.artifact-sheet .art-applied-hint { font-size: 0.9em; color: #4ade80; }
-.artifact-sheet .art-dim { font-size: 0.9em; color: var(--text-dim); }
-
-/* Drag-drop зоны */
-.artifact-sheet .art-skill-drop,
-.artifact-sheet .art-status-drop,
-.artifact-sheet .art-skill-bonus-drop {
-  border: 1px dashed var(--border2); border-radius: 4px;
-  padding: 5px 10px; background: var(--bg3); min-height: 32px;
-}
-.artifact-sheet .art-status-drop {
-  border-color: rgba(168,85,247,0.3);
-  background: rgba(168,85,247,0.04);
-}
-.artifact-sheet .art-skill-bonus-drop {
-  border-color: rgba(196,164,74,0.25);
-  background: rgba(196,164,74,0.03);
-  display: flex; flex-direction: column; gap: 3px;
-}
-.artifact-sheet .art-drop-hint { font-size: 0.76em; color: var(--text-dim); font-style: italic; }
-
-/* Строки linked */
-.artifact-sheet .art-linked-row { display: flex; align-items: center; gap: 8px; }
-.artifact-sheet .art-linked-name { flex: 1; font-size: 0.86em; color: var(--text); }
-.artifact-sheet .art-status-name { color: #c084fc; }
-
-/* Бонусы к атрибутам */
-.artifact-sheet .art-bonuses-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
-}
-.artifact-sheet .art-bonus-row { display: flex; align-items: center; gap: 6px; }
-.artifact-sheet .art-bonus-label { font-size: 0.75em; color: var(--text-dim); flex: 1; }
-.artifact-sheet .art-bonus-input { width: 56px !important; text-align: center; }
-
-/* Бонусы к навыкам */
-.artifact-sheet .art-skill-bonus-row {
-  display: flex; align-items: center; gap: 7px;
-  padding: 3px 6px; background: var(--bg2); border-radius: 3px;
-}
-.artifact-sheet .art-skill-bonus-name { flex: 1; font-size: 0.84em; color: var(--text); }
-.artifact-sheet .art-skill-bonus-input { width: 56px !important; text-align: center; }
-
-/* Кнопка атаки */
-.artifact-sheet .art-attack-btn {
-  width: 100%; padding: 7px;
-  background: rgba(196,164,74,0.1); border: 1px solid rgba(196,164,74,0.3);
-  border-radius: 4px; color: var(--gold); font-family: 'Jost', sans-serif;
-  font-size: 0.88em; font-weight: 500; letter-spacing: 0.06em;
-  cursor: pointer; transition: all 0.15s;
-}
-.artifact-sheet .art-attack-btn:hover { background: rgba(196,164,74,0.2); }
-
-/* Уничтожен */
-.artifact-sheet .art-destroyed-msg {
-  text-align: center; padding: 20px;
-  font-size: 0.88em; color: var(--text-dim); font-style: italic;
-}
-
-.artifact-sheet .art-status-section {
-  display: flex; flex-direction: column; gap: 5px;
-}
-.artifact-sheet .art-desc-ta { min-height: 80px; }
-</style>

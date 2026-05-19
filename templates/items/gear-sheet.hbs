@@ -1,190 +1,72 @@
-{{!-- КК9 | Карточка снаряжения v1.0 --}}
-<form class="kk9-sheet item-sheet gear-sheet" autocomplete="off">
-
-  {{!-- ═══ ШАПКА ═══ --}}
-  <header class="gear-header">
-    <img class="gear-avatar" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
-    <div class="gear-header-right">
-      <div class="gear-name-row">
-        <input class="gear-name-input" type="text" name="name"
-               value="{{item.name}}" placeholder="Название снаряжения" />
-        <span class="gear-condition-badge gear-cond-{{system.condition}}">
-          {{#if (eq system.condition "broken")}}💔 Сломано
-          {{else if (eq system.condition "worn")}}⚠ Потрёпанное
-          {{else if (eq system.condition "good")}}✓ Хорошее
-          {{else}}✦ Идеальное{{/if}}
-        </span>
-      </div>
-      <div class="gear-sub-row">
-        <span class="gear-sub-tag">
-          {{#if (eq system.gear_type "attack")}}⚔ Атакующее
-          {{else if (eq system.gear_type "defense")}}🛡 Защитное
-          {{else}}⚙ Утилитарное{{/if}}
-        </span>
-        <span class="gear-sub-tag">
-          {{#if (eq system.size "pocket")}}Карманный
-          {{else if (eq system.size "finger")}}Пальчиковый
-          {{else if (eq system.size "small")}}Маленький
-          {{else if (eq system.size "medium")}}Средний
-          {{else if (eq system.size "large")}}Крупный
-          {{else if (eq system.size "huge")}}Огромный
-          {{else if (eq system.size "immovable")}}Не переносимое
-          {{/if}}
-        </span>
-        {{#if (eq system.condition "broken")}}
-        <span class="gear-broken-warn">⛔ Сломано — нельзя экипировать</span>
-        {{/if}}
-      </div>
+<form class="kk9-sheet item-sheet" autocomplete="off">
+  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
+    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
+    <div style="flex:1;min-width:0">
+      <input type="text" name="name" value="{{item.name}}"
+             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
     </div>
+    <span class="kk9-condition-badge condition-{{system.condition}}">
+      {{#if (eq system.condition "perfect")}}идеал
+      {{else if (eq system.condition "good")}}норм
+      {{else if (eq system.condition "worn")}}плохо
+      {{else if (eq system.condition "broken")}}сломан
+      {{else}}норм{{/if}}
+    </span>
   </header>
 
-  {{!-- ═══ ТЕЛО ═══ --}}
-  <div class="gear-body">
+  <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
 
-    {{!-- Параметры --}}
-    <div class="gear-params-grid">
+    {{!-- Состояние --}}
+    <div class="kk9-condition-row">
+      <span class="kk9-condition-label">Состояние</span>
+      <div class="kk9-condition-pips">
+        <label class="kk9-cond-pip {{#if (eq system.condition 'broken')}}cond-active cond-broken{{/if}}" title="Сломан">
+          <input type="radio" name="system.condition" value="broken" {{#if (eq system.condition "broken")}}checked{{/if}} style="display:none">
+          <span>✕</span>
+        </label>
+        <label class="kk9-cond-pip {{#if (eq system.condition 'worn')}}cond-active cond-worn{{/if}}" title="Плохое −1">
+          <input type="radio" name="system.condition" value="worn" {{#if (eq system.condition "worn")}}checked{{/if}} style="display:none">
+          <span>▼</span>
+        </label>
+        <label class="kk9-cond-pip {{#if (eq system.condition 'good')}}cond-active cond-good{{/if}}" title="Нормальное">
+          <input type="radio" name="system.condition" value="good" {{#if (eq system.condition "good")}}checked{{/if}} style="display:none">
+          <span>◆</span>
+        </label>
+        <label class="kk9-cond-pip {{#if (eq system.condition 'perfect')}}cond-active cond-perfect{{/if}}" title="Идеальное +1">
+          <input type="radio" name="system.condition" value="perfect" {{#if (eq system.condition "perfect")}}checked{{/if}} style="display:none">
+          <span>★</span>
+        </label>
+      </div>
+    </div>
 
-      <div class="gear-param-block">
-        <span class="gear-param-label">Тип</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип</label>
         <select name="system.gear_type" class="kk9-select">
-          <option value="attack"  {{#if (eq system.gear_type "attack")}}selected{{/if}}>⚔ Атакующее</option>
-          <option value="defense" {{#if (eq system.gear_type "defense")}}selected{{/if}}>🛡 Защитное</option>
-          <option value="utility" {{#if (eq system.gear_type "utility")}}selected{{/if}}>⚙ Утилитарное</option>
-        </select>
-      </div>
-
-      <div class="gear-param-block">
-        <span class="gear-param-label">Размер</span>
+          <option value="attack"  {{#if (eq system.gear_type "attack")}}selected{{/if}}>Атака</option>
+          <option value="defense" {{#if (eq system.gear_type "defense")}}selected{{/if}}>Защита</option>
+          <option value="utility" {{#if (eq system.gear_type "utility")}}selected{{/if}}>Утилита</option>
+        </select></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Размер</label>
         <select name="system.size" class="kk9-select">
+          <option value="finger"    {{#if (eq system.size "finger")}}selected{{/if}}>Пальцевый</option>
           <option value="pocket"    {{#if (eq system.size "pocket")}}selected{{/if}}>Карманный</option>
-          <option value="finger"    {{#if (eq system.size "finger")}}selected{{/if}}>Пальчиковый</option>
-          <option value="small"     {{#if (eq system.size "small")}}selected{{/if}}>Маленький</option>
+          <option value="small"     {{#if (eq system.size "small")}}selected{{/if}}>Малый</option>
           <option value="medium"    {{#if (eq system.size "medium")}}selected{{/if}}>Средний</option>
-          <option value="large"     {{#if (eq system.size "large")}}selected{{/if}}>Крупный</option>
+          <option value="large"     {{#if (eq system.size "large")}}selected{{/if}}>Большой</option>
           <option value="huge"      {{#if (eq system.size "huge")}}selected{{/if}}>Огромный</option>
-          <option value="immovable" {{#if (eq system.size "immovable")}}selected{{/if}}>Не переносимое</option>
-        </select>
+          <option value="immovable" {{#if (eq system.size "immovable")}}selected{{/if}}>Неподвижный</option>
+        </select></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Количество</label>
+        <input type="number" name="system.quantity" value="{{system.quantity}}" min="0" class="kk9-input" /></div>
+      <div style="display:flex;align-items:flex-end;gap:6px;padding-bottom:2px">
+        <label style="font-size:0.75em;color:var(--text-dim)">Экипировано</label>
+        <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
       </div>
-
-      <div class="gear-param-block">
-        <span class="gear-param-label">Состояние</span>
-        <select name="system.condition" class="kk9-select">
-          <option value="perfect" {{#if (eq system.condition "perfect")}}selected{{/if}}>✦ Идеальное</option>
-          <option value="good"    {{#if (eq system.condition "good")}}selected{{/if}}>✓ Хорошее</option>
-          <option value="worn"    {{#if (eq system.condition "worn")}}selected{{/if}}>⚠ Потрёпанное</option>
-          <option value="broken"  {{#if (eq system.condition "broken")}}selected{{/if}}>💔 Сломано</option>
-        </select>
-      </div>
-
-      <div class="gear-param-block gear-param-block--sm">
-        <span class="gear-param-label">Количество</span>
-        <input type="number" name="system.quantity" value="{{system.quantity}}"
-               class="kk9-input" min="0" />
-      </div>
-
     </div>
 
-    {{!-- Экипировка --}}
-    {{#unless (eq system.condition "broken")}}
-    <label class="gear-equip-toggle {{#if system.equipped}}gear-equipped-on{{/if}}">
-      <input type="checkbox" name="system.equipped"
-             {{#if system.equipped}}checked{{/if}} />
-      {{#if system.equipped}}✓ Экипировано{{else}}◌ Не экипировано{{/if}}
-    </label>
-    {{else}}
-    <div class="gear-equip-toggle gear-equip-disabled">
-      ⛔ Экипировать нельзя — сломано
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
+      {{editor system.description target="system.description" button=true editable=editable}}
     </div>
-    {{/unless}}
-
-    {{!-- Описание --}}
-    <div class="gear-param-block">
-      <span class="gear-param-label">Описание</span>
-      <textarea name="system.description" class="kk9-textarea gear-desc-ta"
-                placeholder="Описание снаряжения...">{{system.description}}</textarea>
-    </div>
-
   </div>
-
 </form>
-
-<style>
-.gear-sheet {
-  flex-direction: column !important;
-  overflow-y: auto;
-}
-
-/* ── Шапка ── */
-.gear-sheet .gear-header {
-  display: flex; flex-direction: row; align-items: center; gap: 12px;
-  padding: 10px 14px; background: var(--bg2);
-  border-bottom: 1px solid var(--border); flex-shrink: 0;
-}
-.gear-sheet .gear-avatar {
-  width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
-  cursor: pointer; flex-shrink: 0; border: 2px solid var(--border2);
-}
-.gear-sheet .gear-header-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.gear-sheet .gear-name-row { display: flex; align-items: center; gap: 8px; }
-.gear-sheet .gear-name-input {
-  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
-  background: transparent; border: none;
-  border-bottom: 2px solid var(--border2);
-  color: var(--text-head); padding: 0 0 1px; outline: none; min-width: 0;
-  transition: border-color 0.2s;
-}
-.gear-sheet .gear-name-input:focus { border-bottom-color: var(--gold); }
-
-/* Бейдж состояния */
-.gear-sheet .gear-condition-badge {
-  flex-shrink: 0; font-size: 0.66em; font-weight: 500;
-  text-transform: uppercase; letter-spacing: 0.07em;
-  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
-}
-.gear-sheet .gear-cond-perfect { background: rgba(196,164,74,0.12); color: var(--gold); border: 1px solid rgba(196,164,74,0.3); }
-.gear-sheet .gear-cond-good    { background: rgba(34,197,94,0.1);   color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
-.gear-sheet .gear-cond-worn    { background: rgba(251,191,36,0.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
-.gear-sheet .gear-cond-broken  { background: rgba(239,68,68,0.1);   color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
-
-.gear-sheet .gear-sub-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.gear-sheet .gear-sub-tag { font-size: 0.72em; color: var(--text-dim); }
-.gear-sheet .gear-broken-warn {
-  font-size: 0.7em; color: #f87171; font-weight: 500;
-}
-
-/* ── Тело ── */
-.gear-sheet .gear-body {
-  flex: 1; padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
-}
-.gear-sheet .gear-params-grid {
-  display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end;
-}
-.gear-sheet .gear-param-block { display: flex; flex-direction: column; gap: 3px; }
-.gear-sheet .gear-param-block--sm { min-width: 80px; }
-.gear-sheet .gear-param-label {
-  font-size: 0.65em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
-}
-
-/* Экипировка */
-.gear-sheet .gear-equip-toggle {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 0.82em; cursor: pointer; color: var(--text);
-  padding: 5px 10px; border-radius: 4px;
-  background: var(--bg2); border: 1px solid var(--border);
-  transition: all 0.15s; width: fit-content;
-}
-.gear-sheet .gear-equip-toggle input { margin: 0; }
-.gear-sheet .gear-equip-toggle:hover { border-color: var(--gold-dim); }
-.gear-sheet .gear-equipped-on {
-  background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.3); color: #4ade80;
-}
-.gear-sheet .gear-equip-disabled {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 0.82em; color: #f87171; opacity: 0.7;
-  padding: 5px 10px; border-radius: 4px;
-  background: rgba(239,68,68,0.06); border: 1px dashed rgba(239,68,68,0.25);
-  width: fit-content;
-}
-.gear-sheet .gear-desc-ta { min-height: 80px; }
-</style>
