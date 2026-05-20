@@ -68,5 +68,19 @@
       <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
       {{editor system.description target="system.description" button=true editable=editable}}
     </div>
+
+    {{!-- Восстановление энергии (для утилит/зелий) --}}
+    <div style="display:flex;align-items:center;gap:8px;padding-top:4px">
+      <label style="font-size:0.75em;color:var(--text-dim);min-width:150px">⚡ Восстановление энергии</label>
+      <input type="number" name="system.energy_restore" value="{{system.energy_restore}}"
+             class="kk9-input" min="0" style="width:60px;text-align:center" />
+      {{#if (gt system.energy_restore 0)}}
+      <button type="button" class="gear-use-energy-restore kk9-btn-energy"
+              title="Использовать предмет — восстановить энергию (тратит 1 шт.)">
+        ✦ Использовать (+{{system.energy_restore}})
+      </button>
+      {{/if}}
+    </div>
+
   </div>
 </form>

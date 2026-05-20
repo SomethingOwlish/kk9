@@ -1,0 +1,144 @@
+{{!-- КК9 | Карточка персонажа v0.4 --}}
+<form class="kk9-sheet character-sheet {{system.faculty}}" autocomplete="off">
+
+  {{!-- ЛЕВАЯ КОЛОНКА --}}
+  <div class="sheet-sidebar">
+    <div class="portrait-wrap" style="{{#if system.faculty_color}}outline: 3px solid {{system.faculty_color}}; outline-offset: -3px;{{/if}}">
+      <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
+      <div class="portrait-name-overlay">
+        <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="Имя" />
+      </div>
+    </div>
+
+    <div class="sidebar-fields">
+      <div class="sfield-row">
+        <span class="sfield-label">Курс</span>
+        <input type="text" name="system.academy_year" value="{{system.academy_year}}" class="sfield-val" />
+      </div>
+      <div class="sfield-row">
+        <span class="sfield-label">Страна</span>
+        <input type="text" name="system.birthplace" value="{{system.birthplace}}" class="sfield-val" placeholder="—" />
+      </div>
+
+      {{!-- Факультет — только отображение, меняется перетаскиванием --}}
+      <div class="sfield-row faculty-row">
+        <span class="sfield-label">Факультет</span>
+        {{#if system.faculty_name}}
+        <span class="faculty-display" style="flex:1;padding:3px 8px;border-radius:3px;font-size:0.86em;color:var(--text-head);{{#if system.faculty_color}}border-left:3px solid {{system.faculty_color}};background:{{system.faculty_color}}18;{{/if}}">
+          {{system.faculty_name}}
+        </span>
+        {{else}}
+        <span class="faculty-display" style="flex:1;padding:3px 8px;font-size:0.78em;color:var(--text-dim);font-style:italic">
+          Перетащи факультет
+        </span>
+        {{/if}}
+      </div>
+
+      {{!-- Деньги и Опыт --}}
+      <div class="sfield-row">
+        <span class="sfield-label">Деньги</span>
+        <input type="number" name="system.money" value="{{system.money}}" class="sfield-val" min="0" />
+      </div>
+      <div class="sfield-row">
+        <span class="sfield-label">Опыт</span>
+        <input type="number" name="system.experience" value="{{system.experience}}" class="sfield-val" min="0" />
+      </div>
+
+      {{!-- Жетоны судьбы — пипы по клику, макс 9 --}}
+      <div class="bennies-block">
+        <span class="sfield-label">Жетоны судьбы</span>
+        <div class="bennies-pips">
+          {{#times 9}}
+          <div class="bennie-pip {{#if (gte ../system.bennies this)}}bennie-on{{else}}bennie-off{{/if}}"
+               data-index="{{this}}" title="Жетон {{this}}">◆</div>
+          {{/times}}
+        </div>
+      </div>
+    </div>
+
+    {{!-- Производные внизу сайдбара --}}
+    <div class="derived-bar">
+      <div class="derived-btn roll-initiative" title="Бросить инициативу (Лов+Смек)">
+        <span class="derived-lbl">Инициатива</span>
+        <span class="derived-ico">🎲</span>
+      </div>
+      <div class="derived-btn roll-toughness" title="Бросить стойкость (Дух + навык)">
+        <span class="derived-lbl">Стойкость</span>
+        <span class="derived-ico">🎲</span>
+      </div>
+      <div class="derived-energy">
+        <span class="derived-lbl">Энергия</span>
+        {{#if isGM}}
+        <input type="number" name="system.energy.value" value="{{system.energy.value}}" class="energy-cur" min="0" />
+        {{else}}
+        <span class="energy-cur energy-cur-readonly">{{system.energy.value}}</span>
+        {{/if}}
+        <span class="energy-sep">/</span>
+        <span class="energy-max">{{system.energy.max}}</span>
+        <button type="button" class="btn-meditate energy-meditate-btn" title="Медитация — бросить способность и восстановить энергию">🧘</button>
+      </div>
+    </div>
+  </div>
+
+  {{!-- ПРАВАЯ КОЛОНКА --}}
+  <div class="sheet-main">
+
+    {{!-- ШКАЛЫ ЗДОРОВЬЯ --}}
+    {{> "systems/kk9/templates/actors/parts/health.hbs"}}
+
+    {{!-- ВКЛАДКИ --}}
+    <nav class="sheet-tabs" data-group="primary">
+      <a class="item" data-tab="main">Основное</a>
+      <a class="item" data-tab="skills">Навыки</a>
+      <a class="item" data-tab="items">Снаряжение</a>
+      <a class="item" data-tab="relations">Связи</a>
+      <a class="item" data-tab="biography">Биография</a>
+      {{#if isGM}}<a class="item gm-tab" data-tab="gmnotes">🔒 Мастер</a>{{/if}}
+    </nav>
+
+    <div class="sheet-body">
+
+      {{!-- ОСНОВНОЕ --}}
+      <div class="tab" data-group="primary" data-tab="main">
+        {{> "systems/kk9/templates/actors/parts/attributes.hbs"}}
+      </div>
+
+      {{!-- НАВЫКИ --}}
+      <div class="tab" data-group="primary" data-tab="skills">
+        {{> "systems/kk9/templates/actors/parts/skills.hbs"}}
+      </div>
+
+      {{!-- СНАРЯЖЕНИЕ --}}
+      <div class="tab" data-group="primary" data-tab="items">
+        {{> "systems/kk9/templates/actors/parts/items.hbs"}}
+      </div>
+
+      {{!-- СВЯЗИ --}}
+      <div class="tab" data-group="primary" data-tab="relations">
+        {{> "systems/kk9/templates/actors/parts/relations.hbs"}}
+      </div>
+
+      {{!-- БИОГРАФИЯ --}}
+      <div class="tab" data-group="primary" data-tab="biography">
+        {{> "systems/kk9/templates/actors/parts/biography.hbs"}}
+      </div>
+
+      {{!-- МАСТЕРСКИЕ ЗАМЕТКИ (только GM) --}}
+      {{#if isGM}}
+      <div class="tab gm-notes-tab" data-group="primary" data-tab="gmnotes">
+        <div class="gm-notes-block">
+          <div class="section-title">🔒 Мастерские заметки</div>
+          <div class="gm-tools-row" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <button type="button" class="btn-long-rest kk9-btn-gm"
+                    title="Восстановить всё здоровье, энергию и убрать временные статусы">
+              🌙 Долгий сюжетный перерыв
+            </button>
+          </div>
+          <textarea name="system.gm_notes" rows="18" placeholder="Только для мастера...">{{system.gm_notes}}</textarea>
+        </div>
+      </div>
+      {{/if}}
+
+    </div>
+  </div>
+</form>

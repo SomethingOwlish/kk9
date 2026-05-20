@@ -1,4 +1,28 @@
 {
+  "TYPES": {
+    "Actor": {
+      "character": "Персонаж",
+      "npc-light":  "НПС (лёгкий)",
+      "npc-hard":   "НПС (сложный)",
+      "npc-boss":   "Босс / Непобедимый"
+    },
+    "Item": {
+      "faculty":   "Факультет",
+      "skill":     "Навык",
+      "ability":   "Способность",
+      "weapon":    "Оружие",
+      "gear":      "Снаряжение",
+      "artifact":  "Артефакт",
+      "spell":     "Заклинание",
+      "daemon":    "Даймон",
+      "companion": "Спутник",
+      "vehicle":   "Транспорт",
+      "device":    "Устройство",
+      "contact":   "Контакт",
+      "language":  "Язык",
+      "status":    "Статус"
+    }
+  },
   "KK9": {
     "system": { "name": "КК9 — Кризисный Комитет №9" },
     "actor": {
@@ -9,8 +33,11 @@
     },
     "item": {
       "types": {
-        "artifact": "Артефакт", "spell": "Заклинание", "demon": "Призывной демон",
-        "ability": "Уникальная абилка", "companion": "Спутник", "language": "Язык"
+        "artifact": "Артефакт", "spell": "Заклинание", "daemon": "Даймон",
+        "ability": "Способность", "companion": "Спутник", "language": "Язык",
+        "weapon": "Оружие", "gear": "Снаряжение", "vehicle": "Транспорт",
+        "device": "Устройство", "contact": "Контакт", "status": "Статус",
+        "faculty": "Факультет", "skill": "Навык"
       }
     },
     "attributes": {

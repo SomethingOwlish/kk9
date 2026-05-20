@@ -364,6 +364,8 @@ export class GearDataModel extends foundry.abstract.TypeDataModel {
      condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] }),
       quantity:    new fields.NumberField({ initial: 1, min: 0, integer: true }),
       equipped:    new fields.BooleanField({ initial: false }),
+      // Восстановление энергии (для зелий и утилит)
+      energy_restore: new fields.NumberField({ initial: 0, min: 0, integer: true }),
     };
   }
 }
@@ -444,6 +446,9 @@ condition: new fields.StringField({ initial: "normal", choices: ["broken","poor"
       has_status:  new fields.BooleanField({ initial: false }),
       status_uuid: new fields.StringField({ initial: "" }),
       status_name: new fields.StringField({ initial: "" }),
+
+      // Восстановление энергии при использовании
+      energy_restore: new fields.NumberField({ initial: 0, min: 0, integer: true }),
     };
   }
 }
