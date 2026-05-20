@@ -281,34 +281,34 @@ async function _preloadTemplates() {
 // ============================================================
 // Хук renderDialog — скрываем системные типы из диалога создания
 // ============================================================
-// Типы, которые не должны создаваться вручную из сайдбара
+// Типы Item, которые нельзя создавать вручную из интерфейса
 const HIDDEN_ITEM_TYPES = new Set(["skill", "faculty", "language"]);
 
 Hooks.on("renderDialog", (dialog, html) => {
-  // Диалог создания айтема — ищем select с типами
-  const select = html.find("select[name='type']");
-  if (!select.length) return;
+  // Ищем select с типами документа — он есть в диалоге Create Document
+  const selects = html[0]
+    ? html[0].querySelectorAll("select")
+    : html.querySelectorAll("select");
 
-  // Проверяем что это именно диалог создания Item (есть опции наших типов)
-  const options = select.find("option");
-  let isItemDialog = false;
-  options.each((_, opt) => {
-    if (HIDDEN_ITEM_TYPES.has(opt.value)) isItemDialog = true;
-  });
-  if (!isItemDialog) return;
+  for (const select of selects) {
+    const opts = Array.from(select.options);
+    // Убеждаемся что это select с типами Item (есть хотя бы одна наша скрытая опция)
+    const hasHidden = opts.some(o => HIDDEN_ITEM_TYPES.has(o.value));
+    if (!hasHidden) continue;
 
-  // Скрываем системные типы
-  options.each((_, opt) => {
-    if (HIDDEN_ITEM_TYPES.has(opt.value)) {
-      $(opt).hide().prop("disabled", true);
+    // Скрываем системные типы
+    for (const opt of opts) {
+      if (HIDDEN_ITEM_TYPES.has(opt.value)) {
+        opt.hidden   = true;
+        opt.disabled = true;
+      }
     }
-  });
 
-  // Если текущий выбранный тип — скрытый, переключаем на первый видимый
-  const currentVal = select.val();
-  if (HIDDEN_ITEM_TYPES.has(currentVal)) {
-    const firstVisible = select.find("option:not(:disabled)").first();
-    if (firstVisible.length) select.val(firstVisible.val());
+    // Если сейчас выбран скрытый тип — переключаем на первый видимый
+    if (HIDDEN_ITEM_TYPES.has(select.value)) {
+      const first = opts.find(o => !o.hidden);
+      if (first) select.value = first.value;
+    }
   }
 });
 

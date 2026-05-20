@@ -2,7 +2,7 @@
   "id": "kk9",
   "title": "КК9 — Кризисный Комитет №9",
   "description": "Система для игры в мире двух реальностей.",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "compatibility": {
     "minimum": "12",
     "verified": "13"
@@ -19,6 +19,11 @@
     "styles/kk9.css"
   ],
   "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
     {
       "lang": "ru",
       "name": "Русский",

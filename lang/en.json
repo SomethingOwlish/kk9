@@ -1,0 +1,55 @@
+{
+  "TYPES": {
+    "Actor": {
+      "character": "Персонаж",
+      "npc-light":  "НПС (лёгкий)",
+      "npc-hard":   "НПС (сложный)",
+      "npc-boss":   "Босс / Непобедимый"
+    },
+    "Item": {
+      "faculty":   "Факультет",
+      "skill":     "Навык",
+      "ability":   "Способность",
+      "weapon":    "Оружие",
+      "gear":      "Снаряжение",
+      "artifact":  "Артефакт",
+      "spell":     "Заклинание",
+      "daemon":    "Даймон",
+      "companion": "Спутник",
+      "vehicle":   "Транспорт",
+      "device":    "Устройство",
+      "contact":   "Контакт",
+      "language":  "Язык",
+      "status":    "Статус"
+    }
+  },
+  "KK9": {
+    "system": { "name": "КК9 — Кризисный Комитет №9" },
+    "actor": {
+      "types": {
+        "character": "Персонаж", "npc-light": "НПС (лёгкий)",
+        "npc-hard": "НПС (сложный)", "npc-boss": "Босс / Непобедимый"
+      }
+    },
+    "item": {
+      "types": {
+        "artifact": "Артефакт", "spell": "Заклинание", "daemon": "Даймон",
+        "ability": "Способность", "companion": "Спутник", "language": "Язык",
+        "weapon": "Оружие", "gear": "Снаряжение", "vehicle": "Транспорт",
+        "device": "Устройство", "contact": "Контакт", "status": "Статус",
+        "faculty": "Факультет", "skill": "Навык"
+      }
+    },
+    "attributes": {
+      "agility": "Ловкость", "smarts": "Смекалка",
+      "spirit": "Дух", "strength": "Сила", "magic": "Магия"
+    },
+    "sheet": {
+      "tabs": {
+        "main":"Основное","skills":"Навыки","items":"Снаряжение",
+        "relations":"Связи","biography":"Биография","gmnotes":"🔒 Мастер"
+      },
+      "age":"Возраст","energy":"Энергия","bennies":"Жетоны судьбы"
+    }
+  }
+}

@@ -282,82 +282,6 @@ export class KK9CharacterSheet extends ActorSheet {
       statuses.splice(idx, 1);
       await this.actor.update({ "system.active_statuses": statuses });
     });
-
-    // ── ЗАЩИТА ПОЛЯ ЭНЕРГИИ: только ГМ редактирует вручную ──
-    if (!game.user.isGM) {
-      html.find('input[name="system.energy.value"]').prop("disabled", true)
-        .attr("title", "Только Мастер может изменять вручную");
-    }
-
-    // ── МЕДИТАЦИЯ: бросок способности → восстановление энергии по успехам ──
-    html.find(".btn-meditate").click(async () => {
-      const actor = this.actor;
-      const meditateItem = actor.items.find(i =>
-        ["ability","skill"].includes(i.type) &&
-        i.name.toLowerCase().includes("медитац")
-      );
-      if (!meditateItem) {
-        ui.notifications.warn("Способность «Медитация» не найдена на листе персонажа.");
-        return;
-      }
-      const rollResult = await actor.rollSkillItem(meditateItem.id);
-      if (!rollResult) return;
-      const successes = rollResult.successes ?? 0;
-      if (successes <= 0) return;
-      const energyCur = actor.system.energy?.value ?? 0;
-      const energyMax = actor.system.energy?.max ?? 0;
-      const gained    = Math.min(successes, energyMax - energyCur);
-      if (gained <= 0) {
-        ui.notifications.info("Энергия уже на максимуме.");
-        return;
-      }
-      await actor.update({ "system.energy.value": energyCur + gained });
-      ChatMessage.create({
-        content: `<div style="font-family:'Jost',sans-serif;padding:5px 8px;border-left:3px solid #a855f7;background:var(--bg2,#232323)">
-          <strong>${actor.name}</strong> медитирует и восстанавливает <strong>+${gained}</strong> энергии
-          <br><span style="font-size:0.82em;color:var(--text-dim,#6a6560)">Успехов: ${successes} · Энергия: ${energyCur + gained}/${energyMax}</span>
-        </div>`,
-        speaker: ChatMessage.getSpeaker({ actor })
-      });
-    });
-
-    // ── ДОЛГИЙ СЮЖЕТНЫЙ ПЕРЕРЫВ (только ГМ) ──
-    html.find(".btn-long-rest").click(async () => {
-      if (!game.user.isGM) { ui.notifications.warn("Только Мастер может объявить долгий перерыв."); return; }
-      const actor = this.actor;
-      const updates = {};
-      // 1. Восстановить здоровье
-      updates["system.health.physical.value"] = 0;
-      updates["system.health.mental.value"]   = 0;
-      // 2. Восстановить энергию до максимума
-      updates["system.energy.value"] = actor.system.energy?.max ?? 0;
-      // 3. Убрать статусы — оставляем только бесконечные (uses === -1)
-      const currentStatuses = actor.system.active_statuses ?? [];
-      const keptStatuses    = currentStatuses.filter(st => st.uses === -1);
-      updates["system.active_statuses"] = keptStatuses;
-      const removedCount = currentStatuses.length - keptStatuses.length;
-      await actor.update(updates);
-      ChatMessage.create({
-        content: `<div style="font-family:'Jost',sans-serif;padding:6px 10px;border-left:3px solid #4ade80;background:var(--bg2,#232323)">
-          <strong>🌙 Долгий сюжетный перерыв</strong> — ${actor.name}<br>
-          <span style="font-size:0.83em;color:var(--text-dim,#6a6560)">
-            ✓ Здоровье восстановлено · ✓ Энергия восстановлена${removedCount > 0 ? ` · ✓ Снято статусов: ${removedCount}` : ""}
-          </span>
-        </div>`,
-        speaker: ChatMessage.getSpeaker({ actor })
-      });
-    });
-
-    // ── ИЗМЕНЕНИЕ ВОЗРАСТА: разница прибавляется к энергии ──
-    html.find('input[name="system.age"]').change(async e => {
-      if (!game.user.isGM) return;
-      const oldAge    = this.actor.system.age ?? 0;
-      const newAge    = parseInt(e.currentTarget.value) || 0;
-      const diff      = newAge - oldAge;
-      if (diff === 0) return;
-      const energyCur = this.actor.system.energy?.value ?? 0;
-      await this.actor.update({ "system.energy.value": Math.max(0, energyCur + diff) });
-    });
   }
 
   async _onItemCreate(event) {
@@ -436,11 +360,8 @@ export class KK9ItemSheet extends ItemSheet {
       classes: ["kk9","sheet","item"],
       width: 680, height: 700,
       tabs: [{ navSelector:".sheet-tabs", contentSelector:".sheet-body", initial:"description" }],
-      // dropSelector перечисляет все зоны дропа — это корректно
-      dragDrop: [{
-        dragSelector: null,
-        dropSelector: ".faculty-abilities-drop, .faculty-students-drop, .fac-dropouts-drop, .faculty-predecessor-drop, .fac-lore-drop, .weapon-skill-drop, .weapon-status-drop, .artifact-skill-drop, .artifact-status-drop, .artifact-skill-bonus-drop, .spell-skill-drop, .spell-status-drop, .spell-skill-bonus-drop, .device-skill-drop, .contact-members-drop, .contact-former-drop, .contact-events-drop"
-      }]
+      // FIX: dropSelector = "form" чтобы _onDrop срабатывал при дропе на любой дочерний элемент
+      dragDrop: [{ dragSelector: null, dropSelector: "form" }]
     });
   }
 
@@ -737,25 +658,6 @@ export class KK9ItemSheet extends ItemSheet {
         const bonuses = (this.item.system.skill_bonuses || []).filter(b => b.item_uuid !== uuid);
         await this.item.update({ "system.skill_bonuses": bonuses });
       });
-      // Восстановление энергии артефактом
-      html.find(".art-use-energy-restore").click(async () => {
-        const actor   = this.item.actor;
-        if (!actor) { ui.notifications.warn("Артефакт должен быть на карточке персонажа."); return; }
-        const restore = this.item.system.energy_restore ?? 0;
-        if (restore <= 0) { ui.notifications.warn("Этот артефакт не восстанавливает энергию."); return; }
-        const cur    = actor.system.energy?.value ?? 0;
-        const max    = actor.system.energy?.max   ?? 0;
-        const gained = Math.min(restore, max - cur);
-        if (gained <= 0) { ui.notifications.info("Энергия уже на максимуме."); return; }
-        await actor.update({ "system.energy.value": cur + gained });
-        ChatMessage.create({
-          content: `<div style="font-family:'Jost',sans-serif;padding:5px 8px;border-left:3px solid #f59e0b;background:var(--bg2,#232323)">
-            <strong>${actor.name}</strong> использует <strong>${this.item.name}</strong>
-            <br><span style="font-size:0.82em;color:var(--text-dim,#6a6560)">+${gained} энергии · Энергия: ${cur + gained}/${max}</span>
-          </div>`,
-          speaker: ChatMessage.getSpeaker({ actor })
-        });
-      });
     }
 
     // ── Заклинание ──
@@ -782,31 +684,6 @@ export class KK9ItemSheet extends ItemSheet {
     if (this.item.type === "device") {
       html.find(".device-clear-skill").click(async () => {
         await this.item.update({ "system.bonus_skill_uuid": "", "system.bonus_skill_name": "" });
-      });
-    }
-
-    // ── Снаряжение: зелье / утилита с восстановлением энергии ──
-    if (this.item.type === "gear") {
-      html.find(".gear-use-energy-restore").click(async () => {
-        const actor   = this.item.actor;
-        if (!actor) { ui.notifications.warn("Снаряжение должно быть на карточке персонажа."); return; }
-        const restore = this.item.system.energy_restore ?? 0;
-        if (restore <= 0) { ui.notifications.warn("Этот предмет не восстанавливает энергию."); return; }
-        const qty = this.item.system.quantity ?? 0;
-        if (qty < 1) { ui.notifications.warn("Предмет закончился."); return; }
-        const cur    = actor.system.energy?.value ?? 0;
-        const max    = actor.system.energy?.max   ?? 0;
-        const gained = Math.min(restore, max - cur);
-        if (gained <= 0) { ui.notifications.info("Энергия уже на максимуме."); return; }
-        await actor.update({ "system.energy.value": cur + gained });
-        await this.item.update({ "system.quantity": qty - 1 });
-        ChatMessage.create({
-          content: `<div style="font-family:'Jost',sans-serif;padding:5px 8px;border-left:3px solid #34d399;background:var(--bg2,#232323)">
-            <strong>${actor.name}</strong> использует <strong>${this.item.name}</strong>
-            <br><span style="font-size:0.82em;color:var(--text-dim,#6a6560)">+${gained} энергии · Осталось: ${qty - 1} шт. · Энергия: ${cur + gained}/${max}</span>
-          </div>`,
-          speaker: ChatMessage.getSpeaker({ actor })
-        });
       });
     }
 
