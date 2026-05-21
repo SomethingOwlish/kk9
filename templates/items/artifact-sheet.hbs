@@ -108,7 +108,7 @@
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
         {{#each system.bonuses as |val key|}}
         <div>
-          <label style="font-size:0.68em;color:var(--text-dim);display:block;text-transform:uppercase;letter-spacing:0.05em">{{key}}</label>
+          <label style="font-size:0.68em;color:var(--text-dim);display:block;letter-spacing:0.04em">{{#if (eq key "agility")}}Ловкость{{else if (eq key "smarts")}}Смекалка{{else if (eq key "spirit")}}Дух{{else if (eq key "strength")}}Сила{{else if (eq key "magic")}}Магия{{else if (eq key "toughness")}}Стойкость{{else}}{{key}}{{/if}}</label>
           <input type="number" name="system.bonuses.{{key}}" value="{{val}}" class="kk9-input" style="text-align:center" />
         </div>
         {{/each}}
@@ -148,7 +148,7 @@
 
       {{!-- Восстановление энергии --}}
       <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
-        <label style="font-size:0.75em;color:var(--text-dim);min-width:150px">⚡ Восстановление энергии</label>
+        <label style="font-size:0.75em;color:var(--text-dim);min-width:150px">Восстановление энергии</label>
         <input type="number" name="system.energy_restore" value="{{system.energy_restore}}"
                class="kk9-input" min="0" style="width:60px;text-align:center" />
         {{#if (gt system.energy_restore 0)}}

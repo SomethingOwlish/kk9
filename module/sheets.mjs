@@ -266,6 +266,51 @@ export class KK9CharacterSheet extends ActorSheet {
     });
 
     html.find(".love-toggle").click(this._onLoveToggle.bind(this));
+
+    // Жетоны судьбы (bennies)
+    html.find(".bennie-pip").click(async e => {
+      const idx = parseInt(e.currentTarget.dataset.index); // 1-based
+      const cur = this.actor.system.bennies ?? 0;
+      const next = cur === idx ? idx - 1 : idx;
+      await this.actor.update({ "system.bennies": Math.max(0, Math.min(9, next)) });
+    });
+
+    // Привязанность спутника (cp-bond-pip) — на карточке компаньона как Item
+    html.find(".cp-bond-pip").click(async e => {
+      const val = parseInt(e.currentTarget.dataset.value);
+      const cur = this.item?.system?.bond ?? 0;
+      if (!this.item) return;
+      await this.item.update({ "system.bond": cur === val ? Math.max(0, val - 1) : val });
+    });
+
+    // Медитация
+    html.find(".energy-meditate-btn").click(async () => {
+      if (this.actor?.type !== "character") return;
+      await this.actor.rollMeditation?.();
+    });
+
+    // Жетоны судьбы (bennies)
+    html.find(".bennie-pip").click(async e => {
+      const idx = parseInt(e.currentTarget.dataset.index); // 1-based
+      const cur = this.actor.system.bennies ?? 0;
+      // клик на активном пипе = уменьшить до (idx-1), иначе = установить idx
+      const next = cur === idx ? idx - 1 : idx;
+      await this.actor.update({ "system.bennies": Math.max(0, Math.min(9, next)) });
+    });
+
+    // Привязанность спутника (cp-bond-pip) — на карточке компаньона как Item
+    html.find(".cp-bond-pip").click(async e => {
+      const val = parseInt(e.currentTarget.dataset.value);
+      const cur = this.item?.system?.bond ?? 0;
+      if (!this.item) return;
+      await this.item.update({ "system.bond": cur === val ? Math.max(0, val - 1) : val });
+    });
+
+    // Медитация — восстановить энергию
+    html.find(".energy-meditate-btn").click(async () => {
+      if (this.actor?.type !== "character") return;
+      await this.actor.rollMeditation?.();
+    });
     html.find(".add-relation, .btn-add-relation").click(this._onAddRelation.bind(this));
     html.find(".delete-relation, .btn-relation-delete").click(this._onDeleteRelation.bind(this));
     html.find(".relation-level-range").on("input", e => {
@@ -302,8 +347,22 @@ export class KK9CharacterSheet extends ActorSheet {
   }
 
   async _onSkillDieChange(event) {
-    const itemId = event.currentTarget.dataset.itemId;
-    await this.actor.items.get(itemId)?.update({ "system.die": parseInt(event.currentTarget.value) });
+    const itemId   = event.currentTarget.dataset.itemId;
+    const item     = this.actor.items.get(itemId);
+    if (!item) return;
+    let newDie = parseInt(event.currentTarget.value);
+    const linkedAttr = item.system.linkedAttribute;
+    if (linkedAttr) {
+      const attrDie = this.actor.system.attributes?.[linkedAttr]?.die;
+      if (attrDie && newDie > attrDie) {
+        ui.notifications.warn(
+          `Навык не может быть выше атрибута (d${attrDie}). Установлено d${attrDie}.`
+        );
+        newDie = attrDie;
+        event.currentTarget.value = attrDie;
+      }
+    }
+    await item.update({ "system.die": newDie });
   }
 
   async _onPhysicalPipClick(event) {

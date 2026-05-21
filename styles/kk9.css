@@ -2410,3 +2410,829 @@ li.chat-message.kk9-roll-message .message-header {
   background: rgba(251,191,36,0.18);
   border-color: rgba(251,191,36,0.45);
 }
+
+/* ── Die badge — SVG вместо псевдоэлемента ⬡ ── */
+.die-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s;
+  position: static;      /* убираем relative — SVG сам позиционируется */
+  flex-shrink: 0;
+}
+.die-badge::before { content: none !important; } /* убиваем старый ⬡ */
+.die-badge:hover   { color: var(--gold); }
+
+/* SVG внутри die-badge */
+.die-svg {
+  width: 36px;
+  height: 36px;
+  overflow: visible;
+}
+.die-svg path   { stroke: currentColor; }
+.die-svg text   { fill: currentColor; font-size: 6px; }
+
+/* NPC die-ico — такой же кубик но поменьше */
+.npc-attr-die-ico {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+/* ── Derived buttons — SVG дайс вместо 🎲 ── */
+.derived-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.derived-ico svg {
+  width: 20px;
+  height: 20px;
+}
+.derived-btn:hover .derived-ico { color: var(--gold-dim); }
+
+/* ── Meditate button — нейтральный символ вместо 🧘 ── */
+.btn-meditate,
+.energy-meditate-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 0.8em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+  line-height: 1.4;
+  font-family: 'Jost', sans-serif;
+}
+.btn-meditate:hover,
+.energy-meditate-btn:hover {
+  border-color: var(--gold-dim);
+  color: var(--text);
+}
+
+/* ── Жетоны судьбы — нейтральный ромб без золотого свечения ── */
+.bennie-pip {
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1;
+  user-select: none;
+  font-style: normal;
+}
+.bennie-pip:hover   { transform: scale(1.15); }
+.bennie-on          { color: var(--gold); }
+.bennie-off         { color: var(--border2); }
+
+/* ── Section title — без цветных символов ── */
+.magic-title { color: var(--text-dim) !important; font-style: italic; }
+
+/* ── NPC: убрать цветной hint "✦ дикий кубик д6" ── */
+.npc-boss-wild-hint {
+  font-size: 0.72em;
+  color: var(--text-dim);
+  font-style: italic;
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+/* ── Item delete buttons — без эмоджи, текстовый × ── */
+.btn-delete-xs,
+.item-delete {
+  font-size: 0.75em;
+  color: var(--border2);
+  font-family: 'Jost', sans-serif;
+  font-style: normal;
+}
+
+/* ── GM tab — без замка ── */
+.sheet-tab-gm::before { content: none; }
+
+/* ── Skill "✕" кнопки — уже текстовые, убираем если были эмоджи ── */
+.btn-delete-skill,
+.fac-remove-student,
+.fac-remove-dropout,
+.fac-remove-lore { font-size: 0.75em; }
+
+/* ── Chat result icon — SVG вместо ⚔ / ✓ ── */
+.kk9-result-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ── Атрибуты НПС — единый стиль кубика ── */
+.npc-attr-die {
+  font-family: 'Jost', sans-serif;
+  font-size: 0.78em;
+  color: var(--text-dim);
+  min-width: 30px;
+  text-align: center;
+}
+
+/* NPC boss wild die hint — без цвета */
+.npc-boss-die { color: var(--text-dim); font-style: italic; }
+
+/* =============================================================
+   КК9 — ПАТЧ ИКОНОК v2.0  |  добавить В КОНЕЦ styles/kk9.css
+   ============================================================= */
+
+/* ── Единый SVG-кубик везде ── */
+.kk9-die-svg {
+  display: block;
+  flex-shrink: 0;
+  color: inherit;
+  overflow: visible;
+}
+
+/* die-badge в атрибутах: убираем псевдоэлемент, задаём размер */
+.die-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s;
+  flex-shrink: 0;
+  position: static;
+}
+.die-badge::before { content: none !important; }
+.die-badge:hover   { color: var(--gold); }
+
+/* derived-ico: те же 18×18 что у SVG */
+.derived-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  font-size: 0; /* скрываем текст если вдруг остался */
+}
+.derived-ico .kk9-die-svg { width: 18px; height: 18px; }
+.derived-btn:hover .derived-ico { color: var(--gold-dim); }
+
+/* кнопка медитации */
+.btn-meditate, .energy-meditate-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.72em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: 'Jost', sans-serif;
+  line-height: 1.5;
+}
+.btn-meditate:hover, .energy-meditate-btn:hover {
+  border-color: var(--gold-dim);
+  color: var(--text);
+}
+
+/* Жетоны — без свечения */
+.bennie-on  { color: var(--gold); text-shadow: none; }
+.bennie-off { color: var(--border2); }
+
+/* magic title — без цвета, без символов */
+.magic-title { color: var(--text-dim) !important; font-style: normal; }
+
+/* boss wild die hint */
+.npc-boss-wild-hint {
+  font-size: 0.72em;
+  color: var(--text-dim);
+  font-style: italic;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+/* ── Weapon sheet — починка layout ── */
+/* Оружие: шапка с портретом + поля рядом */
+.weapon-sheet-header,
+.kk9-sheet.item-sheet > header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+.kk9-sheet.item-sheet > header img {
+  width: 56px;
+  height: 56px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+}
+.kk9-sheet.item-sheet > header .header-fields,
+.kk9-sheet.item-sheet > header > div:not([class]) {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Gear sheet body */
+.kk9-sheet.item-sheet > div[style*="padding:12px"] {
+  padding: 12px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Artifact: лейблы бонусов на русском через CSS (перекрываем uppercase) ── */
+/* Ничего менять не надо — это нужно исправить в шаблоне */
+
+/* ── Spell: кнопка применить — без яркого цветного фона ── */
+.spell-sheet .sp-cast-btn {
+  background: var(--bg3) !important;
+  border: 1px solid var(--border2) !important;
+  color: var(--text) !important;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.spell-sheet .sp-cast-btn:hover {
+  border-color: var(--gold-dim) !important;
+  color: var(--text-head) !important;
+  background: var(--bg2) !important;
+}
+
+/* ── Faculty: заголовки без цвета ── */
+.faculty-sheet .fac-trait-ttl { color: var(--text-dim); }
+.fac-section-title { color: var(--text-dim) !important; }
+
+/* ── Status/Language: дропдаун без эмоджи — только текст, уже в шаблоне ── */
+
+/* ── Скрытие двойного кубика у derived (если оба span остались) ── */
+.derived-ico > svg + svg { display: none; }
+
+/* ================================================================
+   КК9 | ФИНАЛЬНЫЙ ПАТЧ CSS — добавить В КОНЕЦ styles/kk9.css
+   ================================================================ */
+
+/* ── Единый кубик везде ── */
+.kk9-die-svg {
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+/* die-badge: убираем псевдоэлемент, чистый контейнер */
+.die-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s;
+  flex-shrink: 0;
+  position: static;
+}
+.die-badge::before { content: none !important; }
+.die-badge:hover   { color: var(--gold); }
+
+/* attr-die SVG чуть меньше чем derived */
+.die-badge .attr-die { width: 28px; height: 28px; }
+
+/* derived-ico: ровно один SVG 18×18 */
+.derived-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  font-size: 0;   /* скрываем текст если остался */
+}
+.derived-ico svg { width: 18px; height: 18px; }
+/* убираем второй значок если остался старый */
+.derived-ico > * + * { display: none; }
+.derived-btn:hover .derived-ico { color: var(--gold-dim); }
+
+/* Медитация — текстовая кнопка */
+.btn-meditate, .energy-meditate-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.7em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: 'Jost', sans-serif;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.btn-meditate:hover, .energy-meditate-btn:hover {
+  border-color: var(--gold-dim);
+  color: var(--text);
+}
+
+/* Жетоны — без свечения */
+.bennie-on  { color: var(--gold); text-shadow: none; }
+.bennie-off { color: var(--border2); }
+
+/* ── Заголовки без цветовых акцентов ── */
+.magic-title        { color: var(--text-dim) !important; font-style: normal !important; }
+.npc-boss-wild-hint { font-size: 0.72em; color: var(--text-dim); font-style: italic; margin-left: 6px; }
+
+/* ── Spell — кнопка применить нейтральная ── */
+.spell-sheet .sp-cast-btn {
+  background: var(--bg3) !important;
+  border: 1px solid var(--border2) !important;
+  color: var(--text) !important;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+.spell-sheet .sp-cast-btn:hover {
+  border-color: var(--gold-dim) !important;
+  color: var(--text-head) !important;
+  background: var(--bg2) !important;
+}
+
+/* Spell — заголовок атаки без фиолетового */
+.spell-sheet .sp-section-title { color: var(--text-dim); }
+
+/* Spell — toggle "без палочки" нейтральный */
+.spell-sheet .sp-toggle-on {
+  background: var(--bg3) !important;
+  border-color: var(--border2) !important;
+  color: var(--text) !important;
+}
+
+/* ── Daemon — locked badge нейтральный ── */
+.daemon-sheet .dm-locked-badge {
+  background: var(--bg3);
+  color: var(--text-dim);
+  border: 1px solid var(--border2);
+  font-size: 0.68em;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+/* ── Rarity бейджи — переведённые значения ── */
+.rarity-common   { background:#1e293b; color:#94a3b8; }
+.rarity-uncommon { background:#052e16; color:#4ade80; }
+.rarity-rare     { background:#0f172a; color:#60a5fa; }
+.rarity-unique   { background:#2e1065; color:#c084fc; }
+
+/* ── Faculty — заголовки без символов ── */
+.faculty-sheet .fac-trait-ttl {
+  color: var(--text-dim);
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+/* Убираем цветные bullet у НЕ ЗАКОНЧИЛИ */
+.fac-sum-item { font-size: 0.72em; padding: 2px 8px; border-radius: 8px; }
+
+/* ── Lang sheet: мир без emoji ── */
+.language-sheet .lang-world-badge {
+  font-size: 0.66em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--bg3);
+  color: var(--text-dim);
+  border: 1px solid var(--border2);
+}
+
+/* ── Weapon sheet — показать имя/портрет ── */
+/* Шапка оружия: если нет портрета-блока — фикс инлайн-стиля */
+.kk9-sheet.item-sheet > header,
+.kk9-sheet.item-sheet > form > header {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.kk9-sheet.item-sheet > header img,
+.kk9-sheet.item-sheet > form > header img {
+  width: 52px;
+  height: 52px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+}
+
+/* ── Status badge: убрать цветной бейдж в шапке если лишний ── */
+.kk9-condition-badge {
+  font-size: 0.65em;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text-dim);
+}
+/* ================================================================
+   КК9 | CSS ПАТЧ v5 — добавить В КОНЕЦ styles/kk9.css
+   Решает: layout item-sheet, кубики, кнопки, точки, крестики
+   ================================================================ */
+
+/* ── 1. Item sheets: вертикальный layout ── */
+.kk9-sheet.item-sheet {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden;
+}
+
+/* Шапка — всегда сверху, горизонтальная строка */
+.kk9-sheet.item-sheet > header,
+.kk9-sheet.item-sheet > form > header,
+.kk9-sheet.item-sheet .sheet-header {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Портрет в шапке */
+.kk9-sheet.item-sheet > header img,
+.kk9-sheet.item-sheet > form > header img,
+.kk9-sheet.item-sheet .sheet-header img {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+}
+
+/* Поля шапки */
+.kk9-sheet.item-sheet > header > div,
+.kk9-sheet.item-sheet .header-fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Тело — вертикально, прокручиваемое */
+.kk9-sheet.item-sheet > div[style*="padding:12px"],
+.kk9-sheet.item-sheet > form > div[style*="padding:12px"],
+.kk9-sheet.item-sheet .sheet-body,
+.kk9-sheet.item-sheet .sp-body,
+.kk9-sheet.item-sheet .dm-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ── 2. Единый SVG-кубик ── */
+.kk9-die-svg {
+  display: inline-block;
+  flex-shrink: 0;
+  overflow: visible;
+  vertical-align: middle;
+}
+
+/* die-badge: убрать ::before, задать размер */
+.die-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s;
+  flex-shrink: 0;
+  position: static !important;
+}
+.die-badge::before { content: none !important; }
+.die-badge:hover   { color: var(--gold); }
+.die-badge .attr-die, .die-badge .kk9-die-svg { width: 28px; height: 28px; }
+
+/* derived-ico: только SVG 18px, никакого текста */
+.derived-ico {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  font-size: 0 !important;  /* убиваем текст-эмоджи */
+}
+.derived-ico .kk9-die-svg,
+.derived-ico svg { width: 18px !important; height: 18px !important; }
+/* скрыть второй значок если оба остались */
+.derived-ico > * + * { display: none !important; }
+.derived-btn:hover .derived-ico { color: var(--gold-dim); }
+
+/* ── 3. Кнопка медитации ── */
+.btn-meditate, .energy-meditate-btn {
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 3px;
+  color: var(--text-dim) !important;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.7em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: 'Jost', sans-serif;
+  line-height: 1.5;
+}
+.btn-meditate:hover, .energy-meditate-btn:hover {
+  border-color: var(--gold-dim) !important;
+  color: var(--text) !important;
+}
+
+/* ── 4. Жетоны без свечения ── */
+.bennie-on  { color: var(--gold); text-shadow: none !important; }
+.bennie-off { color: var(--border2); }
+
+/* ── 5. Заголовки: убрать все цветные точки и символы ── */
+/* faculty-dot в section-title — скрыть */
+.section-title > .faculty-dot { display: none !important; }
+
+/* magic-title */
+.magic-title { color: var(--text-dim) !important; font-style: normal !important; }
+
+/* npc boss wild hint */
+.npc-boss-wild-hint { font-size: 0.72em; color: var(--text-dim); font-style: italic; margin-left: 6px; }
+
+/* ── 6. Spell-sheet: нейтральные кнопки ── */
+.spell-sheet .sp-cast-btn {
+  background: var(--bg3) !important;
+  border: 1px solid var(--border2) !important;
+  color: var(--text) !important;
+  font-weight: 500;
+}
+.spell-sheet .sp-cast-btn:hover {
+  border-color: var(--gold-dim) !important;
+  color: var(--text-head) !important;
+  background: var(--bg2) !important;
+}
+.spell-sheet .sp-section-title { color: var(--text-dim) !important; }
+.spell-sheet .sp-toggle-on {
+  background: var(--bg3) !important;
+  border-color: var(--border2) !important;
+  color: var(--text) !important;
+}
+
+/* ── 7. Крестики удаления — единый стиль ── */
+.btn-delete-xs,
+.btn-delete-sm,
+.item-delete,
+.fac-del {
+  flex-shrink: 0 !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--border2) !important;
+  font-size: 0.72em !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: color 0.15s !important;
+}
+.btn-delete-xs:hover, .btn-delete-sm:hover,
+.item-delete:hover, .fac-del:hover {
+  color: #c0392b !important;
+}
+
+/* ── 8. Состояние предмета (пипы) — нейтральные символы ── */
+.kk9-cond-pip > span {
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+/* ── 9. Language sheet: бейдж мира ── */
+.language-sheet .lang-world-badge {
+  font-size: 0.66em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--bg3);
+  color: var(--text-dim);
+  border: 1px solid var(--border2);
+}
+
+/* ── 10. Чекбокс — базовый стиль ── */
+/* Foundry-style чекбоксы — не переопределяем, оставляем нативными */
+
+/* ── 11. Снаряжение на вкладке персонажа: убрать ability секцию ── */
+/* секция abilities в items.hbs — скрыть через CSS пока шаблон не поправлен */
+.items-section .item-group[data-group-type="abilities"] { display: none !important; }
+
+/* ── 12. Rarity бейджи — русские значения уже в шаблоне через lookup ── */
+.rarity-common   { background:#1e293b; color:#94a3b8; }
+.rarity-uncommon { background:#052e16; color:#4ade80; }
+.rarity-rare     { background:#0f172a; color:#60a5fa; }
+.rarity-unique   { background:#2e1065; color:#c084fc; }
+
+/* ── 13. Daemon locked/used badge ── */
+.daemon-sheet .dm-locked-badge {
+  background: var(--bg3) !important;
+  color: var(--text-dim) !important;
+  border: 1px solid var(--border2) !important;
+  font-size: 0.68em;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+/* ── 14. Крестик удаления языка в биографии ── */
+.biography-section .lang-chip .lang-remove,
+[class*="lang"] .btn-delete-xs {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 0.72em !important;
+}
+
+/* ================================================================
+   КК9 | CSS ПАТЧ v7 — добавить В КОНЕЦ styles/kk9.css
+   ================================================================ */
+
+/* ── 1. Чекбоксы — единый стиль везде ── */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  background: var(--bg3);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+  vertical-align: middle;
+}
+input[type="checkbox"]:hover { border-color: var(--gold-dim); }
+input[type="checkbox"]:checked {
+  background: var(--bg2);
+  border-color: var(--gold-dim);
+}
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px; top: 1px;
+  width: 5px; height: 9px;
+  border: 1.5px solid var(--gold);
+  border-top: none; border-left: none;
+  transform: rotate(45deg);
+}
+/* скрытые чекбоксы-radio в пипах */
+.kk9-cond-pip input[type="checkbox"],
+.kk9-cond-pip input[type="radio"],
+.cp-bond-hidden,
+input[type="checkbox"][style*="display:none"],
+input[type="radio"][style*="display:none"] { display: none !important; }
+
+/* ── 2. Единый SVG-кубик ── */
+.die-badge {
+  display: inline-flex !important; align-items: center !important;
+  justify-content: center !important; width: 36px !important;
+  height: 36px !important; padding: 0 !important;
+  background: transparent !important; border: none !important;
+  color: var(--text-dim); cursor: pointer; transition: color 0.15s;
+  flex-shrink: 0; position: static !important;
+}
+.die-badge::before { content: none !important; }
+.die-badge:hover   { color: var(--gold); }
+.die-badge .kk9-die-svg,
+.die-badge .attr-die { width: 28px !important; height: 28px !important; }
+
+.derived-ico {
+  display: flex !important; align-items: center !important;
+  justify-content: center !important; width: 20px !important;
+  height: 20px !important; color: var(--text-dim);
+  flex-shrink: 0; font-size: 0 !important;
+}
+.derived-ico svg,
+.derived-ico .kk9-die-svg { width: 18px !important; height: 18px !important; }
+.derived-ico > * + * { display: none !important; }
+.derived-btn:hover .derived-ico { color: var(--gold-dim); }
+.kk9-die-svg { display: inline-block; flex-shrink: 0; overflow: visible; }
+
+/* ── 3. Item sheets — вертикальный layout ── */
+.kk9-sheet.item-sheet { display: flex !important; flex-direction: column !important; overflow: hidden; }
+.kk9-sheet.item-sheet > header,
+.kk9-sheet.item-sheet > form > header,
+.kk9-sheet.item-sheet .sheet-header {
+  display: flex !important; flex-direction: row !important; align-items: center;
+  gap: 10px; padding: 10px 12px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+  width: 100%; box-sizing: border-box;
+}
+.kk9-sheet.item-sheet > header img,
+.kk9-sheet.item-sheet > form > header img {
+  width: 52px !important; height: 52px !important; border-radius: 4px;
+  object-fit: cover; flex-shrink: 0; cursor: pointer; border: 1px solid var(--border2);
+}
+.kk9-sheet.item-sheet > header > div,
+.kk9-sheet.item-sheet .header-fields {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;
+}
+
+/* ── 4. Кнопки ── */
+.btn-meditate, .energy-meditate-btn {
+  background: transparent !important; border: 1px solid var(--border) !important;
+  border-radius: 3px; color: var(--text-dim) !important; cursor: pointer;
+  padding: 2px 6px; font-size: 0.7em; letter-spacing: 0.05em;
+  text-transform: uppercase; font-family: 'Jost', sans-serif; transition: border-color 0.15s;
+}
+.btn-meditate:hover, .energy-meditate-btn:hover {
+  border-color: var(--gold-dim) !important; color: var(--text) !important;
+}
+.btn-delete-xs, .btn-delete-sm, .item-delete, .fac-del {
+  flex-shrink: 0 !important; width: 18px !important; height: 18px !important;
+  min-width: 18px !important; padding: 0 !important; background: transparent !important;
+  border: none !important; color: var(--border2) !important; font-size: 0.72em !important;
+  cursor: pointer !important; display: inline-flex !important;
+  align-items: center !important; justify-content: center !important; transition: color 0.15s !important;
+}
+.btn-delete-xs:hover, .btn-delete-sm:hover,
+.item-delete:hover, .fac-del:hover { color: #c0392b !important; }
+
+/* ── 5. Spell ── */
+.spell-sheet .sp-cast-btn {
+  background: var(--bg3) !important; border: 1px solid var(--border2) !important; color: var(--text) !important;
+}
+.spell-sheet .sp-cast-btn:hover { border-color: var(--gold-dim) !important; color: var(--text-head) !important; background: var(--bg2) !important; }
+.spell-sheet .sp-section-title { color: var(--text-dim) !important; }
+.spell-sheet .sp-toggle-on { background: var(--bg3) !important; border-color: var(--border2) !important; color: var(--text) !important; }
+
+/* ── 6. Companion roll button ── */
+.companion-sheet .cp-roll-init-btn {
+  background: var(--bg3) !important; border: 1px solid var(--border2) !important; color: var(--text-dim) !important;
+}
+.companion-sheet .cp-roll-init-btn:hover { border-color: var(--gold-dim) !important; color: var(--text) !important; }
+
+/* ── 7. Заголовки ── */
+.section-title > .faculty-dot { display: none !important; }
+.magic-title { color: var(--text-dim) !important; font-style: normal !important; }
+.npc-boss-wild-hint { font-size: 0.72em; color: var(--text-dim); font-style: italic; margin-left: 6px; }
+
+/* ── 8. Жетоны ── */
+.bennie-on  { color: var(--gold); text-shadow: none !important; }
+.bennie-off { color: var(--border2); }
+
+/* ── 9. Rarity ── */
+.rarity-common   { background:#1e293b; color:#94a3b8; }
+.rarity-uncommon { background:#052e16; color:#4ade80; }
+.rarity-rare     { background:#0f172a; color:#60a5fa; }
+.rarity-unique   { background:#2e1065; color:#c084fc; }

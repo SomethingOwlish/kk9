@@ -43,7 +43,7 @@
     <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <span class="item-badge rarity-{{this.system.rarity}}">{{this.system.rarity}}</span>
+      <span class="item-badge rarity-{{this.system.rarity}}">{{lookup (hash common="обычный" uncommon="необычный" rare="редкий" unique="уникальный") this.system.rarity}}</span>
       <button type="button" class="item-delete btn-delete-xs">✕</button>
     </div>
     {{else}}<p class="empty-hint">Нет артефактов</p>{{/each}}
@@ -79,22 +79,6 @@
       <button type="button" class="item-delete btn-delete-xs">✕</button>
     </div>
     {{else}}<p class="empty-hint">Нет даймонов</p>{{/each}}
-  </div>
-
-  {{!-- Способности (не факультетские) --}}
-  <div class="item-group">
-    <div class="item-group-header">
-      <span class="item-group-title">Способности</span>
-      <button type="button" class="item-create btn-add-sm" data-type="ability">+</button>
-    </div>
-    {{#each abilities}}
-    <div class="item-row" data-item-id="{{this.id}}">
-      <img src="{{this.img}}" class="item-img" />
-      <span class="item-name item-name-click">{{this.name}}</span>
-      <span class="item-badge cat-{{this.system.category}}">{{categoryLabel this.system.category}}</span>
-      <button type="button" class="item-delete btn-delete-xs">✕</button>
-    </div>
-    {{else}}<p class="empty-hint">Нет способностей</p>{{/each}}
   </div>
 
   {{!-- Тех. устройства --}}

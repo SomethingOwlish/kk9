@@ -374,8 +374,27 @@ export class KK9Actor extends Actor {
     if (!item) { ui.notifications.warn("Навык не найден."); return; }
 
     // Skill и Ability не имеют condition — проверять нечего
-    const die     = item.system.die || 4;
+    let die = item.system.die || 4;
     const baseMod = item.system.modifier || 0;
+
+    // Правило КК9: навык/способность не может иметь куб выше привязанного атрибута
+    const linkedAttr = item.system.linkedAttribute;
+    if (linkedAttr) {
+      const attrData = this.system.attributes?.[linkedAttr];
+      if (!attrData) {
+        ui.notifications.warn(
+          `${this.name}: атрибут «${linkedAttr}» не найден — бросок невозможен.`
+        );
+        return null;
+      }
+      const attrDie = attrData.die || 4;
+      if (die > attrDie) {
+        ui.notifications.warn(
+          `${item.name}: куб d${die} превышает атрибут d${attrDie}. Используется d${attrDie}.`
+        );
+        die = attrDie;
+      }
+    }
 
     // Дополнительный бонус от экипированных артефактов/устройств к этому конкретному навыку
     let itemBonus = 0;
@@ -456,6 +475,13 @@ export class KK9Actor extends Actor {
     const degree   = this._getSuccessDegree(roll);
     const diceHtml = this._buildDiceHtml(roll);
     const content  = this._buildRollMessage("Инициатива", degree, diceHtml, reasons);
+
+    // Записываем в combat tracker если персонаж участвует в бою
+    const combat = game?.combat;
+    if (combat) {
+      const combatant = combat.combatants.find(c => c.actorId === this.id);
+      if (combatant) await combatant.update({ initiative: roll.total });
+    }
 
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: this }),

@@ -9,17 +9,17 @@
         <input class="veh-name-input" type="text" name="name"
                value="{{item.name}}" placeholder="Название транспорта" />
         <span class="veh-type-badge veh-type-{{system.vehicle_type}}">
-          {{#if (eq system.vehicle_type "ground")}}🚗 Наземный
-          {{else if (eq system.vehicle_type "air")}}✈ Воздушный
-          {{else if (eq system.vehicle_type "water")}}🚢 Водный
-          {{else if (eq system.vehicle_type "magical")}}✨ Магический
-          {{else}}◈ Прочий{{/if}}
+          {{#if (eq system.vehicle_type "ground")}}Наземный
+          {{else if (eq system.vehicle_type "air")}}Воздушный
+          {{else if (eq system.vehicle_type "water")}}Водный
+          {{else if (eq system.vehicle_type "magical")}}Магический
+          {{else}}Прочий{{/if}}
         </span>
       </div>
       <div class="veh-sub-row">
-        <span class="veh-sub-dim">⚡ {{system.speed}} км/ч</span>
-        <span class="veh-sub-dim">🛡 {{system.toughness}}</span>
-        <span class="veh-sub-dim">👥 {{system.capacity}} мест</span>
+        <span class="veh-sub-dim">{{system.speed}} км/ч</span>
+        <span class="veh-sub-dim">стойкость: {{system.toughness}}</span>
+        <span class="veh-sub-dim">{{system.capacity}} мест</span>
       </div>
     </div>
   </header>
@@ -31,11 +31,11 @@
       <div class="veh-param-block">
         <span class="veh-param-label">Тип</span>
         <select name="system.vehicle_type" class="kk9-select">
-          <option value="ground"  {{#if (eq system.vehicle_type "ground")}}selected{{/if}}>🚗 Наземный</option>
-          <option value="air"     {{#if (eq system.vehicle_type "air")}}selected{{/if}}>✈ Воздушный</option>
-          <option value="water"   {{#if (eq system.vehicle_type "water")}}selected{{/if}}>🚢 Водный</option>
-          <option value="magical" {{#if (eq system.vehicle_type "magical")}}selected{{/if}}>✨ Магический</option>
-          <option value="other"   {{#if (eq system.vehicle_type "other")}}selected{{/if}}>◈ Прочий</option>
+          <option value="ground"  {{#if (eq system.vehicle_type "ground")}}selected{{/if}}>Наземный</option>
+          <option value="air"     {{#if (eq system.vehicle_type "air")}}selected{{/if}}>Воздушный</option>
+          <option value="water"   {{#if (eq system.vehicle_type "water")}}selected{{/if}}>Водный</option>
+          <option value="magical" {{#if (eq system.vehicle_type "magical")}}selected{{/if}}>Магический</option>
+          <option value="other"   {{#if (eq system.vehicle_type "other")}}selected{{/if}}>Прочий</option>
         </select>
       </div>
       <div class="veh-param-block">

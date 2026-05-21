@@ -311,7 +311,7 @@
 
       <div class="fac-ab-summary">
         <span class="fac-sum-item cat-common">Общих: {{abCount.common}}</span>
-        <span class="fac-sum-item cat-personal">Личных: {{abCount.personal}}</span>
+        <span class="fac-sum-item cat-personal-dim">Личных: {{abCount.personal}}</span>
         <span class="fac-sum-item cat-learned">Изучаемых: {{abCount.learned}}</span>
         <span class="fac-sum-item cat-magic">Магических: {{abCount.magic}}</span>
       </div>
@@ -324,7 +324,7 @@
       <div class="fac-traits-grid">
         <div class="fac-trait-block fac-trait-fit">
           <div class="fac-trait-ttl">
-            <span style="color:#4ade80">✦</span>
+            
             Характеристики, которые подходят
           </div>
           <textarea class="kk9-textarea fac-trait-ta" name="system.traits_fit"
@@ -332,7 +332,7 @@
         </div>
         <div class="fac-trait-block fac-trait-unfit">
           <div class="fac-trait-ttl">
-            <span style="color:#f87171">✗</span>
+            
             Характеристики, которые не подходят
           </div>
           <textarea class="kk9-textarea fac-trait-ta" name="system.traits_unfit"
@@ -341,16 +341,14 @@
       </div>
 
       <div style="margin-top:14px">
-        <div class="section-title">
-          <span class="faculty-dot" style="background:{{system.color}}"></span>
-          О факультете
+        <div class="section-title">О факультете
         </div>
         <textarea class="kk9-textarea fac-desc-ta" name="system.description"
                   placeholder="История, культура, традиции факультета...">{{system.description}}</textarea>
       </div>
 
       <div style="margin-top:14px">
-        <div class="section-title" style="color:#a855f7">⚡ Особые правила</div>
+        <div class="section-title">Особые правила</div>
         <textarea class="kk9-textarea fac-desc-ta" name="system.special_rules"
                   placeholder="Механические особенности, бонусы, ограничения...">{{system.special_rules}}</textarea>
       </div>
@@ -361,7 +359,7 @@
     <div class="tab" data-group="primary" data-tab="lore">
 
       <div class="section-header-row">
-        <span class="section-title">📖 Байки и легенды</span>
+        <span class="section-title">Байки и легенды</span>
         <span class="fac-drop-hint">Перетащи Journal Entry сюда</span>
       </div>
 
@@ -369,7 +367,7 @@
         {{#if system.lore_entries.length}}
           {{#each system.lore_entries as |entry|}}
           <div class="fac-lore-row">
-            <span class="fac-lore-ico">📖</span>
+            
             <span class="fac-lore-name fac-open-journal"
                   data-uuid="{{entry.uuid}}">{{entry.name}}</span>
             <button type="button" class="fac-remove-lore fac-del"

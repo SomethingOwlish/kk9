@@ -13,30 +13,30 @@
         <label class="dm-mode-badge {{#if system.is_orb}}dm-mode-orb{{else}}dm-mode-free{{/if}}">
           <input type="checkbox" name="system.is_orb"
                  {{#if system.is_orb}}checked{{/if}} style="display:none" />
-          {{#if system.is_orb}}⚫ Шарик{{else}}✦ Свободен{{/if}}
+          {{#if system.is_orb}}Шарик{{else}}Свободен{{/if}}
         </label>
         {{!-- Заблокирован --}}
         {{#if system.is_orb}}
-          {{#if system.used}}<span class="dm-locked-badge">🔒 Использован</span>{{/if}}
+          {{#if system.used}}<span class="dm-locked-badge">Использован</span>{{/if}}
         {{else}}
-          {{#if system.gone}}<span class="dm-locked-badge">🚪 Ушёл</span>{{/if}}
+          {{#if system.gone}}<span class="dm-locked-badge">Ушёл</span>{{/if}}
         {{/if}}
       </div>
 
       <div class="dm-sub-row">
         {{!-- Корпорация + класс + масть --}}
         <span class="dm-corp-tag dm-corp-{{system.corporation}}">
-          {{#if (eq system.corporation "taro")}}🃏 Таро
-          {{else if (eq system.corporation "rainbow")}}🌈 Радуга
-          {{else}}◈ Новая{{/if}}
+          {{#if (eq system.corporation "taro")}}Таро
+          {{else if (eq system.corporation "rainbow")}}Радуга
+          {{else}}Новая{{/if}}
         </span>
         <span class="dm-class-tag">{{system.daemon_class}}</span>
         {{#if (eq system.corporation "taro")}}
         <span class="dm-suit-tag">
-          {{#if (eq system.suit "cups")}}🏆 Кубки
-          {{else if (eq system.suit "wands")}}🪄 Жезлы
-          {{else if (eq system.suit "swords")}}⚔ Мечи
-          {{else}}⭐ Пентакли{{/if}}
+          {{#if (eq system.suit "cups")}}Кубки
+          {{else if (eq system.suit "wands")}}Жезлы
+          {{else if (eq system.suit "swords")}}Мечи
+          {{else}}Пентакли{{/if}}
         </span>
         {{/if}}
         <span class="dm-color-dot" style="background:{{colorHex system.color}}" title="{{system.color}}"></span>
@@ -48,7 +48,7 @@
   {{!-- ═══ ЕСЛИ ЗАБЛОКИРОВАН ═══ --}}
   {{#if system.is_orb}}{{#if system.used}}
   <div class="dm-body">
-    <div class="dm-locked-msg">⚫ Даймон использован. Шарик пуст.</div>
+    <div class="dm-locked-msg">Даймон использован. Шарик пуст.</div>
     <label class="dm-toggle">
       <input type="checkbox" name="system.used" checked />
       <span>Снять отметку «использован»</span>
@@ -60,7 +60,7 @@
     {{> daemon-params-common}}
 
     <div class="dm-section">
-      <div class="dm-section-title">⚫ Шарик</div>
+      <div class="dm-section-title">Шарик</div>
       <div class="dm-param-block">
         <span class="dm-param-label">Пленитель</span>
         <input type="text" name="system.captor" value="{{system.captor}}"
@@ -68,7 +68,7 @@
       </div>
       <label class="dm-toggle dm-toggle-danger">
         <input type="checkbox" name="system.used" {{#if system.used}}checked{{/if}} />
-        🔒 Использован
+        Использован
       </label>
     </div>
 
@@ -79,7 +79,7 @@
 
   {{#unless system.is_orb}}{{#if system.gone}}
   <div class="dm-body">
-    <div class="dm-locked-msg">🚪 Даймон ушёл.</div>
+    <div class="dm-locked-msg">Даймон ушёл.</div>
     <label class="dm-toggle">
       <input type="checkbox" name="system.gone" checked />
       <span>Снять отметку «ушёл»</span>
@@ -156,7 +156,7 @@
 
     <label class="dm-toggle dm-toggle-danger">
       <input type="checkbox" name="system.gone" {{#if system.gone}}checked{{/if}} />
-      🚪 Ушёл
+      Ушёл
     </label>
 
     {{> daemon-params-psychology}}
@@ -172,9 +172,9 @@
   <div class="dm-param-block">
     <span class="dm-param-label">Корпорация</span>
     <select name="system.corporation" class="kk9-select">
-      <option value="taro"    {{#if (eq system.corporation "taro")}}selected{{/if}}>🃏 Таро</option>
-      <option value="rainbow" {{#if (eq system.corporation "rainbow")}}selected{{/if}}>🌈 Радуга</option>
-      <option value="new"     {{#if (eq system.corporation "new")}}selected{{/if}}>◈ Новая</option>
+      <option value="taro"    {{#if (eq system.corporation "taro")}}selected{{/if}}>Таро</option>
+      <option value="rainbow" {{#if (eq system.corporation "rainbow")}}selected{{/if}}>Радуга</option>
+      <option value="new"     {{#if (eq system.corporation "new")}}selected{{/if}}>Новая</option>
     </select>
   </div>
 
@@ -197,16 +197,16 @@
       <option value="queen" {{#if (eq system.daemon_class "queen")}}selected{{/if}}>Дама</option>
       <option value="knight" {{#if (eq system.daemon_class "knight")}}selected{{/if}}>Рыцарь</option>
       <option value="king"  {{#if (eq system.daemon_class "king")}}selected{{/if}}>Король</option>
-      <option value="major" {{#if (eq system.daemon_class "major")}}selected{{/if}}>★ Старшая карта</option>
+      <option value="major" {{#if (eq system.daemon_class "major")}}selected{{/if}}>Старшая карта</option>
     </select>
   </div>
   <div class="dm-param-block">
     <span class="dm-param-label">Масть</span>
     <select name="system.suit" class="kk9-select">
-      <option value="cups"      {{#if (eq system.suit "cups")}}selected{{/if}}>🏆 Кубки</option>
-      <option value="wands"     {{#if (eq system.suit "wands")}}selected{{/if}}>🪄 Жезлы</option>
-      <option value="swords"    {{#if (eq system.suit "swords")}}selected{{/if}}>⚔ Мечи</option>
-      <option value="pentacles" {{#if (eq system.suit "pentacles")}}selected{{/if}}>⭐ Пентакли</option>
+      <option value="cups"      {{#if (eq system.suit "cups")}}selected{{/if}}>Кубки</option>
+      <option value="wands"     {{#if (eq system.suit "wands")}}selected{{/if}}>Жезлы</option>
+      <option value="swords"    {{#if (eq system.suit "swords")}}selected{{/if}}>Мечи</option>
+      <option value="pentacles" {{#if (eq system.suit "pentacles")}}selected{{/if}}>Пентакли</option>
     </select>
   </div>
   {{/if}}
@@ -220,7 +220,7 @@
       <option value="middle"  {{#if (eq system.daemon_class "middle")}}selected{{/if}}>Средний</option>
       <option value="senior"  {{#if (eq system.daemon_class "senior")}}selected{{/if}}>Старший</option>
       <option value="elder"   {{#if (eq system.daemon_class "elder")}}selected{{/if}}>Ветеран</option>
-      <option value="great"   {{#if (eq system.daemon_class "great")}}selected{{/if}}>★ Великий</option>
+      <option value="great"   {{#if (eq system.daemon_class "great")}}selected{{/if}}>Великий</option>
     </select>
   </div>
   {{/if}}
@@ -228,19 +228,19 @@
   <div class="dm-param-block">
     <span class="dm-param-label">Цвет</span>
     <select name="system.color" class="kk9-select">
-      <option value="black"   {{#if (eq system.color "black")}}selected{{/if}}>⬛ Чёрный</option>
-      <option value="white"   {{#if (eq system.color "white")}}selected{{/if}}>⬜ Белый</option>
-      <option value="gold"    {{#if (eq system.color "gold")}}selected{{/if}}>🟡 Золотой</option>
-      <option value="silver"  {{#if (eq system.color "silver")}}selected{{/if}}>⬜ Серебряный</option>
-      <option value="red"     {{#if (eq system.color "red")}}selected{{/if}}>🟥 Красный</option>
-      <option value="orange"  {{#if (eq system.color "orange")}}selected{{/if}}>🟧 Оранжевый</option>
-      <option value="green"   {{#if (eq system.color "green")}}selected{{/if}}>🟩 Зелёный</option>
-      <option value="blue"    {{#if (eq system.color "blue")}}selected{{/if}}>🟦 Синий</option>
-      <option value="purple"  {{#if (eq system.color "purple")}}selected{{/if}}>🟪 Фиолетовый</option>
-      <option value="yellow"  {{#if (eq system.color "yellow")}}selected{{/if}}>🟨 Жёлтый</option>
-      <option value="pink"    {{#if (eq system.color "pink")}}selected{{/if}}>🩷 Розовый</option>
-      <option value="pearl"   {{#if (eq system.color "pearl")}}selected{{/if}}>✨ Перламутровый</option>
-      <option value="grey"    {{#if (eq system.color "grey")}}selected{{/if}}>◻ Серый</option>
+      <option value="black"   {{#if (eq system.color "black")}}selected{{/if}}>Чёрный</option>
+      <option value="white"   {{#if (eq system.color "white")}}selected{{/if}}>Белый</option>
+      <option value="gold"    {{#if (eq system.color "gold")}}selected{{/if}}>Золотой</option>
+      <option value="silver"  {{#if (eq system.color "silver")}}selected{{/if}}>Серебряный</option>
+      <option value="red"     {{#if (eq system.color "red")}}selected{{/if}}>Красный</option>
+      <option value="orange"  {{#if (eq system.color "orange")}}selected{{/if}}>Оранжевый</option>
+      <option value="green"   {{#if (eq system.color "green")}}selected{{/if}}>Зелёный</option>
+      <option value="blue"    {{#if (eq system.color "blue")}}selected{{/if}}>Синий</option>
+      <option value="purple"  {{#if (eq system.color "purple")}}selected{{/if}}>Фиолетовый</option>
+      <option value="yellow"  {{#if (eq system.color "yellow")}}selected{{/if}}>Жёлтый</option>
+      <option value="pink"    {{#if (eq system.color "pink")}}selected{{/if}}>Розовый</option>
+      <option value="pearl"   {{#if (eq system.color "pearl")}}selected{{/if}}>Перламутровый</option>
+      <option value="grey"    {{#if (eq system.color "grey")}}selected{{/if}}>Серый</option>
     </select>
   </div>
 </div>
@@ -261,7 +261,7 @@
 
 {{#*inline "daemon-params-psychology"}}
 <div class="dm-section dm-psych-section">
-  <div class="dm-section-title">🧠 Психология</div>
+  <div class="dm-section-title">Психология</div>
   <div class="dm-psych-grid">
     <div class="dm-param-block">
       <span class="dm-param-label">Мечта</span>

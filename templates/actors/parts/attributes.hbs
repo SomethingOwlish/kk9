@@ -1,11 +1,16 @@
-{{!-- Атрибуты v1.1 — факультетские способности убраны, только атрибуты + магические таланты --}}
+{{!-- Атрибуты v1.2 — SVG-кубик вместо псевдоэлемента ⬡, без эмоджи --}}
 <section class="attributes-section">
-  <h3 class="section-title">Атрибуты</h3>
+  <h3 class="section-title">{{localize "KK9.sheet.attributes"}}</h3>
   <div class="attributes-grid">
     {{#each system.attributes as |attr key|}}
     <div class="attribute-row">
       <label class="attr-label">{{lookup ../attributeLabels key}}</label>
-      <span class="die-badge rollable-attribute" data-attribute="{{key}}" title="Бросить">d{{attr.die}}</span>
+      <span class="die-badge rollable-attribute" data-attribute="{{key}}" title="{{localize "KK9.sheet.roll"}}">
+        <svg class="die-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M10 2 L18 7 L18 13 L10 18 L2 13 L2 7 Z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+          <text x="10" y="13.5" text-anchor="middle" font-size="6.5" fill="currentColor" font-family="'Jost',sans-serif" font-weight="500">d{{attr.die}}</text>
+        </svg>
+      </span>
       <select name="system.attributes.{{key}}.die" class="die-select">
         <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
         <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
@@ -15,24 +20,24 @@
         <option value="20" {{#if (eq attr.die 20)}}selected{{/if}}>d20</option>
       </select>
       <span class="wild-die-hint">+d6</span>
-      <span class="mod-label">Мод.</span>
+      <span class="mod-label">{{localize "KK9.sheet.modifier"}}</span>
       <input type="number" name="system.attributes.{{key}}.modifier" value="{{attr.modifier}}" class="mod-input" />
     </div>
     {{/each}}
   </div>
 </section>
 
-{{!-- Магические таланты — уровень таланта, без факультетских --}}
+{{!-- Магические таланты --}}
 {{#if magicAbilities.length}}
 <section class="magic-section" style="margin-top:12px;padding:8px;border:1px solid rgba(168,85,247,0.2);border-radius:4px;background:rgba(168,85,247,0.04)">
-  <h3 class="section-title magic-title">✦ Магические таланты</h3>
+  <h3 class="section-title magic-title">{{localize "KK9.sheet.magicTalents"}}</h3>
   {{#each magicAbilities as |ab|}}
   <div class="magic-talent-row" data-item-id="{{ab.id}}">
     <span class="magic-talent-name item-name-click">{{ab.name}}</span>
     <select class="magic-level-select" data-item-id="{{ab.id}}">
-      <option value="sparks"      {{#if (eq (lookup ../magicLevelMap ab.id) "sparks")}}selected{{/if}}>Зачатки</option>
-      <option value="normal"      {{#if (eq (lookup ../magicLevelMap ab.id) "normal")}}selected{{/if}}>Обычный</option>
-      <option value="exceptional" {{#if (eq (lookup ../magicLevelMap ab.id) "exceptional")}}selected{{/if}}>Особый талант</option>
+      <option value="sparks"      {{#if (eq (lookup ../magicLevelMap ab.id) "sparks")}}selected{{/if}}>{{localize "KK9.magic.sparks"}}</option>
+      <option value="normal"      {{#if (eq (lookup ../magicLevelMap ab.id) "normal")}}selected{{/if}}>{{localize "KK9.magic.normal"}}</option>
+      <option value="exceptional" {{#if (eq (lookup ../magicLevelMap ab.id) "exceptional")}}selected{{/if}}>{{localize "KK9.magic.exceptional"}}</option>
     </select>
   </div>
   {{/each}}

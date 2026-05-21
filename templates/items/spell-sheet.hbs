@@ -11,28 +11,28 @@
         <input class="sp-name-input" type="text" name="name"
                value="{{item.name}}" placeholder="Название заклинания" />
         <span class="sp-type-badge sp-type-{{system.spell_type}}">
-          {{#if (eq system.spell_type "attack")}}⚔ Атака
-          {{else if (eq system.spell_type "defense")}}🛡 Защита
-          {{else if (eq system.spell_type "binding")}}🔗 Связующее
-          {{else if (eq system.spell_type "spatial")}}🌀 Пространственное
-          {{else if (eq system.spell_type "utility")}}⚙ Утилита
-          {{else if (eq system.spell_type "buff")}}✨ Бафф
-          {{else if (eq system.spell_type "transforming")}}🔄 Трансформация
-          {{else}}🔮 Пророческое{{/if}}
+          {{#if (eq system.spell_type "attack")}}Атака
+          {{else if (eq system.spell_type "defense")}}Защита
+          {{else if (eq system.spell_type "binding")}}Связующее
+          {{else if (eq system.spell_type "spatial")}}Пространственное
+          {{else if (eq system.spell_type "utility")}}Утилита
+          {{else if (eq system.spell_type "buff")}}Бафф
+          {{else if (eq system.spell_type "transforming")}}Трансформация
+          {{else}}Пророческое{{/if}}
         </span>
       </div>
       <div class="sp-sub-row">
-        <span class="sp-sub-cost">⚡ {{system.cost}} энергии</span>
+        <span class="sp-sub-cost">{{system.cost}} энергии</span>
         {{#if system.range}}<span class="sp-sub-dim">📍 {{system.range}} м</span>{{/if}}
         {{#if (eq system.duration -1)}}
           <span class="sp-sub-dim">∞ постоянное</span>
         {{else if (eq system.duration 0)}}
-          <span class="sp-sub-dim">⚡ мгновенное</span>
+          <span class="sp-sub-dim">мгновенное</span>
         {{else}}
-          <span class="sp-sub-dim">⏱ {{system.duration}} ход.</span>
+          <span class="sp-sub-dim">{{system.duration}} ход.</span>
         {{/if}}
         {{#if system.no_wand_needed}}
-        <span class="sp-no-wand">✋ без палочки</span>
+        <span class="sp-no-wand">без палочки</span>
         {{/if}}
       </div>
     </div>
@@ -46,14 +46,14 @@
       <div class="sp-param-block">
         <span class="sp-param-label">Тип</span>
         <select name="system.spell_type" class="kk9-select">
-          <option value="attack"      {{#if (eq system.spell_type "attack")}}selected{{/if}}>⚔ Атака</option>
-          <option value="defense"     {{#if (eq system.spell_type "defense")}}selected{{/if}}>🛡 Защита</option>
-          <option value="binding"     {{#if (eq system.spell_type "binding")}}selected{{/if}}>🔗 Связующее</option>
-          <option value="spatial"     {{#if (eq system.spell_type "spatial")}}selected{{/if}}>🌀 Пространственное</option>
-          <option value="utility"     {{#if (eq system.spell_type "utility")}}selected{{/if}}>⚙ Утилита</option>
-          <option value="buff"        {{#if (eq system.spell_type "buff")}}selected{{/if}}>✨ Бафф</option>
-          <option value="transforming" {{#if (eq system.spell_type "transforming")}}selected{{/if}}>🔄 Трансформация</option>
-          <option value="prophetic"   {{#if (eq system.spell_type "prophetic")}}selected{{/if}}>🔮 Пророческое</option>
+          <option value="attack"      {{#if (eq system.spell_type "attack")}}selected{{/if}}>Атака</option>
+          <option value="defense"     {{#if (eq system.spell_type "defense")}}selected{{/if}}>Защита</option>
+          <option value="binding"     {{#if (eq system.spell_type "binding")}}selected{{/if}}>Связующее</option>
+          <option value="spatial"     {{#if (eq system.spell_type "spatial")}}selected{{/if}}>Пространственное</option>
+          <option value="utility"     {{#if (eq system.spell_type "utility")}}selected{{/if}}>Утилита</option>
+          <option value="buff"        {{#if (eq system.spell_type "buff")}}selected{{/if}}>Бафф</option>
+          <option value="transforming" {{#if (eq system.spell_type "transforming")}}selected{{/if}}>Трансформация</option>
+          <option value="prophetic"   {{#if (eq system.spell_type "prophetic")}}selected{{/if}}>Пророческое</option>
         </select>
       </div>
       <div class="sp-param-block">
@@ -97,7 +97,7 @@
         <span class="sp-param-label">Магический навык</span>
         {{#if system.skill_name}}
         <div class="sp-linked-row">
-          <span class="sp-linked-name">✦ {{system.skill_name}}</span>
+          <span class="sp-linked-name">{{system.skill_name}}</span>
           <button type="button" class="sp-clear-skill fac-del">✕</button>
         </div>
         {{else}}
@@ -109,7 +109,7 @@
         <label class="sp-toggle {{#if system.no_wand_needed}}sp-toggle-on{{/if}}">
           <input type="checkbox" name="system.no_wand_needed"
                  {{#if system.no_wand_needed}}checked{{/if}} />
-          {{#if system.no_wand_needed}}✋ Можно без палочки{{else}}🪄 Нужна палочка{{/if}}
+          {{#if system.no_wand_needed}}Можно без палочки{{else}}Нужна палочка{{/if}}
         </label>
         {{#unless system.no_wand_needed}}
         <span class="sp-wand-hint">Требует экипированный артефакт-палочку</span>
@@ -120,7 +120,7 @@
     {{!-- ── АТАКУЮЩИЕ ПОЛЯ ── --}}
     {{#if (eq system.spell_type "attack")}}
     <div class="sp-section">
-      <div class="sp-section-title">⚔ Параметры атаки</div>
+      <div class="sp-section-title">Параметры атаки</div>
 
       <div class="sp-params-grid sp-params-grid--2">
         <div class="sp-param-block">

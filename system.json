@@ -2,7 +2,7 @@
   "id": "kk9",
   "title": "КК9 — Кризисный Комитет №9",
   "description": "Система для игры в мире двух реальностей.",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "compatibility": {
     "minimum": "12",
     "verified": "13"

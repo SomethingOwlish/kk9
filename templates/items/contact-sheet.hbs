@@ -9,21 +9,21 @@
         <input class="con-name-input" type="text" name="name"
                value="{{item.name}}" placeholder="Название организации" />
         <span class="con-access-badge con-access-{{system.access_level}}">
-          {{#if (eq system.access_level "open")}}🌐 Открытая
-          {{else if (eq system.access_level "known")}}👁 Общеизвестная
-          {{else if (eq system.access_level "secret")}}🔒 Тайная
+          {{#if (eq system.access_level "open")}}Открытая
+          {{else if (eq system.access_level "known")}}Общеизвестная
+          {{else if (eq system.access_level "secret")}}Тайная
           {{else}}⛔ Запрещённая{{/if}}
         </span>
       </div>
       <div class="con-sub-row">
         <span class="con-type-tag">
-          {{#if (eq system.org_type "academic")}}🎓 Академическая
-          {{else if (eq system.org_type "criminal")}}💀 Криминальная
-          {{else if (eq system.org_type "government")}}🏛 Правительственная
-          {{else if (eq system.org_type "magical")}}✨ Магическая
-          {{else if (eq system.org_type "corporate")}}💼 Корпоративная
+          {{#if (eq system.org_type "academic")}}Академическая
+          {{else if (eq system.org_type "criminal")}}Криминальная
+          {{else if (eq system.org_type "government")}}Правительственная
+          {{else if (eq system.org_type "magical")}}Магическая
+          {{else if (eq system.org_type "corporate")}}Корпоративная
           {{else if (eq system.org_type "underground")}}🕳 Подпольная
-          {{else}}◈ Прочая{{/if}}
+          {{else}}Прочая{{/if}}
         </span>
         {{#if system.leader}}<span class="con-sub-dim">👤 {{system.leader}}</span>{{/if}}
         {{#if system.members.length}}<span class="con-sub-dim">{{system.members.length}} участн.</span>{{/if}}
@@ -39,21 +39,21 @@
       <div class="con-param-block">
         <span class="con-param-label">Тип</span>
         <select name="system.org_type" class="kk9-select">
-          <option value="academic"    {{#if (eq system.org_type "academic")}}selected{{/if}}>🎓 Академическая</option>
-          <option value="criminal"    {{#if (eq system.org_type "criminal")}}selected{{/if}}>💀 Криминальная</option>
-          <option value="government"  {{#if (eq system.org_type "government")}}selected{{/if}}>🏛 Правительственная</option>
-          <option value="magical"     {{#if (eq system.org_type "magical")}}selected{{/if}}>✨ Магическая</option>
-          <option value="corporate"   {{#if (eq system.org_type "corporate")}}selected{{/if}}>💼 Корпоративная</option>
+          <option value="academic"    {{#if (eq system.org_type "academic")}}selected{{/if}}>Академическая</option>
+          <option value="criminal"    {{#if (eq system.org_type "criminal")}}selected{{/if}}>Криминальная</option>
+          <option value="government"  {{#if (eq system.org_type "government")}}selected{{/if}}>Правительственная</option>
+          <option value="magical"     {{#if (eq system.org_type "magical")}}selected{{/if}}>Магическая</option>
+          <option value="corporate"   {{#if (eq system.org_type "corporate")}}selected{{/if}}>Корпоративная</option>
           <option value="underground" {{#if (eq system.org_type "underground")}}selected{{/if}}>🕳 Подпольная</option>
-          <option value="other"       {{#if (eq system.org_type "other")}}selected{{/if}}>◈ Прочая</option>
+          <option value="other"       {{#if (eq system.org_type "other")}}selected{{/if}}>Прочая</option>
         </select>
       </div>
       <div class="con-param-block">
         <span class="con-param-label">Статус</span>
         <select name="system.access_level" class="kk9-select">
-          <option value="open"      {{#if (eq system.access_level "open")}}selected{{/if}}>🌐 Открытая</option>
-          <option value="known"     {{#if (eq system.access_level "known")}}selected{{/if}}>👁 Общеизвестная</option>
-          <option value="secret"    {{#if (eq system.access_level "secret")}}selected{{/if}}>🔒 Тайная</option>
+          <option value="open"      {{#if (eq system.access_level "open")}}selected{{/if}}>Открытая</option>
+          <option value="known"     {{#if (eq system.access_level "known")}}selected{{/if}}>Общеизвестная</option>
+          <option value="secret"    {{#if (eq system.access_level "secret")}}selected{{/if}}>Тайная</option>
           <option value="forbidden" {{#if (eq system.access_level "forbidden")}}selected{{/if}}>⛔ Запрещённая</option>
         </select>
       </div>
@@ -79,7 +79,7 @@
     {{!-- Участники --}}
     <div class="con-section contact-members-drop">
       <div class="con-section-header">
-        <span class="con-section-title">👥 Участники</span>
+        <span class="con-section-title">Участники</span>
         <span class="con-drop-hint">Перетащи карточку персонажа или НПС</span>
       </div>
       {{#if system.members.length}}
@@ -101,7 +101,7 @@
     {{!-- Бывшие участники --}}
     <div class="con-section contact-former-drop">
       <div class="con-section-header">
-        <span class="con-section-title">📋 Бывшие участники</span>
+        <span class="con-section-title">Бывшие участники</span>
         <span class="con-drop-hint">Перетащи карточку актора</span>
       </div>
       {{#if system.former_members.length}}

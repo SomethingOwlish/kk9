@@ -8,11 +8,11 @@
       <div class="st-name-row">
         <input class="st-name-input" type="text" name="name"
                value="{{item.name}}" placeholder="Название статуса" />
-        <span class="st-type-badge st-type-{{system.status_type}}">
+        <span class="st-type-badge">
           {{#if (eq system.status_type "poison")}}☠ Яд
-          {{else if (eq system.status_type "shock")}}⚡ Шок
-          {{else if (eq system.status_type "magic")}}✦ Магия
-          {{else if (eq system.status_type "bleed")}}🩸 Кровотечение
+          {{else if (eq system.status_type "shock")}}Шок
+          {{else if (eq system.status_type "magic")}}Магия
+          {{else if (eq system.status_type "bleed")}}Кровотечение
           {{else if (eq system.status_type "acid")}}⚗ Кислота
           {{/if}}
         </span>
@@ -30,9 +30,9 @@
         <span class="st-param-label">Тип статуса</span>
         <select name="system.status_type" class="kk9-select">
           <option value="poison" {{#if (eq system.status_type "poison")}}selected{{/if}}>☠ Яд</option>
-          <option value="shock"  {{#if (eq system.status_type "shock")}}selected{{/if}}>⚡ Шок</option>
-          <option value="magic"  {{#if (eq system.status_type "magic")}}selected{{/if}}>✦ Магия</option>
-          <option value="bleed"  {{#if (eq system.status_type "bleed")}}selected{{/if}}>🩸 Кровотечение</option>
+          <option value="shock"  {{#if (eq system.status_type "shock")}}selected{{/if}}>Шок</option>
+          <option value="magic"  {{#if (eq system.status_type "magic")}}selected{{/if}}>Магия</option>
+          <option value="bleed"  {{#if (eq system.status_type "bleed")}}selected{{/if}}>Кровотечение</option>
           <option value="acid"   {{#if (eq system.status_type "acid")}}selected{{/if}}>⚗ Кислота</option>
         </select>
       </div>

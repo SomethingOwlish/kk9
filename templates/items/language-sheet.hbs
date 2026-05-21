@@ -8,9 +8,9 @@
         <input class="lang-name-input" type="text" name="name"
                value="{{item.name}}" placeholder="Название языка" />
         <span class="lang-world-badge lang-world-{{system.world}}">
-          {{#if (eq system.world "upper")}}☀ Верхний мир
+          {{#if (eq system.world "upper")}}Верхний мир
           {{else if (eq system.world "lower")}}🌑 Нижний мир
-          {{else}}🌐 Оба мира{{/if}}
+          {{else}}Оба мира{{/if}}
         </span>
         {{#if system.is_dead}}
         <span class="lang-dead-badge">💀 Мёртвый</span>
@@ -26,9 +26,9 @@
       <div class="lang-param-block">
         <span class="lang-param-label">Мир</span>
         <select name="system.world" class="kk9-select">
-          <option value="upper" {{#if (eq system.world "upper")}}selected{{/if}}>☀ Верхний мир</option>
+          <option value="upper" {{#if (eq system.world "upper")}}selected{{/if}}>Верхний мир</option>
           <option value="lower" {{#if (eq system.world "lower")}}selected{{/if}}>🌑 Нижний мир</option>
-          <option value="both"  {{#if (eq system.world "both")}}selected{{/if}}>🌐 Оба мира</option>
+          <option value="both"  {{#if (eq system.world "both")}}selected{{/if}}>Оба мира</option>
         </select>
       </div>
       <div class="lang-param-block lang-param-block--check">
