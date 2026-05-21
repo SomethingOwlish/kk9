@@ -5,40 +5,15 @@
       <input type="text" name="name" value="{{item.name}}"
              style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
     </div>
-    <span class="kk9-condition-badge condition-{{system.condition}}">
-      {{#if (eq system.condition "perfect")}}идеал
-      {{else if (eq system.condition "good")}}норм
-      {{else if (eq system.condition "worn")}}плохо
-      {{else if (eq system.condition "broken")}}сломан
-      {{else}}норм{{/if}}
-    </span>
+    <select name="system.condition" class="kk9-select" style="width:110px;font-size:0.8em">
+      <option value="perfect" {{#if (eq system.condition "perfect")}}selected{{/if}}>★ Идеальное</option>
+      <option value="good"    {{#if (eq system.condition "good")}}selected{{/if}}>◆ Нормальное</option>
+      <option value="worn"    {{#if (eq system.condition "worn")}}selected{{/if}}>▼ Плохое</option>
+      <option value="broken"  {{#if (eq system.condition "broken")}}selected{{/if}}>✕ Сломано</option>
+    </select>
   </header>
 
   <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-
-    {{!-- Состояние --}}
-    <div class="kk9-condition-row">
-      <span class="kk9-condition-label">Состояние</span>
-      <div class="kk9-condition-pips">
-        <label class="kk9-cond-pip {{#if (eq system.condition 'broken')}}cond-active cond-broken{{/if}}" title="Сломан">
-          <input type="radio" name="system.condition" value="broken" {{#if (eq system.condition "broken")}}checked{{/if}} style="display:none">
-          <span>✕</span>
-        </label>
-        <label class="kk9-cond-pip {{#if (eq system.condition 'worn')}}cond-active cond-worn{{/if}}" title="Плохое −1">
-          <input type="radio" name="system.condition" value="worn" {{#if (eq system.condition "worn")}}checked{{/if}} style="display:none">
-          <span>▼</span>
-        </label>
-        <label class="kk9-cond-pip {{#if (eq system.condition 'good')}}cond-active cond-good{{/if}}" title="Нормальное">
-          <input type="radio" name="system.condition" value="good" {{#if (eq system.condition "good")}}checked{{/if}} style="display:none">
-          <span>◆</span>
-        </label>
-        <label class="kk9-cond-pip {{#if (eq system.condition 'perfect')}}cond-active cond-perfect{{/if}}" title="Идеальное +1">
-          <input type="radio" name="system.condition" value="perfect" {{#if (eq system.condition "perfect")}}checked{{/if}} style="display:none">
-          <span>★</span>
-        </label>
-      </div>
-    </div>
-
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип устройства</label>
         <select name="system.device_type" class="kk9-select">
@@ -53,15 +28,56 @@
         <input type="number" name="system.charges" value="{{system.charges}}" class="kk9-input" /></div>
     </div>
 
-    {{!-- Бонус к навыку --}}
-    <div style="display:flex;flex-direction:column;gap:4px">
-      <label style="font-size:0.75em;color:var(--text-dim)">Бонус к навыку</label>
+    {{!-- Weapon-type fields --}}
+    {{#if (eq system.device_type "weapon")}}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Уровень урона</label>
+        <select name="system.damage_level" class="kk9-select">
+          <option value="light"  {{#if (eq system.damage_level "light")}}selected{{/if}}>Лёгкий</option>
+          <option value="heavy"  {{#if (eq system.damage_level "heavy")}}selected{{/if}}>Тяжёлый</option>
+          <option value="lethal" {{#if (eq system.damage_level "lethal")}}selected{{/if}}>Летальный</option>
+        </select></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип урона</label>
+        <select name="system.damage_type" class="kk9-select">
+          <option value="physical" {{#if (eq system.damage_type "physical")}}selected{{/if}}>Физический</option>
+          <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
+        </select></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Дальность (м)</label>
+        <input type="number" name="system.range" value="{{system.range}}" class="kk9-input" /></div>
+    </div>
+    {{!-- Навык атаки и кнопка для weapon-девайса --}}
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Навык атаки</label>
       <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
-           class="device-skill-drop" data-uuid="{{system.bonus_skill_uuid}}">
+           class="device-attack-skill-drop">
+        {{#if system.attack_skill_name}}
+          <span style="flex:1;font-size:0.84em">{{system.attack_skill_name}}</span>
+          <button type="button" class="btn-delete-xs device-clear-attack-skill">✕</button>
+          <input type="hidden" name="system.attack_skill_uuid" value="{{system.attack_skill_uuid}}" />
+          <input type="hidden" name="system.attack_skill_name" value="{{system.attack_skill_name}}" />
+        {{else}}
+          <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи навык или способность</span>
+          <input type="hidden" name="system.attack_skill_uuid" value="" />
+          <input type="hidden" name="system.attack_skill_name" value="" />
+        {{/if}}
+      </div>
+    </div>
+    {{#if system.attack_skill_name}}
+    <button type="button" class="device-attack-roll" style="padding:4px 12px;background:var(--gold);color:#000;border:none;border-radius:3px;cursor:pointer;font-size:0.85em;align-self:flex-start">
+      ⚔ Бросок атаки
+    </button>
+    {{/if}}
+    {{/if}}
+
+    {{!-- Бонус к навыку --}}
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Бонус к навыку</label>
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
+           class="device-skill-drop">
         {{#if system.bonus_skill_name}}
-          <span style="flex:1;font-size:0.84em;color:var(--text)">{{system.bonus_skill_name}}</span>
+          <span style="flex:1;font-size:0.84em">{{system.bonus_skill_name}}</span>
           <input type="number" name="system.bonus_value" value="{{system.bonus_value}}" class="kk9-input" style="width:50px;text-align:center" />
-          <button type="button" class="btn-delete-xs device-skill-clear">✕</button>
+          <button type="button" class="btn-delete-xs device-clear-skill">✕</button>
           <input type="hidden" name="system.bonus_skill_uuid" value="{{system.bonus_skill_uuid}}" />
           <input type="hidden" name="system.bonus_skill_name" value="{{system.bonus_skill_name}}" />
         {{else}}
@@ -72,11 +88,9 @@
       </div>
     </div>
 
-    {{!-- Создатель --}}
     <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Создатель</label>
       <input type="text" name="system.creator" value="{{system.creator}}" class="kk9-input" placeholder="Кто создал" /></div>
 
-    {{!-- Совместимость с мирами --}}
     <div style="display:flex;gap:16px;align-items:center">
       <label style="font-size:0.75em;color:var(--text-dim);display:flex;align-items:center;gap:4px">
         <input type="checkbox" name="system.works_upper" {{#if system.works_upper}}checked{{/if}} />

@@ -2034,42 +2034,15 @@
    СВЁРНУТЫЕ КУБИКИ (details/summary)
    ---------------------------------------------------------- */
 
-.kk9-dice-details {
-  border-top: 1px solid #252525;
-  background: #181818;
-}
 
-.kk9-dice-summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  font-family: 'Jost', sans-serif;
-  font-size: 0.72em;
-  color: #4a4a4a;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-  transition: color 0.1s;
-}
-.kk9-dice-summary::-webkit-details-marker { display: none; }
-.kk9-dice-summary::before {
-  content: '▶';
-  font-size: 0.7em;
-  transition: transform 0.15s;
-}
-details[open] .kk9-dice-summary::before { transform: rotate(90deg); }
-.kk9-dice-summary:hover { color: #7a6430; }
 
-.kk9-dice-body {
-  padding: 6px 10px 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-}
+
+
+
+details[open] 
+
+
+
 
 /* Отдельный кубик */
 .kk9-die {
@@ -3236,3 +3209,193 @@ input[type="radio"][style*="display:none"] { display: none !important; }
 .rarity-uncommon { background:#052e16; color:#4ade80; }
 .rarity-rare     { background:#0f172a; color:#60a5fa; }
 .rarity-unique   { background:#2e1065; color:#c084fc; }
+
+/* ═══════════════════════════════════════════════════════
+   КК9 — CHAT ROLL MESSAGES
+═══════════════════════════════════════════════════════ */
+
+.kk9-chat-roll {
+  font-family: var(--font-primary, 'Palatino Linotype', serif);
+  background: var(--color-bg-option, rgba(20,18,15,0.96));
+  border: 1px solid var(--color-border-light-tertiary, rgba(196,164,74,0.25));
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 2px 0;
+  --accent: #c4a44a;
+}
+
+/* Хедер: портрет + имя + лейбл */
+.kk9-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px 6px;
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.kk9-chat-portrait {
+  width: 36px;
+  height: 36px;
+  border-radius: 3px;
+  object-fit: cover;
+  border: 1px solid rgba(196,164,74,0.3);
+  flex-shrink: 0;
+}
+.kk9-chat-header-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.kk9-chat-name {
+  font-size: 0.95em;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+.kk9-chat-label {
+  font-size: 0.72em;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Результат — кликабельный summary */
+.kk9-result-details { margin: 0; }
+.kk9-result-details > summary { list-style: none; }
+.kk9-result-details > summary::-webkit-details-marker { display: none; }
+
+.kk9-result-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  border-left: 3px solid var(--accent);
+  transition: background 0.15s;
+  position: relative;
+}
+.kk9-result-summary:hover { background: rgba(255,255,255,0.04); }
+
+.kk9-result-icon {
+  font-size: 1.1em;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+.kk9-result-text {
+  font-size: 1.35em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex: 1;
+}
+.kk9-result-expand-hint {
+  font-size: 0.8em;
+  opacity: 0.35;
+  transition: transform 0.2s;
+}
+.kk9-result-details[open] .kk9-result-expand-hint {
+  transform: rotate(90deg);
+}
+
+/* Цвета по типу результата */
+.kk9-result-success  { --accent: #c4a44a; color: #e8c96a; }
+.kk9-result-failure  { --accent: #888; color: #aaa; }
+.kk9-result-snake    { --accent: #c0392b; color: #e74c3c; }
+.kk9-result-initiative { --accent: #c4a44a; color: #c4a44a; }
+
+/* Тело деталей — кубики */
+.kk9-dice-body {
+  padding: 8px 12px 10px 17px;
+  background: rgba(0,0,0,0.25);
+  border-top: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kk9-drow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.82em;
+  line-height: 1.5;
+}
+.kk9-drow.discarded {
+  opacity: 0.45;
+  position: relative;
+}
+.kk9-drow.discarded::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(255,255,255,0.35);
+  pointer-events: none;
+}
+.kk9-drow.discarded .kk9-dlabel,
+.kk9-drow.discarded .kk9-rv {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255,255,255,0.3);
+}
+
+.kk9-dlabel {
+  font-size: 0.78em;
+  color: rgba(255,255,255,0.35);
+  min-width: 28px;
+  font-style: italic;
+}
+
+.kk9-dvals {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  color: rgba(255,255,255,0.7);
+}
+
+/* Отдельные значения кубиков */
+.kk9-rv        { display: inline-block; }
+.kk9-rv.dk     { color: #e8c96a; font-weight: 700; } /* взятый */
+.kk9-rv.dr     { color: #666; text-decoration: line-through; text-decoration-thickness: 1px; } /* отброшенный */
+.kk9-rplus     { color: #444; margin: 0 1px; }
+
+.kk9-dsum {
+  color: rgba(196,164,74,0.8);
+  font-weight: 600;
+  font-size: 0.85em;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Модификаторы */
+.kk9-dbonus .kk9-dvals { color: rgba(196,164,74,0.6); }
+
+/* Причины бонусов */
+.kk9-dreason .kk9-dvals {
+  color: rgba(255,255,255,0.4);
+  font-style: italic;
+  font-family: inherit;
+  font-size: 0.82em;
+}
+
+/* Разделитель */
+.kk9-dsep {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin: 2px 0;
+}
+
+/* Итог */
+.kk9-dtotal .kk9-dlabel {
+  color: rgba(255,255,255,0.5);
+  font-style: normal;
+  font-weight: 600;
+}
+.kk9-dtotal-val {
+  font-size: 1.05em;
+  font-weight: 800;
+  color: #e8c96a;
+  min-width: 36px;
+  text-align: right;
+}

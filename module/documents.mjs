@@ -164,12 +164,17 @@ export class KK9Actor extends Actor {
   _getItemConditionMod(item) {
     if (!item) return { mod: 0, buffMult: 1, blocked: false };
 
-    // Artifact: destroyed = полностью сломан
+    // Артефакт: бонусы дают только если equipped=true И active=true
+    // condition влияет на ВЕЛИЧИНУ бонусов поверх активности
     if (item.type === "artifact") {
-      if (item.system.destroyed) return { mod: 0, buffMult: 0, blocked: true };
-      if (!item.system.active || !item.system.equipped)
-        return { mod: 0, buffMult: 0, blocked: false }; // не активен — просто не даёт бонусов
-      return { mod: 0, buffMult: 1, blocked: false };
+      const cond = item.system.condition ?? "good";
+      if (cond === "broken") return { blocked: true,  buffActive: false, buffTier: "broken" };
+      if (!item.system.equipped || !item.system.active)
+        return { blocked: false, buffActive: false, buffTier: "inactive" };
+      // Активен + экипирован — condition определяет модификатор бонусов
+      if (cond === "perfect") return { blocked: false, buffActive: true, buffTier: "perfect" };
+      if (cond === "worn")    return { blocked: false, buffActive: true, buffTier: "worn" };
+      return { blocked: false, buffActive: true, buffTier: "normal" }; // good
     }
 
     // Weapon / Gear / Device
@@ -191,39 +196,24 @@ export class KK9Actor extends Actor {
       success:    "kk9-result-success",
     }[degree.type] || "kk9-result-success";
 
-    const resultIcon = {
-      snake_eyes: "🐍",
-      failure:    "✦",
-      success:    "◆",
-    }[degree.type] || "◆";
 
-    const reasonsHtml = modReasons.length
-      ? `<div class="kk9-chat-reasons">${
-          modReasons.map(r => `<span class="kk9-reason">${r}</span>`).join("")
-        }</div>`
-      : "";
-
-    return `
-<div class="kk9-chat-roll" data-result-type="${degree.type}" style="--accent:${accentColor}">
-  <div class="kk9-chat-header">
-    <img class="kk9-chat-portrait" src="${portrait}" alt="${this.name}">
-    <div class="kk9-chat-header-text">
-      <span class="kk9-chat-name" style="color:${nameColor}">${this.name}</span>
-      <span class="kk9-chat-label">${label}</span>
-    </div>
-  </div>
-  <div class="kk9-chat-result-bar ${resultClass}">
-    <span class="kk9-result-icon">${resultIcon}</span>
-    <span class="kk9-result-text">${degree.label}</span>
-  </div>
-  ${reasonsHtml}
-  ${rollHtml ? `
-  <details class="kk9-dice-details">
-    <summary class="kk9-dice-summary">кубики</summary>
-    <div class="kk9-dice-body">${rollHtml}</div>
-  </details>` : ""}
-  <div class="kk9-chat-actor-byline">${this.name}</div>
-</div>`.trim();
+    return [
+      `<div class="kk9-chat-roll" data-result-type="${degree.type}" style="--accent:${accentColor}">`,
+      `  <div class="kk9-chat-header">`,
+      `    <img class="kk9-chat-portrait" src="${portrait}" alt="${this.name}">`,
+      `    <div class="kk9-chat-header-text">`,
+      `      <span class="kk9-chat-name" style="color:${nameColor}">${this.name}</span>`,
+      `      <span class="kk9-chat-label">${label}</span>`,
+      `    </div>`,
+      `  </div>`,
+      `  <details class="kk9-result-details">`,
+      `    <summary class="kk9-result-summary ${resultClass}">`,
+      `      <span class="kk9-result-text">${degree.label}</span>`,
+      `    </summary>`,
+      rollHtml ? `    <div class="kk9-dice-body">${rollHtml}</div>` : "",
+      `  </details>`,
+      `</div>`
+    ].filter(Boolean).join("\n");
   }
 
   // ----------------------------------------------------------
@@ -255,32 +245,137 @@ export class KK9Actor extends Actor {
   // Формула — взрывающиеся кубики
   // ----------------------------------------------------------
   _rollFormula(die, modStr, isWC) {
+    // Бонусы прибавляются ПОСЛЕ выбора максимума из пула
+    const mod = modStr ? ` ${modStr}` : "";
     return isWC
-      ? `{1d${die}x${modStr}, 1d6x${modStr}}kh`
-      : `1d${die}x${modStr}`;
+      ? `{1d${die}x, 1d6x}kh${mod}`.trim()
+      : `1d${die}x${mod}`.trim();
   }
 
   // ----------------------------------------------------------
   // HTML кубиков
   // ----------------------------------------------------------
-  _buildDiceHtml(roll) {
-    const parts = [];
-    const collect = (terms) => {
+  // Строит HTML для раздела "кубики" в details
+  _buildDiceHtml(roll, modReasons = []) {
+    const lines = [];
+
+    // Рекурсивно собираем Die-термы из структуры Foundry v13
+    const collectDice = (terms) => {
+      const acc = [];
       for (const t of terms) {
-        if (Array.isArray(t.results)) {
-          const faces = t.faces || "?";
-          for (const r of t.results) {
-            let cls = "kk9-die";
-            if (r.discarded) cls += " kk9-die-discarded";
-            if (r.exploded)  cls += " kk9-die-exploded";
-            parts.push(`<span class="${cls}" title="d${faces}x">d${faces}:${r.exploded ? "💥" : ""}${r.result}</span>`);
+        // Die: есть faces (число) и results (массив)
+        if (typeof t.faces === "number" && Array.isArray(t.results)) {
+          acc.push(t);
+        }
+        // PoolTerm: есть .rolls (массив Roll-объектов)
+        else if (Array.isArray(t.rolls)) {
+          for (const r of t.rolls) {
+            if (r?.terms) acc.push(...collectDice(r.terms));
           }
-        } else if (t.terms) collect(t.terms);
+        }
+        // ParentheticalTerm или вложенный Roll
+        else if (t.roll?.terms) {
+          acc.push(...collectDice(t.roll.terms));
+        }
+        // Любой термин с .terms (RollTerm subclass)
+        else if (Array.isArray(t.terms)) {
+          acc.push(...collectDice(t.terms));
+        }
+      }
+      return acc;
+    };
+    // Числовые модификаторы формулы — не выводим отдельно (они в reasons)
+    const numericMods = []; // убрано: дублирует reasons
+
+    // Строим строки для каждого Die с учётом pool.results (active/discarded)
+    // Foundry PoolTerm хранит discarded в pool.results[], а не в Die.results[]
+    const renderDice = (terms) => {
+      for (const t of terms) {
+        // PoolTerm: t.rolls — массив Roll, t.results — active/discarded
+        if (Array.isArray(t.rolls) && Array.isArray(t.results)) {
+          t.rolls.forEach((roll, idx) => {
+            const poolEntry   = t.results[idx] ?? {};
+            const isDiscarded = poolEntry.active === false || poolEntry.discarded === true;
+            // Найти Die внутри этого Roll
+            const die = roll.terms?.find(dt => typeof dt.faces === "number" && Array.isArray(dt.results));
+            if (!die) return;
+            const faces   = die.faces;
+            const results = die.results ?? [];
+            // Значения с учётом взрывных (результат всей цепочки взрывного кубика)
+            const rollStr = results.map(r => {
+              const boom = r.exploded ? "💥" : "";
+              return `<span class="kk9-rv ${isDiscarded ? "dr" : "dk"}">${boom}${r.result}</span>`;
+            }).join('<span class="kk9-rplus">+</span>');
+            const total    = results.reduce((s, r) => s + r.result, 0);
+            const rowClass = isDiscarded ? "kk9-drow discarded" : "kk9-drow kept";
+            lines.push(
+              `<div class="${rowClass}">` +
+              `<span class="kk9-dlabel">d${faces}</span>` +
+              `<span class="kk9-dvals">${rollStr}</span>` +
+              (!isDiscarded ? `<span class="kk9-dsum">= ${total}</span>` : "") +
+              `</div>`
+            );
+          });
+        }
+        // Обычный Die без пула (НПС без wild die)
+        else if (typeof t.faces === "number" && Array.isArray(t.results)) {
+          const faces   = t.faces;
+          const results = t.results ?? [];
+          const rollStr = results.map(r => {
+            const boom = r.exploded ? "💥" : "";
+            return `<span class="kk9-rv dk">${boom}${r.result}</span>`;
+          }).join('<span class="kk9-rplus">+</span>');
+          const total = results.reduce((s, r) => s + r.result, 0);
+          lines.push(
+            `<div class="kk9-drow kept">` +
+            `<span class="kk9-dlabel">d${faces}</span>` +
+            `<span class="kk9-dvals">${rollStr}</span>` +
+            `<span class="kk9-dsum">= ${total}</span>` +
+            `</div>`
+          );
+        }
+        // Рекурсия для вложенных термов
+        else if (Array.isArray(t.terms)) renderDice(t.terms);
+        else if (t.roll?.terms) renderDice(t.roll.terms);
       }
     };
-    collect(roll.terms);
-    parts.push(`<span class="kk9-die-total">= ${roll.total}</span>`);
-    return parts.join("");
+    renderDice(roll.terms);
+
+    // Числовые модификаторы формулы
+    if (numericMods.length) {
+      const total = numericMods.reduce((a, b) => a + b, 0);
+      if (total !== 0) {
+        lines.push(`<div class="kk9-dsep"></div>`);
+        lines.push(
+          `<div class="kk9-drow kk9-dbonus">` +
+          `<span class="kk9-dlabel">мод.</span>` +
+          `<span class="kk9-dvals">${total > 0 ? "+" : ""}${total}</span>` +
+          `</div>`
+        );
+      }
+    }
+
+    // Причины бонусов
+    if (modReasons.length) {
+      lines.push(`<div class="kk9-dsep"></div>`);
+      for (const r of modReasons) {
+        lines.push(
+          `<div class="kk9-drow kk9-dreason">` +
+          `<span class="kk9-dvals">→ ${r}</span>` +
+          `</div>`
+        );
+      }
+    }
+
+    // Итог
+    lines.push(`<div class="kk9-dsep"></div>`);
+    lines.push(
+      `<div class="kk9-drow kk9-dtotal">` +
+      `<span class="kk9-dlabel">итог</span>` +
+      `<span class="kk9-dtotal-val">${roll.total}</span>` +
+      `</div>`
+    );
+    return lines.join("");
   }
 
   // ----------------------------------------------------------
@@ -313,7 +408,7 @@ export class KK9Actor extends Actor {
     await roll.evaluate();
 
     const degree   = this._getSuccessDegree(roll, halfResult);
-    const diceHtml = this._buildDiceHtml(roll);
+    const diceHtml = this._buildDiceHtml(roll, allReasons);
     const content  = this._buildRollMessage(label, degree, diceHtml, allReasons);
 
     await ChatMessage.create({
@@ -324,19 +419,51 @@ export class KK9Actor extends Actor {
     return { roll, degree };
   }
 
+
+  // ----------------------------------------------------------
+  // Применить бонус артефакта с учётом состояния
+  // perfect: бонус полный + знак(бонус)*1 (т.е. +1 для положительных, -1 для отрицательных)
+  // worn:    бонус делится пополам, округление к нулю (trunc)
+  // inactive/broken: 0
+  // ----------------------------------------------------------
+  _calcArtifactBonus(rawBonus, buffTier) {
+    if (!rawBonus || !buffTier || buffTier === "broken" || buffTier === "inactive" || buffTier === "none") return 0;
+    if (buffTier === "worn")    return Math.trunc(rawBonus / 2); // к нулю (-3→-1, +3→+1)
+    if (buffTier === "perfect") return rawBonus + Math.sign(rawBonus); // +2→+3, -2→-3
+    return rawBonus; // normal (good condition)
+  }
+
   // ----------------------------------------------------------
   // АТРИБУТЫ
   // ----------------------------------------------------------
   async rollAttribute(attributeName, modifier = 0) {
     const attr = this.system.attributes?.[attributeName];
     if (!attr) return;
-    const die    = attr.die;
-    const mod    = (attr.modifier || 0) + modifier;
-    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-    const isWC   = this.type === "character";
+    const die = attr.die;
     const labels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+    // Бонус от экипированных артефактов к атрибуту
+    let artifactBonus = 0;
+    const artifactReasons = [];
+    for (const eq of this.items) {
+      if (eq.type !== "artifact") continue;
+      const cond = this._getItemConditionMod(eq);
+      if (cond.blocked || !cond.buffActive) continue;
+      const raw = eq.system.bonuses?.[attributeName] ?? 0;
+      const b   = this._calcArtifactBonus(raw, cond.buffTier);
+      if (b !== 0) {
+        artifactBonus += b;
+        artifactReasons.push(`${eq.name}: ${b > 0 ? "+" : ""}${b}`);
+      }
+    }
+    const attrMod = (attr.modifier || 0) + modifier;
+    const mod     = attrMod + artifactBonus;
+    const modStr  = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
+    const isWC    = this.type === "character";
+    // Добавляем модификатор атрибута в reasons если не ноль
+    if (attrMod !== 0) artifactReasons.unshift(`модификатор: ${attrMod > 0 ? "+" : ""}${attrMod}`);
     return this._doRoll(this._rollFormula(die, modStr, isWC), labels[attributeName] || attributeName, {
-      attrKey: attributeName
+      attrKey: attributeName,
+      reasons: artifactReasons
     });
   }
 
@@ -399,6 +526,8 @@ export class KK9Actor extends Actor {
     // Дополнительный бонус от экипированных артефактов/устройств к этому конкретному навыку
     let itemBonus = 0;
     const reasons = [];
+    // Собственный модификатор способности
+    if (baseMod !== 0) reasons.push(`модификатор: ${baseMod > 0 ? "+" : ""}${baseMod}`);
     for (const eq of this.items) {
       if (!eq.system?.equipped) continue;
       const cond = this._getItemConditionMod(eq);
@@ -406,11 +535,32 @@ export class KK9Actor extends Actor {
 
       // Артефакт: skill_bonuses — массив { item_uuid, item_name, bonus }
       if (eq.type === "artifact" && Array.isArray(eq.system.skill_bonuses)) {
-        for (const sb of eq.system.skill_bonuses) {
-          // Сравниваем по uuid предмета-навыка
-          const targetId = sb.item_uuid?.split(".").pop(); // uuid может быть полным
-          if (sb.item_uuid === item.uuid || targetId === item.id) {
-            const b = Math.floor(sb.bonus * cond.buffMult);
+        const artCond = this._getItemConditionMod(eq);
+        if (!artCond.blocked && artCond.buffActive) {
+          for (const sb of eq.system.skill_bonuses) {
+            // UUID матч: прямой, по короткому ID, или по имени (world/compendium item vs embedded)
+            const targetId   = sb.item_uuid?.split(".").pop();
+            const nameMatch  = sb.item_name && sb.item_name === item.name;
+            const uuidMatch  = sb.item_uuid === item.uuid || targetId === item.id;
+            if (uuidMatch || nameMatch) {
+              const b = this._calcArtifactBonus(sb.bonus, artCond.buffTier);
+              if (b !== 0) {
+                itemBonus += b;
+                reasons.push(`${eq.name}: ${b > 0 ? "+" : ""}${b}`);
+              }
+            }
+          }
+        }
+      }
+      // Device: bonus_skill_uuid + bonus_value
+      if (eq.type === "device" && eq.system.bonus_skill_uuid) {
+        const devCond = this._getItemConditionMod(eq);
+        if (!devCond.blocked && eq.system.equipped) {
+          const targetId = eq.system.bonus_skill_uuid?.split(".").pop();
+          if (eq.system.bonus_skill_uuid === item.uuid || targetId === item.id) {
+            const rawB = eq.system.bonus_value || 0;
+            const mult = devCond.buffMult ?? 1;
+            const b    = Math.trunc(rawB * mult);
             if (b !== 0) {
               itemBonus += b;
               reasons.push(`${eq.name}: ${b > 0 ? "+" : ""}${b}`);
@@ -418,20 +568,25 @@ export class KK9Actor extends Actor {
           }
         }
       }
-      // Device: bonus_skill_uuid + bonus_value
-      if (eq.type === "device" && eq.system.bonus_skill_uuid) {
-        const targetId = eq.system.bonus_skill_uuid?.split(".").pop();
-        if (eq.system.bonus_skill_uuid === item.uuid || targetId === item.id) {
-          const b = Math.floor((eq.system.bonus_value || 0) * cond.buffMult);
-          if (b !== 0) {
-            itemBonus += b;
-            reasons.push(`${eq.name}: ${b > 0 ? "+" : ""}${b}`);
-          }
+    }
+
+    // Бонус от артефакта к linkedAttribute
+    let attrArtifactBonus = 0;
+    if (linkedAttr) {
+      for (const eq of this.items) {
+        if (eq.type !== "artifact") continue;
+        const artCond = this._getItemConditionMod(eq);
+        if (artCond.blocked || !artCond.buffActive) continue;
+        const raw = eq.system.bonuses?.[linkedAttr] ?? 0;
+        const b   = this._calcArtifactBonus(raw, artCond.buffTier);
+        if (b !== 0) {
+          attrArtifactBonus += b;
+          reasons.push(`${eq.name} (атр.): ${b > 0 ? "+" : ""}${b}`);
         }
       }
     }
 
-    const totalMod = baseMod + itemBonus;
+    const totalMod = baseMod + itemBonus + attrArtifactBonus;
     const modStr   = totalMod !== 0 ? (totalMod > 0 ? `+${totalMod}` : `${totalMod}`) : "";
     const isWC     = this.type === "character";
 

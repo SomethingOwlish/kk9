@@ -33,6 +33,11 @@
         <input type="text" name="system.species" value="{{system.species}}"
                class="kk9-input" placeholder="Кот, ворон, лисица..." />
       </div>
+      <div class="cp-param-block">
+        <span class="cp-param-label">Хозяин</span>
+        <input type="text" name="system.owner" value="{{system.owner}}"
+               class="kk9-input" placeholder="Имя хозяина..." />
+      </div>
       <div class="cp-param-block cp-param-block--sm">
         <span class="cp-param-label">Возраст</span>
         <input type="number" name="system.age" value="{{system.age}}"
@@ -50,40 +55,40 @@
       </div>
     </div>
 
-    {{!-- Инициатива --}}
+    {{!-- Атрибуты --}}
     <div class="cp-section">
-      <div class="cp-section-title">Инициатива</div>
-      <div class="cp-init-row">
-        <div class="cp-param-block">
-          <span class="cp-param-label">Кубик</span>
-          <select name="system.initiative.die" class="kk9-select">
-            <option value="4"  {{#if (eq system.initiative.die 4)}}selected{{/if}}>d4</option>
-            <option value="6"  {{#if (eq system.initiative.die 6)}}selected{{/if}}>d6</option>
-            <option value="8"  {{#if (eq system.initiative.die 8)}}selected{{/if}}>d8</option>
-            <option value="10" {{#if (eq system.initiative.die 10)}}selected{{/if}}>d10</option>
-            <option value="12" {{#if (eq system.initiative.die 12)}}selected{{/if}}>d12</option>
-            <option value="20" {{#if (eq system.initiative.die 20)}}selected{{/if}}>d20</option>
-          </select>
-        </div>
-        <div class="cp-param-block cp-param-block--sm">
-          <span class="cp-param-label">Модификатор</span>
-          <input type="number" name="system.initiative.modifier"
-                 value="{{system.initiative.modifier}}"
-                 class="kk9-input" />
-        </div>
-        <div class="cp-param-block cp-param-block--formula">
-          <span class="cp-param-label">Формула</span>
-          <span class="cp-formula">
-            1d{{system.initiative.die}}
-            {{#if system.initiative.modifier}}
-              {{#if (gt system.initiative.modifier 0)}}+{{system.initiative.modifier}}
-              {{else}}{{system.initiative.modifier}}{{/if}}
-            {{/if}}
+      <div class="cp-section-title">Характеристики</div>
+      <div class="npc-attributes-grid">
+        {{#each system.attributes as |attr key|}}
+        <div class="npc-attr-box cp-attr-roll" data-attr="{{key}}" title="Бросить">
+          <span class="npc-attr-label">
+            {{#if (eq key "agility")}}Ловкость
+            {{else if (eq key "smarts")}}Смекалка
+            {{else if (eq key "spirit")}}Дух
+            {{else if (eq key "strength")}}Сила
+            {{else if (eq key "magic")}}Магия
+            {{else}}{{key}}{{/if}}
           </span>
+          <span class="npc-attr-die">d{{attr.die}}{{#if attr.modifier}}{{#if (gt attr.modifier 0)}}+{{attr.modifier}}{{else}}{{attr.modifier}}{{/if}}{{/if}}</span>
+          <select name="system.attributes.{{key}}.die" class="npc-die-select" onclick="event.stopPropagation()">
+            <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
+            <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
+            <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
+            <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
+            <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
+          </select>
+          <input type="number" name="system.attributes.{{key}}.modifier"
+                 value="{{attr.modifier}}" placeholder="±0" onclick="event.stopPropagation()"
+                 class="npc-die-select" style="text-align:center" />
         </div>
-        <button type="button" class="cp-roll-init-btn companion-roll-initiative">
-          Бросить
-        </button>
+        {{/each}}
+      </div>
+      {{!-- Инициатива из Ловкости + Смекалки --}}
+      <div class="derived-bar" style="margin-top:8px;padding:4px 0;background:transparent;border:none">
+        <div class="derived-btn companion-roll-initiative" title="Инициатива (Лов + Смек)">
+          <span class="derived-lbl">Инициатива</span>
+          <span class="derived-ico" aria-hidden="true"></span>
+        </div>
       </div>
     </div>
 

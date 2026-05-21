@@ -1,137 +1,164 @@
-{{!-- КК9 | Карточка артефакта v2.0 --}}
+{{!-- КК9 | Карточка артефакта v3.0 --}}
 <form class="kk9-sheet item-sheet artifact-sheet" autocomplete="off">
-  <header class="sheet-header" style="display:flex;gap:10px;align-items:center">
-    <img class="profile-img" src="{{item.img}}" data-edit="img" title="{{item.name}}" />
-    <div class="header-fields" style="flex:1;min-width:0">
-      <input class="name-input" type="text" name="name" value="{{item.name}}" />
-      <select name="system.rarity" class="rarity-select rarity-{{system.rarity}}">
-        {{#each rarityOptions}}
-        <option value="{{value}}" {{#if (eq value ../system.rarity)}}selected{{/if}}>{{label}}</option>
-        {{/each}}
-      </select>
+  <header style="display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border-bottom:1px solid var(--border)">
+    <img src="{{item.img}}" data-edit="img" style="width:48px;height:48px;border-radius:4px;cursor:pointer;object-fit:cover" />
+    <div style="flex:1;min-width:0">
+      <input type="text" name="name" value="{{item.name}}"
+             style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
+
     </div>
-    {{!-- Бейдж состояния --}}
-    {{#if system.destroyed}}
-      <span class="kk9-condition-badge condition-broken">уничтожен</span>
-    {{else if system.active}}
-      <span class="kk9-condition-badge condition-perfect">активен</span>
-    {{else}}
-      <span class="kk9-condition-badge condition-good">неактивен</span>
-    {{/if}}
+
   </header>
 
-  <nav class="sheet-tabs" data-group="primary">
-    <a class="item" data-tab="description">Описание</a>
-    <a class="item" data-tab="details">Параметры</a>
-  </nav>
+  <div style="padding:12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:580px">
 
-  <div class="sheet-body">
-
-    {{!-- ОПИСАНИЕ --}}
-    <div class="tab" data-group="primary" data-tab="description">
-      {{editor system.description target="system.description" button=true editable=editable}}
+    {{!-- Редкость и состояние --}}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Редкость</label>
+        <select name="system.rarity" class="kk9-select">
+          {{#each rarityOptions}}
+          <option value="{{value}}" {{#if (eq value ../system.rarity)}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Состояние</label>
+        <select name="system.condition" class="kk9-select">
+          <option value="perfect" {{#if (eq system.condition "perfect")}}selected{{/if}}>★ Активен (+1)</option>
+          <option value="good"    {{#if (eq system.condition "good")}}selected{{/if}}>◆ Неактивен</option>
+          <option value="worn"    {{#if (eq system.condition "worn")}}selected{{/if}}>▼ Повреждён (×½)</option>
+          <option value="broken"  {{#if (eq system.condition "broken")}}selected{{/if}}>✕ Уничтожен</option>
+        </select></div>
     </div>
 
-    {{!-- ПАРАМЕТРЫ --}}
-    <div class="tab" data-group="primary" data-tab="details">
-
-      {{!-- Состояние артефакта --}}
-      <div class="kk9-condition-row" style="margin-bottom:12px">
-        <span class="kk9-condition-label">Состояние</span>
-        <div class="kk9-condition-pips">
-          <label class="kk9-cond-pip {{#if system.destroyed}}cond-active cond-broken{{/if}}" title="Уничтожен — не работает">
-            <input type="checkbox" name="system.destroyed" {{#if system.destroyed}}checked{{/if}} style="display:none">
-            <span>✕</span>
-          </label>
-          <label class="kk9-cond-pip {{#unless system.destroyed}}{{#unless system.active}}cond-active cond-good{{/unless}}{{/unless}}" title="Экипирован, но не активен">
-            <span>◆</span>
-          </label>
-          <label class="kk9-cond-pip {{#if system.active}}{{#unless system.destroyed}}cond-active cond-perfect{{/unless}}{{/if}}" title="Активен — даёт бонусы">
-            <input type="checkbox" name="system.active" {{#if system.active}}checked{{/if}} style="display:none">
-            <span>★</span>
-          </label>
-        </div>
-        <span style="font-size:0.7em;color:var(--text-dim);margin-left:8px">
-          {{#if system.destroyed}}уничтожен{{else if system.active}}активен — бонусы работают{{else}}неактивен{{/if}}
-        </span>
+    {{!-- Тип, класс, размер --}}
+    {{#unless (eq system.artifact_type "wand")}}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип</label>
+        <select name="system.artifact_type" class="kk9-select">
+          <option value="attack"       {{#if (eq system.artifact_type "attack")}}selected{{/if}}>Атака</option>
+          <option value="defense"      {{#if (eq system.artifact_type "defense")}}selected{{/if}}>Защита</option>
+          <option value="binding"      {{#if (eq system.artifact_type "binding")}}selected{{/if}}>Связывание</option>
+          <option value="spatial"      {{#if (eq system.artifact_type "spatial")}}selected{{/if}}>Пространственный</option>
+          <option value="utility"      {{#if (eq system.artifact_type "utility")}}selected{{/if}}>Утилита</option>
+          <option value="buff"         {{#if (eq system.artifact_type "buff")}}selected{{/if}}>Усиление</option>
+          <option value="transforming" {{#if (eq system.artifact_type "transforming")}}selected{{/if}}>Трансформация</option>
+          <option value="prophetic"    {{#if (eq system.artifact_type "prophetic")}}selected{{/if}}>Пророческий</option>
+          <option value="wand"         {{#if (eq system.artifact_type "wand")}}selected{{/if}}>Палочка</option>
+        </select></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Класс</label>
+        <select name="system.artifact_class" class="kk9-select">
+          <option value="simple"  {{#if (eq system.artifact_class "simple")}}selected{{/if}}>Простой</option>
+          <option value="complex" {{#if (eq system.artifact_class "complex")}}selected{{/if}}>Сложный</option>
+        </select></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Размер</label>
+        <select name="system.size" class="kk9-select">
+          <option value="finger"    {{#if (eq system.size "finger")}}selected{{/if}}>Пальцевый</option>
+          <option value="pocket"    {{#if (eq system.size "pocket")}}selected{{/if}}>Карманный</option>
+          <option value="small"     {{#if (eq system.size "small")}}selected{{/if}}>Малый</option>
+          <option value="medium"    {{#if (eq system.size "medium")}}selected{{/if}}>Средний</option>
+          <option value="large"     {{#if (eq system.size "large")}}selected{{/if}}>Большой</option>
+          <option value="huge"      {{#if (eq system.size "huge")}}selected{{/if}}>Огромный</option>
+          <option value="immovable" {{#if (eq system.size "immovable")}}selected{{/if}}>Неподвижный</option>
+        </select></div>
+      <div style="display:flex;align-items:flex-end;gap:10px;padding-bottom:2px;flex-wrap:wrap">
+        <label style="font-size:0.75em;color:var(--text-dim);display:flex;align-items:center;gap:4px">
+          <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
+          Экипирован
+        </label>
+        <label style="font-size:0.75em;color:var(--accent,#c4a44a);display:flex;align-items:center;gap:4px">
+          <input type="checkbox" name="system.active" {{#if system.active}}checked{{/if}} />
+          Активен
+        </label>
       </div>
+    </div>
+    {{else}}
+    {{!-- Палочка — тип всегда wand, показываем выбор для смены типа маленьким --}}
+    <div style="display:flex;gap:8px;align-items:center">
+      <select name="system.artifact_type" class="kk9-select" style="font-size:0.8em">
+        <option value="attack"       {{#if (eq system.artifact_type "attack")}}selected{{/if}}>Атака</option>
+        <option value="defense"      {{#if (eq system.artifact_type "defense")}}selected{{/if}}>Защита</option>
+        <option value="binding"      {{#if (eq system.artifact_type "binding")}}selected{{/if}}>Связывание</option>
+        <option value="spatial"      {{#if (eq system.artifact_type "spatial")}}selected{{/if}}>Пространственный</option>
+        <option value="utility"      {{#if (eq system.artifact_type "utility")}}selected{{/if}}>Утилита</option>
+        <option value="buff"         {{#if (eq system.artifact_type "buff")}}selected{{/if}}>Усиление</option>
+        <option value="transforming" {{#if (eq system.artifact_type "transforming")}}selected{{/if}}>Трансформация</option>
+        <option value="prophetic"    {{#if (eq system.artifact_type "prophetic")}}selected{{/if}}>Пророческий</option>
+        <option value="wand"         {{#if (eq system.artifact_type "wand")}}selected{{/if}}>Палочка</option>
+      </select>
+      <label style="font-size:0.75em;color:var(--text-dim)">Экипирована</label>
+      <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
+    </div>
+    {{/unless}}
 
-      {{!-- Экипирован --}}
-      <div class="stat-row" style="margin-bottom:8px">
-        <label style="font-size:0.8em;color:var(--text-dim)">Экипирован</label>
-        <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
+    {{!-- ПАЛОЧКА: специфичные поля --}}
+    {{#if (eq system.artifact_type "wand")}}
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Создатель</label>
+        <input type="text" name="system.creator" value="{{system.creator}}" class="kk9-input" placeholder="Имя мастера-волшебника" /></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Древесина</label>
+          <input type="text" name="system.wand_wood" value="{{system.wand_wood}}" class="kk9-input" placeholder="Дуб, ясень..." /></div>
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Сердечник</label>
+          <input type="text" name="system.wand_core" value="{{system.wand_core}}" class="kk9-input" placeholder="Волос дракона..." /></div>
       </div>
+      {{#if (or (eq system.rarity "rare") (eq system.rarity "unique"))}}
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Возраст (лет)</label>
+        <input type="number" name="system.artifact_age" value="{{system.artifact_age}}" class="kk9-input" style="width:80px" /></div>
+      {{/if}}
+    </div>
 
-      {{!-- Тип и класс --}}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип</label>
-          <select name="system.artifact_type" class="kk9-select">
-            <option value="attack"      {{#if (eq system.artifact_type "attack")}}selected{{/if}}>Атака</option>
-            <option value="defense"     {{#if (eq system.artifact_type "defense")}}selected{{/if}}>Защита</option>
-            <option value="binding"     {{#if (eq system.artifact_type "binding")}}selected{{/if}}>Связывание</option>
-            <option value="spatial"     {{#if (eq system.artifact_type "spatial")}}selected{{/if}}>Пространственный</option>
-            <option value="utility"     {{#if (eq system.artifact_type "utility")}}selected{{/if}}>Утилита</option>
-            <option value="buff"        {{#if (eq system.artifact_type "buff")}}selected{{/if}}>Усиление</option>
-            <option value="transforming"{{#if (eq system.artifact_type "transforming")}}selected{{/if}}>Трансформация</option>
-            <option value="prophetic"   {{#if (eq system.artifact_type "prophetic")}}selected{{/if}}>Пророческий</option>
-            <option value="wand"        {{#if (eq system.artifact_type "wand")}}selected{{/if}}>Палочка</option>
-          </select></div>
-        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Класс</label>
-          <select name="system.artifact_class" class="kk9-select">
-            <option value="simple"  {{#if (eq system.artifact_class "simple")}}selected{{/if}}>Простой</option>
-            <option value="complex" {{#if (eq system.artifact_class "complex")}}selected{{/if}}>Сложный</option>
-          </select></div>
-        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Размер</label>
-          <select name="system.size" class="kk9-select">
-            <option value="finger"    {{#if (eq system.size "finger")}}selected{{/if}}>Пальцевый</option>
-            <option value="pocket"    {{#if (eq system.size "pocket")}}selected{{/if}}>Карманный</option>
-            <option value="small"     {{#if (eq system.size "small")}}selected{{/if}}>Малый</option>
-            <option value="medium"    {{#if (eq system.size "medium")}}selected{{/if}}>Средний</option>
-            <option value="large"     {{#if (eq system.size "large")}}selected{{/if}}>Большой</option>
-            <option value="huge"      {{#if (eq system.size "huge")}}selected{{/if}}>Огромный</option>
-            <option value="immovable" {{#if (eq system.size "immovable")}}selected{{/if}}>Неподвижный</option>
-          </select></div>
-        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Возраст (лет)</label>
-          <input type="number" name="system.artifact_age" value="{{system.artifact_age}}" class="kk9-input" /></div>
-      </div>
+    {{else}}
+    {{!-- ОБЫЧНЫЙ АРТЕФАКТ --}}
 
-      {{!-- Создатель и условие активации --}}
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
-        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Создатель</label>
-          <input type="text" name="system.creator" value="{{system.creator}}" class="kk9-input" placeholder="Имя создателя" /></div>
-        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Условие активации</label>
-          <input type="text" name="system.activation_condition" value="{{system.activation_condition}}" class="kk9-input" placeholder="Как активировать" /></div>
-      </div>
+    {{!-- Создатель и условие --}}
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Создатель</label>
+        <input type="text" name="system.creator" value="{{system.creator}}" class="kk9-input" placeholder="Имя создателя" /></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Условие активации</label>
+        <input type="text" name="system.activation_condition" value="{{system.activation_condition}}" class="kk9-input" placeholder="Как активировать" /></div>
+    </div>
 
-      {{!-- Бонусы к атрибутам --}}
-      <div class="section-title" style="margin-bottom:6px">Бонусы к атрибутам</div>
+    {{!-- Возраст только для rare/unique --}}
+    {{#if (or (eq system.rarity "rare") (eq system.rarity "unique"))}}
+    <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Возраст (лет)</label>
+      <input type="number" name="system.artifact_age" value="{{system.artifact_age}}" class="kk9-input" style="width:80px" /></div>
+    {{/if}}
+
+    {{!-- БОНУСЫ — только для buff --}}
+    {{#if (eq system.artifact_type "buff")}}
+    <div style="border:1px solid rgba(196,164,74,0.2);border-radius:4px;padding:8px;background:rgba(196,164,74,0.04)">
+      <div style="font-size:0.8em;text-transform:uppercase;letter-spacing:0.05em;color:var(--gold);margin-bottom:8px">Бонусы к атрибутам</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
         {{#each system.bonuses as |val key|}}
         <div>
-          <label style="font-size:0.68em;color:var(--text-dim);display:block;letter-spacing:0.04em">{{#if (eq key "agility")}}Ловкость{{else if (eq key "smarts")}}Смекалка{{else if (eq key "spirit")}}Дух{{else if (eq key "strength")}}Сила{{else if (eq key "magic")}}Магия{{else if (eq key "toughness")}}Стойкость{{else}}{{key}}{{/if}}</label>
+          <label style="font-size:0.68em;color:var(--text-dim);display:block">
+            {{#if (eq key "agility")}}Ловкость{{else if (eq key "smarts")}}Смекалка{{else if (eq key "spirit")}}Дух{{else if (eq key "strength")}}Сила{{else if (eq key "magic")}}Магия{{else if (eq key "toughness")}}Стойкость{{else}}{{key}}{{/if}}
+          </label>
           <input type="number" name="system.bonuses.{{key}}" value="{{val}}" class="kk9-input" style="text-align:center" />
         </div>
         {{/each}}
       </div>
-
-      {{!-- Бонусы к навыкам — drag-drop --}}
-      <div class="section-title" style="margin-bottom:6px">Бонусы к навыкам</div>
-      <div class="artifact-skill-bonuses-drop" style="min-height:32px;border:1px dashed var(--border2);border-radius:3px;padding:4px 8px;margin-bottom:6px">
+      <div style="font-size:0.8em;text-transform:uppercase;letter-spacing:0.05em;color:var(--gold);margin-bottom:6px">Бонусы к навыкам</div>
+      <div class="artifact-skill-bonuses-drop" style="min-height:32px;border:1px dashed var(--border2);border-radius:3px;padding:4px 8px">
         {{#each system.skill_bonuses}}
         <div style="display:flex;align-items:center;gap:6px;padding:2px 0">
-          <span style="flex:1;font-size:0.84em;color:var(--text)">{{item_name}}</span>
+          <input type="hidden" name="system.skill_bonuses.{{@index}}.item_uuid" value="{{item_uuid}}" />
+          <input type="hidden" name="system.skill_bonuses.{{@index}}.item_name" value="{{item_name}}" />
+          <span style="flex:1;font-size:0.84em">{{item_name}}</span>
           <input type="number" name="system.skill_bonuses.{{@index}}.bonus" value="{{bonus}}" class="kk9-input" style="width:50px;text-align:center" />
-          <button type="button" class="btn-delete-xs artifact-skill-bonus-del" data-index="{{@index}}">✕</button>
+          <button type="button" class="btn-delete-xs art-remove-skill-bonus" data-uuid="{{item_uuid}}">✕</button>
         </div>
         {{else}}
         <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи навык или способность</span>
         {{/each}}
       </div>
+    </div>
+    {{/if}}
 
-      {{!-- Атакующие параметры --}}
-      {{#if (eq system.artifact_type "attack")}}
-      <div class="section-title" style="margin-bottom:6px">Атака</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    {{!-- АТАКА — только для attack --}}
+    {{#if (eq system.artifact_type "attack")}}
+    <div style="border:1px solid rgba(239,68,68,0.2);border-radius:4px;padding:8px;background:rgba(239,68,68,0.03)">
+      <div style="font-size:0.8em;text-transform:uppercase;color:#ef4444;margin-bottom:8px">Атака</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
         <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Уровень урона</label>
           <select name="system.damage_level" class="kk9-select">
             <option value="light"  {{#if (eq system.damage_level "light")}}selected{{/if}}>Лёгкий</option>
@@ -144,21 +171,51 @@
             <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
           </select></div>
       </div>
-      {{/if}}
-
-      {{!-- Восстановление энергии --}}
-      <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
-        <label style="font-size:0.75em;color:var(--text-dim);min-width:150px">Восстановление энергии</label>
-        <input type="number" name="system.energy_restore" value="{{system.energy_restore}}"
-               class="kk9-input" min="0" style="width:60px;text-align:center" />
-        {{#if (gt system.energy_restore 0)}}
-        <button type="button" class="art-use-energy-restore kk9-btn-energy"
-                title="Использовать артефакт — восстановить энергию">
-          ✦ Восстановить (+{{system.energy_restore}})
-        </button>
-        {{/if}}
+      <div>
+        <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Навык для броска атаки</label>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
+             class="artifact-skill-drop">
+          {{#if system.skill_name}}
+            <span style="flex:1;font-size:0.84em">{{system.skill_name}}</span>
+            <button type="button" class="btn-delete-xs art-clear-skill">✕</button>
+            <input type="hidden" name="system.skill_uuid" value="{{system.skill_uuid}}" />
+            <input type="hidden" name="system.skill_name" value="{{system.skill_name}}" />
+          {{else}}
+            <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи навык</span>
+            <input type="hidden" name="system.skill_uuid" value="" />
+            <input type="hidden" name="system.skill_name" value="" />
+          {{/if}}
+        </div>
       </div>
-
+      {{#if system.skill_name}}
+      <button type="button" class="artifact-attack-roll" style="margin-top:6px;padding:4px 12px;background:var(--gold);color:#000;border:none;border-radius:3px;cursor:pointer;font-size:0.85em">
+        ⚔ Бросок атаки
+      </button>
+      {{/if}}
     </div>
+    {{/if}}
+
+    {{!-- Восстановление энергии — не для buff --}}
+    {{#if (eq system.artifact_type "utility")}}
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:0.75em;color:var(--text-dim);min-width:150px">Восстановление энергии</label>
+      <input type="number" name="system.energy_restore" value="{{system.energy_restore}}"
+             class="kk9-input" min="0" style="width:60px;text-align:center" />
+      {{#if (gt system.energy_restore 0)}}
+      <button type="button" class="art-use-energy-restore" style="padding:4px 10px;background:rgba(196,164,74,0.2);color:var(--gold);border:1px solid rgba(196,164,74,0.4);border-radius:3px;cursor:pointer;font-size:0.8em">
+        ✦ Восстановить (+{{system.energy_restore}})
+      </button>
+      {{/if}}
+    </div>
+    {{/if}}
+
+    {{/if}}{{!-- end wand/else --}}
+
+    {{!-- Описание --}}
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
+      {{editor system.description target="system.description" button=true editable=editable}}
+    </div>
+
   </div>
 </form>

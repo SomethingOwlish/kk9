@@ -5,42 +5,15 @@
       <input type="text" name="name" value="{{item.name}}"
              style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
     </div>
-    {{!-- Бейдж состояния в шапке --}}
-    <span class="kk9-condition-badge condition-{{system.condition}}">
-      {{#if (eq system.condition "perfect")}}идеал
-      {{else if (eq system.condition "good")}}норм
-      {{else if (eq system.condition "worn")}}плохо
-      {{else if (eq system.condition "broken")}}сломан
-      {{else}}норм{{/if}}
-    </span>
+    <select name="system.condition" class="kk9-select" style="width:110px;font-size:0.8em">
+      <option value="perfect" {{#if (eq system.condition "perfect")}}selected{{/if}}>★ Идеальное</option>
+      <option value="good"    {{#if (eq system.condition "good")}}selected{{/if}}>◆ Нормальное</option>
+      <option value="worn"    {{#if (eq system.condition "worn")}}selected{{/if}}>▼ Плохое</option>
+      <option value="broken"  {{#if (eq system.condition "broken")}}selected{{/if}}>✕ Сломано</option>
+    </select>
   </header>
 
   <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-
-    {{!-- Состояние --}}
-    <div class="kk9-condition-row">
-      <span class="kk9-condition-label">Состояние</span>
-      <div class="kk9-condition-pips">
-        <label class="kk9-cond-pip {{#if (eq system.condition 'broken')}}cond-active cond-broken{{/if}}" title="Сломан">
-          <input type="radio" name="system.condition" value="broken" {{#if (eq system.condition "broken")}}checked{{/if}} style="display:none">
-          <span>✕</span>
-        </label>
-        <label class="kk9-cond-pip {{#if (eq system.condition 'worn')}}cond-active cond-worn{{/if}}" title="Плохое −1">
-          <input type="radio" name="system.condition" value="worn" {{#if (eq system.condition "worn")}}checked{{/if}} style="display:none">
-          <span>▼</span>
-        </label>
-        <label class="kk9-cond-pip {{#if (eq system.condition 'good')}}cond-active cond-good{{/if}}" title="Нормальное">
-          <input type="radio" name="system.condition" value="good" {{#if (eq system.condition "good")}}checked{{/if}} style="display:none">
-          <span>◆</span>
-        </label>
-        <label class="kk9-cond-pip {{#if (eq system.condition 'perfect')}}cond-active cond-perfect{{/if}}" title="Идеальное +1">
-          <input type="radio" name="system.condition" value="perfect" {{#if (eq system.condition "perfect")}}checked{{/if}} style="display:none">
-          <span>★</span>
-        </label>
-      </div>
-    </div>
-
-    {{!-- Параметры --}}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Уровень урона</label>
         <select name="system.damage_level" class="kk9-select">
@@ -71,14 +44,55 @@
         <input type="number" name="system.rof" value="{{system.rof}}" class="kk9-input" /></div>
     </div>
 
-    <div style="display:flex;align-items:center;gap:8px">
+    {{!-- Навык для броска атаки --}}
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Навык атаки</label>
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
+           class="weapon-skill-drop">
+        {{#if system.skill_name}}
+          <span style="flex:1;font-size:0.84em">{{system.skill_name}}</span>
+          <button type="button" class="btn-delete-xs wp-clear-skill">✕</button>
+          <input type="hidden" name="system.skill_uuid" value="{{system.skill_uuid}}" />
+          <input type="hidden" name="system.skill_name" value="{{system.skill_name}}" />
+        {{else}}
+          <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи навык или способность</span>
+          <input type="hidden" name="system.skill_uuid" value="" />
+          <input type="hidden" name="system.skill_name" value="" />
+        {{/if}}
+      </div>
+    </div>
+
+    {{!-- Статус при попадании --}}
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Статус при попадании</label>
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
+           class="weapon-status-drop">
+        {{#if system.status_name}}
+          <span style="flex:1;font-size:0.84em">{{system.status_name}}</span>
+          <button type="button" class="btn-delete-xs wp-clear-status">✕</button>
+          <input type="hidden" name="system.status_uuid" value="{{system.status_uuid}}" />
+          <input type="hidden" name="system.status_name" value="{{system.status_name}}" />
+        {{else}}
+          <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи статус-эффект</span>
+          <input type="hidden" name="system.status_uuid" value="" />
+          <input type="hidden" name="system.status_name" value="" />
+        {{/if}}
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <label style="font-size:0.75em;color:var(--text-dim)">Экипировано</label>
       <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
+      {{#if system.skill_name}}
+        <button type="button" class="weapon-attack-roll" style="margin-left:auto;padding:4px 12px;background:var(--gold);color:#000;border:none;border-radius:3px;cursor:pointer;font-size:0.85em">
+          ⚔ Бросок атаки
+        </button>
+      {{/if}}
     </div>
 
     <div>
       <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
+      {{editor system.description target="system.description" button=true owner=true editable=editable}}
     </div>
   </div>
 </form>

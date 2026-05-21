@@ -13,6 +13,7 @@
 
       {{!-- ВЕРХНЯЯ СТРОКА: сердце | имя | статус | шкала | крестик --}}
       <div class="relation-top-row">
+        <input type="hidden" name="system.relations.{{@index}}.love" value="{{#if rel.love}}true{{else}}false{{/if}}" />
         <button type="button" class="love-toggle {{#if rel.love}}love-active{{/if}}"
                 data-index="{{@index}}" title="Любовь">♥</button>
 

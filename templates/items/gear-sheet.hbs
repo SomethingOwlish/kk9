@@ -5,40 +5,15 @@
       <input type="text" name="name" value="{{item.name}}"
              style="font-family:'Caveat',cursive;font-size:1.3em;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--text-head);width:100%" />
     </div>
-    <span class="kk9-condition-badge condition-{{system.condition}}">
-      {{#if (eq system.condition "perfect")}}идеал
-      {{else if (eq system.condition "good")}}норм
-      {{else if (eq system.condition "worn")}}плохо
-      {{else if (eq system.condition "broken")}}сломан
-      {{else}}норм{{/if}}
-    </span>
+    <select name="system.condition" class="kk9-select" style="width:110px;font-size:0.8em">
+      <option value="perfect" {{#if (eq system.condition "perfect")}}selected{{/if}}>★ Идеальное</option>
+      <option value="good"    {{#if (eq system.condition "good")}}selected{{/if}}>◆ Нормальное</option>
+      <option value="worn"    {{#if (eq system.condition "worn")}}selected{{/if}}>▼ Плохое</option>
+      <option value="broken"  {{#if (eq system.condition "broken")}}selected{{/if}}>✕ Сломано</option>
+    </select>
   </header>
 
   <div style="padding:12px;display:flex;flex-direction:column;gap:10px">
-
-    {{!-- Состояние --}}
-    <div class="kk9-condition-row">
-      <span class="kk9-condition-label">Состояние</span>
-      <div class="kk9-condition-pips">
-        <label class="kk9-cond-pip {{#if (eq system.condition 'broken')}}cond-active cond-broken{{/if}}" title="Сломан">
-          <input type="radio" name="system.condition" value="broken" {{#if (eq system.condition "broken")}}checked{{/if}} style="display:none">
-          <span>✕</span>
-        </label>
-        <label class="kk9-cond-pip {{#if (eq system.condition 'worn')}}cond-active cond-worn{{/if}}" title="Плохое −1">
-          <input type="radio" name="system.condition" value="worn" {{#if (eq system.condition "worn")}}checked{{/if}} style="display:none">
-          <span>▼</span>
-        </label>
-        <label class="kk9-cond-pip {{#if (eq system.condition 'good')}}cond-active cond-good{{/if}}" title="Нормальное">
-          <input type="radio" name="system.condition" value="good" {{#if (eq system.condition "good")}}checked{{/if}} style="display:none">
-          <span>◆</span>
-        </label>
-        <label class="kk9-cond-pip {{#if (eq system.condition 'perfect')}}cond-active cond-perfect{{/if}}" title="Идеальное +1">
-          <input type="radio" name="system.condition" value="perfect" {{#if (eq system.condition "perfect")}}checked{{/if}} style="display:none">
-          <span>★</span>
-        </label>
-      </div>
-    </div>
-
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип</label>
         <select name="system.gear_type" class="kk9-select">
@@ -64,23 +39,61 @@
       </div>
     </div>
 
-    <div>
-      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
+    {{!-- Атакующие поля — только для типа attack --}}
+    {{#if (eq system.gear_type "attack")}}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Уровень урона</label>
+        <select name="system.damage_level" class="kk9-select">
+          <option value="light"  {{#if (eq system.damage_level "light")}}selected{{/if}}>Лёгкий</option>
+          <option value="heavy"  {{#if (eq system.damage_level "heavy")}}selected{{/if}}>Тяжёлый</option>
+          <option value="lethal" {{#if (eq system.damage_level "lethal")}}selected{{/if}}>Летальный</option>
+        </select></div>
+      <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип урона</label>
+        <select name="system.damage_type" class="kk9-select">
+          <option value="physical" {{#if (eq system.damage_type "physical")}}selected{{/if}}>Физический</option>
+          <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
+        </select></div>
     </div>
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Навык атаки</label>
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
+           class="gear-skill-drop">
+        {{#if system.skill_name}}
+          <span style="flex:1;font-size:0.84em">{{system.skill_name}}</span>
+          <button type="button" class="btn-delete-xs gear-clear-skill">✕</button>
+          <input type="hidden" name="system.skill_uuid" value="{{system.skill_uuid}}" />
+          <input type="hidden" name="system.skill_name" value="{{system.skill_name}}" />
+        {{else}}
+          <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи навык</span>
+          <input type="hidden" name="system.skill_uuid" value="" />
+          <input type="hidden" name="system.skill_name" value="" />
+        {{/if}}
+      </div>
+    </div>
+    {{#if system.skill_name}}
+    <button type="button" class="gear-attack-roll" style="padding:4px 12px;background:var(--gold);color:#000;border:none;border-radius:3px;cursor:pointer;font-size:0.85em;align-self:flex-start">
+      ⚔ Бросок атаки
+    </button>
+    {{/if}}
+    {{/if}}
 
-    {{!-- Восстановление энергии (для утилит/зелий) --}}
-    <div style="display:flex;align-items:center;gap:8px;padding-top:4px">
+    {{!-- Восстановление энергии — только для utility --}}
+    {{#if (eq system.gear_type "utility")}}
+    <div style="display:flex;align-items:center;gap:8px">
       <label style="font-size:0.75em;color:var(--text-dim);min-width:150px">Восстановление энергии</label>
       <input type="number" name="system.energy_restore" value="{{system.energy_restore}}"
              class="kk9-input" min="0" style="width:60px;text-align:center" />
       {{#if (gt system.energy_restore 0)}}
-      <button type="button" class="gear-use-energy-restore kk9-btn-energy"
-              title="Использовать предмет — восстановить энергию (тратит 1 шт.)">
+      <button type="button" class="gear-use-energy-restore" style="padding:4px 10px;background:rgba(196,164,74,0.2);color:var(--gold);border:1px solid rgba(196,164,74,0.4);border-radius:3px;cursor:pointer;font-size:0.8em">
         ✦ Использовать (+{{system.energy_restore}})
       </button>
       {{/if}}
     </div>
+    {{/if}}
 
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
+      {{editor system.description target="system.description" button=true owner=true editable=editable}}
+    </div>
   </div>
 </form>

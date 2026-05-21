@@ -580,9 +580,41 @@ export class DaemonDataModel extends foundry.abstract.TypeDataModel {
         })
       }),
 
-      // Стойкость
-      toughness: new fields.NumberField({ initial: 5, integer: true }),
-condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] })
+      // Атрибуты даймона
+      attributes: new fields.SchemaField({
+        agility:  new fields.SchemaField({
+          die:      new fields.NumberField({ initial: 6, integer: true }),
+          modifier: new fields.NumberField({ initial: 0, integer: true })
+        }),
+        smarts:   new fields.SchemaField({
+          die:      new fields.NumberField({ initial: 6, integer: true }),
+          modifier: new fields.NumberField({ initial: 0, integer: true })
+        }),
+        spirit:   new fields.SchemaField({
+          die:      new fields.NumberField({ initial: 6, integer: true }),
+          modifier: new fields.NumberField({ initial: 0, integer: true })
+        }),
+        strength: new fields.SchemaField({
+          die:      new fields.NumberField({ initial: 6, integer: true }),
+          modifier: new fields.NumberField({ initial: 0, integer: true })
+        }),
+        magic:    new fields.SchemaField({
+          die:      new fields.NumberField({ initial: 6, integer: true }),
+          modifier: new fields.NumberField({ initial: 0, integer: true })
+        }),
+      }),
+
+      // Навыки и способности (хранятся внутри item как массив)
+      skills: new fields.ArrayField(
+        new fields.SchemaField({
+          uuid:     new fields.StringField({ initial: "" }),
+          name:     new fields.StringField({ initial: "" }),
+          type:     new fields.StringField({ initial: "skill" }),
+          die:      new fields.NumberField({ initial: 6, integer: true }),
+          modifier: new fields.NumberField({ initial: 0, integer: true }),
+        })
+      ),
+      condition: new fields.StringField({ initial: "good", choices: ["broken","worn","good","perfect"] })
     };
   }
 }
@@ -594,13 +626,18 @@ export class CompanionDataModel extends foundry.abstract.TypeDataModel {
       description: new fields.HTMLField({ initial: "" }),
       species:     new fields.StringField({ initial: "" }),
       age:         new fields.NumberField({ initial: 0, min: 0, integer: true }),
-      initiative: new fields.SchemaField({
-        die:      new fields.NumberField({ initial: 6, choices: [4,6,8,10,12,20], integer: true }),
-        modifier: new fields.NumberField({ initial: 0, integer: true })
+      // Атрибуты спутника
+      attributes: new fields.SchemaField({
+        agility:  new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        smarts:   new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        spirit:   new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        strength: new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        magic:    new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
       }),
       bond:        new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
       character:   new fields.StringField({ initial: "" }),
-condition: new fields.StringField({ initial: "normal", choices: ["broken","poor","normal","ideal"] })
+      owner:       new fields.StringField({ initial: "" }),
+      condition:   new fields.StringField({ initial: "good", choices: ["broken","worn","good","perfect"] })
     };
   }
 }

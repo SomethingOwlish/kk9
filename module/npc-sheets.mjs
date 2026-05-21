@@ -120,110 +120,16 @@ class KK9NpcBaseSheet extends ActorSheet {
       await this.actor.update({ "system.health.mental.knockout": !cur });
     });
 
-    // Инициатива НПС — интеграция с combat tracker (все НПС)
+    // Инициатива НПС — числовое значение + combat tracker
     html.find(".roll-npc-initiative").click(async e => {
       e.preventDefault();
-      const attrs = this.actor.system.attributes;
-      const isWC  = this.actor.type === "npc-boss";
-      const agDie = attrs?.agility?.die  || 6;
-      const smDie = attrs?.smarts?.die   || 6;
-      const agMod = attrs?.agility?.modifier  || 0;
-      const smMod = attrs?.smarts?.modifier   || 0;
-      const totalMod = agMod + smMod;
-      const modStr = totalMod !== 0 ? (totalMod > 0 ? `+${totalMod}` : `${totalMod}`) : "";
-      let formula;
-      if (isWC) {
-        formula = `{1d${agDie}x, 1d6x}kh${modStr !== "" ? modStr : "+0"}`.replace(/\+0$/, "")
-                + ` + {1d${smDie}x, 1d6x}kh`;
-        formula = `{1d${agDie}x, 1d6x}kh + {1d${smDie}x, 1d6x}kh${modStr}`;
-      } else {
-        formula = `1d${agDie}x + 1d${smDie}x${modStr}`;
-      }
-      // Пробуем поместить в combat tracker
-      const combat = game.combat;
-      if (combat) {
-        const combatant = combat.combatants.find(c => c.actorId === this.actor.id);
-        if (combatant) {
-          await combat.rollInitiative(combatant.id, { formula });
-          return;
-        }
-      }
-      // Иначе просто бросаем в чат
-      const roll = new Roll(formula);
-      await roll.evaluate();
-      const total = roll.total;
-      await ChatMessage.create({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        content: `<div class="kk9-roll-msg"><strong>${this.actor.name}</strong> — Инициатива<br>
-          <span class="kk9-die-total">= ${total}</span></div>`,
-        flags: { kk9: { isRoll: true } }
-      });
+      await this.actor.rollNpcInitiative(this.actor.type === "npc-boss");
     });
 
-    // Стойкость НПС (2 + Дух/2)
+    // Стойкость НПС — успехи как у персонажа
     html.find(".roll-npc-toughness").click(async e => {
       e.preventDefault();
-      const spiritDie = this.actor.system.attributes?.spirit?.die || 6;
-      const isWC  = this.actor.type === "npc-boss";
-      const formula = isWC
-        ? `{1d${spiritDie}x, 1d6x}kh`
-        : `1d${spiritDie}x`;
-      const roll = new Roll(formula);
-      await roll.evaluate();
-      const toughness = this.actor.system.toughness ?? (2 + Math.floor(spiritDie / 2));
-      await ChatMessage.create({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        content: `<div class="kk9-roll-msg"><strong>${this.actor.name}</strong> — Стойкость (база ${toughness})<br>
-          <span class="kk9-die-total">= ${roll.total}</span></div>`,
-        flags: { kk9: { isRoll: true } }
-      });
-    });
-
-    // Инициатива НПС — с интеграцией в combat tracker
-    html.find(".roll-npc-initiative").click(async e => {
-      e.preventDefault();
-      const attrs = this.actor.system.attributes || {};
-      const isWC  = this.actor.type === "npc-boss";
-      const agDie = attrs.agility?.die  || 6;
-      const smDie = attrs.smarts?.die   || 6;
-      const agMod = attrs.agility?.modifier || 0;
-      const smMod = attrs.smarts?.modifier  || 0;
-      const totalMod = agMod + smMod;
-      const modStr = totalMod !== 0 ? (totalMod > 0 ? `+${totalMod}` : `${totalMod}`) : "";
-      const formula = isWC
-        ? `{1d${agDie}x, 1d6x}kh + {1d${smDie}x, 1d6x}kh${modStr}`
-        : `1d${agDie}x + 1d${smDie}x${modStr}`;
-      const roll = new Roll(formula);
-      await roll.evaluate();
-      // Пробуем записать в combat tracker
-      const combat = game?.combat;
-      if (combat) {
-        const combatant = combat.combatants.find(c => c.actorId === this.actor.id);
-        if (combatant) await combatant.update({ initiative: roll.total });
-      }
-      await ChatMessage.create({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        content: `<div class="kk9-roll-msg"><strong>${this.actor.name}</strong> — Инициатива<br>
-          <span class="kk9-die-total">= ${roll.total}</span></div>`,
-        flags: { kk9: { isRoll: true } }
-      });
-    });
-
-    // Стойкость НПС (бросок Духа)
-    html.find(".roll-npc-toughness").click(async e => {
-      e.preventDefault();
-      const spiritDie = this.actor.system.attributes?.spirit?.die || 6;
-      const isWC  = this.actor.type === "npc-boss";
-      const formula = isWC ? `{1d${spiritDie}x, 1d6x}kh` : `1d${spiritDie}x`;
-      const roll = new Roll(formula);
-      await roll.evaluate();
-      const toughness = this.actor.system.toughness ?? (2 + Math.floor(spiritDie / 2));
-      await ChatMessage.create({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        content: `<div class="kk9-roll-msg"><strong>${this.actor.name}</strong> — Стойкость (база ${toughness})<br>
-          <span class="kk9-die-total">= ${roll.total}</span></div>`,
-        flags: { kk9: { isRoll: true } }
-      });
+      await this.actor.rollNpcToughness(this.actor.type === "npc-boss");
     });
 
     // Удалить активный статус
@@ -309,28 +215,10 @@ export class KK9NpcLightSheet extends KK9NpcBaseSheet {
       });
     });
 
-    // Бросок атрибута лёгкого НПС (один кубик без д6)
+    // Бросок атрибута лёгкого НПС (без wild die, с успехами)
     html.find(".rollable-npc-attr").click(async e => {
       const attr = e.currentTarget.dataset.attribute;
-      const attrData = this.actor.system.attributes?.[attr];
-      if (!attrData) {
-        ui.notifications.warn(`${this.actor.name}: атрибут «${attr}» не найден.`);
-        return;
-      }
-      const die = attrData.die || 6;
-      const mod = attrData.modifier || 0;
-      const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-      const ATTR_LABELS = { agility:"Ловкость", smarts:"Смекалка",
-                            spirit:"Дух", strength:"Сила", magic:"Магия" };
-      const label = ATTR_LABELS[attr] || attr;
-      const roll = new Roll(`1d${die}x${modStr}`);
-      await roll.evaluate();
-      await ChatMessage.create({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        content: `<div class="kk9-roll-msg"><strong>${this.actor.name}</strong> — ${label}<br>
-          <span class="kk9-die-total">= ${roll.total}</span></div>`,
-        flags: { kk9: { isRoll: true } }
-      });
+      await this.actor.rollNpcAttribute(attr, false);
     });
   }
 }
@@ -353,19 +241,10 @@ export class KK9NpcHardSheet extends KK9NpcBaseSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Бросок атрибута (только свой кубик, без д6)
+    // Бросок атрибута сложного НПС (без wild die, с успехами)
     html.find(".rollable-npc-attr, .rollable-attribute").click(async e => {
       const attr = e.currentTarget.dataset.attribute;
-      const die = this.actor.system.attributes[attr]?.die;
-      if (!die) return;
-      const label = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух",
-                      strength:"Сила", magic:"Магия" }[attr] || attr;
-      const roll = new Roll(`1d${die}`);
-      await roll.evaluate();
-      await roll.toMessage({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        flavor: `<strong>${this.actor.name}</strong> — ${label}`
-      });
+      await this.actor.rollNpcAttribute(attr, false);
     });
   }
 }
@@ -391,19 +270,10 @@ export class KK9NpcBossSheet extends KK9NpcBaseSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Бросок атрибута: д6 + свой кубик (как игрок)
+    // Бросок атрибута босса (wild die d6 + свой кубик, с успехами)
     html.find(".rollable-attribute-boss, .rollable-npc-attr-boss").click(async e => {
       const attr = e.currentTarget.dataset.attribute;
-      const die = this.actor.system.attributes[attr]?.die;
-      if (!die) return;
-      const label = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух",
-                      strength:"Сила", magic:"Магия" }[attr] || attr;
-      const roll = new Roll(`1d6 + 1d${die}`);
-      await roll.evaluate();
-      await roll.toMessage({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        flavor: `<strong>${this.actor.name}</strong> — ${label} (д6 + д${die})`
-      });
+      await this.actor.rollNpcAttribute(attr, true);
     });
   }
 }

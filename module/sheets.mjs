@@ -275,13 +275,6 @@ export class KK9CharacterSheet extends ActorSheet {
       await this.actor.update({ "system.bennies": Math.max(0, Math.min(9, next)) });
     });
 
-    // Привязанность спутника (cp-bond-pip) — на карточке компаньона как Item
-    html.find(".cp-bond-pip").click(async e => {
-      const val = parseInt(e.currentTarget.dataset.value);
-      const cur = this.item?.system?.bond ?? 0;
-      if (!this.item) return;
-      await this.item.update({ "system.bond": cur === val ? Math.max(0, val - 1) : val });
-    });
 
     // Медитация
     html.find(".energy-meditate-btn").click(async () => {
@@ -298,13 +291,6 @@ export class KK9CharacterSheet extends ActorSheet {
       await this.actor.update({ "system.bennies": Math.max(0, Math.min(9, next)) });
     });
 
-    // Привязанность спутника (cp-bond-pip) — на карточке компаньона как Item
-    html.find(".cp-bond-pip").click(async e => {
-      const val = parseInt(e.currentTarget.dataset.value);
-      const cur = this.item?.system?.bond ?? 0;
-      if (!this.item) return;
-      await this.item.update({ "system.bond": cur === val ? Math.max(0, val - 1) : val });
-    });
 
     // Медитация — восстановить энергию
     html.find(".energy-meditate-btn").click(async () => {
@@ -448,8 +434,8 @@ export class KK9ItemSheet extends ItemSheet {
       {value:"corporate",label:"Корпоративная"},{value:"underground",label:"Подпольная"},
       {value:"other",label:"Прочая"}
     ];
-    if (this.item.type === "daemon" && this.item.actor) {
-      context.daemonItems = this.item.actor.items.filter(i => ["skill","ability"].includes(i.type));
+    if (this.item.type === "daemon") {
+      context.daemonItems = this.item.system.skills ?? [];
     }
 
     if (this.item.type === "faculty") {
@@ -549,11 +535,12 @@ export class KK9ItemSheet extends ItemSheet {
       if (target && data.type === "Item") {
         const item = await fromUuid(data.uuid);
         if (!item || !["skill","ability"].includes(item.type)) return;
-        if (!this.item.actor) { ui.notifications.warn("Даймон должен быть на карточке персонажа."); return; }
-        const existing = this.item.actor.items.find(i => i.name === item.name && ["skill","ability"].includes(i.type));
-        if (existing) { ui.notifications.warn(`«${item.name}» уже есть.`); return; }
-        const itemData = item.toObject();
-        await Item.create(itemData, { parent: this.item.actor });
+        const skills = foundry.utils.deepClone(this.item.system.skills || []);
+        if (!skills.find(sk => sk.uuid === item.uuid || sk.name === item.name)) {
+          skills.push({ uuid: item.uuid, name: item.name, type: item.type,
+            die: item.system?.die || 6, modifier: item.system?.modifier || 0 });
+          await this.item.update({ "system.skills": skills });
+        }
         return;
       }
     }
@@ -746,25 +733,252 @@ export class KK9ItemSheet extends ItemSheet {
       });
     }
 
-    // ── Спутник: пипы здоровья и инициатива ──
+    // ── Спутник: пипы привязанности, здоровья и инициатива ──
     if (this.item.type === "companion") {
+      // Атрибут спутника
+      html.find(".cp-attr-roll").click(async e => {
+        e.stopPropagation();
+        const attrKey = e.currentTarget.dataset.attr;
+        const attr    = this.item.system.attributes?.[attrKey];
+        if (!attr) return;
+        const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+        const die    = attr.die || 6;
+        const mod    = attr.modifier || 0;
+        const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
+        const roll   = new Roll(`1d${die}x${modStr}`);
+        await roll.evaluate();
+        const total  = roll.total;
+        let deg;
+        if (total <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи" };
+        else if (total < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача" };
+        else { const sc = 1+Math.floor((total-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
+        const portrait = this.item.img || "icons/svg/mystery-man.svg";
+        const results  = roll.terms[0]?.results ?? [];
+        const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
+        const modRow   = mod ? `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ мод.: ${modStr}</span></div>` : "";
+        const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${this.item.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${this.item.name}</span><span class="kk9-chat-label">${LABELS[attrKey]||attrKey}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceRows}${modRow}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div></div></details></div>`;
+        await ChatMessage.create({ speaker: { alias: this.item.name }, content, flags: { kk9: { isRoll: true } } });
+      });
+
+      // Bond pips
+      html.find(".cp-bond-pip").click(async e => {
+        const val     = parseInt(e.currentTarget.dataset.value);
+        const cur     = this.item.system.bond ?? 1;
+        const newBond = cur === val ? Math.max(1, val - 1) : val;
+        await this.item.update({ "system.bond": newBond });
+      });
       html.find(".companion-hp-pip").click(async e => {
         const val = parseInt(e.currentTarget.dataset.value);
         const cur = this.item.system.health?.value ?? 0;
         await this.item.update({ "system.health.value": cur === val ? Math.max(1, val - 1) : val });
       });
       html.find(".companion-roll-initiative").click(async () => {
-        const die = this.item.system.initiative.die || 6;
-        const mod = this.item.system.initiative.modifier || 0;
-        const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-        const roll = new Roll(`1d${die}${modStr}`);
+        const attrs  = this.item.system.attributes || {};
+        const agDie  = attrs.agility?.die || 6;
+        const smDie  = attrs.smarts?.die  || 6;
+        const mod    = (attrs.agility?.modifier||0) + (attrs.smarts?.modifier||0);
+        const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
+        const formula = `1d${agDie}x + 1d${smDie}x${modStr}`;
+        const roll    = new Roll(formula);
         await roll.evaluate();
-        await roll.toMessage({
-          speaker: ChatMessage.getSpeaker({ actor: this.item.actor }),
-          flavor: `${this.item.name} — Инициатива`
-        });
+        const portrait = this.item.img || "icons/svg/mystery-man.svg";
+        const total    = roll.total;
+        // Build dice HTML — formula is additive (no pool), iterate terms
+        let diceRows = "";
+        for (const term of roll.terms) {
+          if (typeof term.faces !== "number") continue;
+          const results = term.results ?? [];
+          const vals = results.map(rv => `<span class="kk9-rv dk">${rv.exploded?"💥":""}${rv.result}</span>`).join("");
+          const sum  = results.reduce((a, v) => a + v.result, 0);
+          diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
+        }
+        if (mod) diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ мод.: ${modStr}</span></div>`;
+        diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div>`;
+        const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${this.item.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${this.item.name}</span><span class="kk9-chat-label">Инициатива</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${total}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`;
+        const actor = this.item.actor;
+        if (actor && game?.combat) {
+          const cb = game.combat.combatants.find(c => c.actorId === actor.id);
+          if (cb) await game.combat.setInitiative(cb.id, total);
+        }
+        await ChatMessage.create({ speaker: { alias: this.item.name }, content, flags: { kk9: { isRoll: true } } });
       });
     }
+
+    // ── Даймон: инициатива и стойкость ──
+    if (this.item.type === "daemon") {
+      const _dmRoll = async (formula, label, isInit = false, reasons = []) => {
+        const roll = new Roll(formula);
+        await roll.evaluate();
+        const portrait = this.item.img || "icons/svg/mystery-man.svg";
+        const name     = this.item.name;
+        const total    = roll.total;
+        // Dice rows
+        const buildDice = (r) => {
+          const pool = r.terms.find(t => Array.isArray(t.rolls));
+          const rows = [];
+          if (pool) {
+            pool.rolls.forEach((pr, i) => {
+              const disc = pool.results?.[i]?.active === false;
+              const die  = pr.terms?.find(t => typeof t.faces === "number");
+              if (!die) return;
+              const vals = (die.results||[]).map(rv => `<span class="kk9-rv ${disc?"dr":"dk"}">${rv.exploded?"💥":""}${rv.result}</span>`).join("");
+              const sum  = disc ? "" : `<span class="kk9-dsum">= ${(die.results||[]).reduce((a,v)=>a+v.result,0)}</span>`;
+              rows.push(`<div class="kk9-drow ${disc?"discarded":"kept"}"><span class="kk9-dlabel">d${die.faces}</span><span class="kk9-dvals">${vals}</span>${sum}</div>`);
+            });
+          } else {
+            r.terms.filter(t => typeof t.faces === "number").forEach(die => {
+              const vals = (die.results||[]).map(rv => `<span class="kk9-rv dk">${rv.exploded?"💥":""}${rv.result}</span>`).join("");
+              rows.push(`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${(die.results||[]).reduce((a,v)=>a+v.result,0)}</span></div>`);
+            });
+          }
+          if (reasons.length) {
+            rows.push(`<div class="kk9-dsep"></div>`);
+            reasons.forEach(r => rows.push(`<div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ ${r}</span></div>`));
+          }
+          rows.push(`<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div>`);
+          return rows.join("");
+        };
+        const diceBody = buildDice(roll);
+        let resultBar;
+        if (isInit) {
+          resultBar = `<details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${total}</span></summary><div class="kk9-dice-body">${diceBody}</div></details>`;
+        } else {
+          const t = total; let deg;
+          if (t <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи" };
+          else if (t < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача" };
+          else { const sc = 1+Math.floor((t-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
+          resultBar = `<details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceBody}</div></details>`;
+        }
+        const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${name}</span><span class="kk9-chat-label">${label}</span></div></div>${resultBar}</div>`;
+        // Combat tracker
+        const actor = this.item.actor;
+        if (isInit && actor && game?.combat) {
+          const cb = game.combat.combatants.find(c => c.actorId === actor.id);
+          if (cb) await game.combat.setInitiative(cb.id, total);
+        }
+        await ChatMessage.create({ speaker: { alias: name }, content, flags: { kk9: { isRoll: true } } });
+      };
+
+      html.find(".daemon-roll-initiative").click(async () => {
+        const attrs  = this.item.system.attributes || {};
+        const agDie  = attrs.agility?.die || 6;
+        const smDie  = attrs.smarts?.die  || 6;
+        const mod    = (attrs.agility?.modifier||0) + (attrs.smarts?.modifier||0);
+        const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
+        const initReasons = mod ? [`мод.: ${modStr}`] : [];
+        await _dmRoll(`1d${agDie}x + 1d${smDie}x${modStr}`, "Инициатива", true, initReasons);
+      });
+
+      html.find(".daemon-roll-toughness").click(async () => {
+        const attrs  = this.item.system.attributes || {};
+        const spDie  = attrs.spirit?.die || 6;
+        const spMod  = attrs.spirit?.modifier || 0;
+        const modStr = spMod ? (spMod>0?`+${spMod}`:`${spMod}`) : "";
+        const toughReasons = spMod ? [`мод.: ${modStr}`] : [];
+        await _dmRoll(`1d${spDie}x${modStr}`, "Стойкость", false, toughReasons);
+      });
+    }
+
+    // ── Даймон: клик по навыку/способности для броска ──
+    if (this.item.type === "daemon") {
+      // Health pips
+      // Health pips — используем делегирование по data-track
+      html.find(".health-pip").click(async e => {
+        const track = e.currentTarget.dataset.track;
+        const val   = parseInt(e.currentTarget.dataset.value);
+        if (track === "daemon-physical") {
+          const cur = this.item.system.health?.physical?.value ?? 0;
+          await this.item.update({ "system.health.physical.value": cur === val ? Math.max(0, val-1) : val });
+        } else if (track === "daemon-mental") {
+          const cur = this.item.system.health?.mental?.value ?? 0;
+          await this.item.update({ "system.health.mental.value": cur === val ? Math.max(0, val-1) : val });
+        }
+      });
+      // Бросок атрибута даймона
+      html.find(".dm-attr-roll").click(async e => {
+        e.stopPropagation();
+        const attrKey = e.currentTarget.dataset.attr;
+        const attr    = this.item.system.attributes?.[attrKey];
+        if (!attr) return;
+        const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+        const die    = attr.die || 6;
+        const mod    = attr.modifier || 0;
+        const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
+        const formula = `1d${die}x${modStr}`;
+        const roll = new Roll(formula);
+        await roll.evaluate();
+        const total = roll.total;
+        let deg;
+        if (total <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи" };
+        else if (total < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача" };
+        else { const sc = 1+Math.floor((total-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
+        const portrait = this.item.img || "icons/svg/mystery-man.svg";
+        const results  = roll.terms[0]?.results ?? [];
+        const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
+        const modRows  = mod ? `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ мод.: ${modStr}</span></div>` : "";
+        const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${this.item.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${this.item.name}</span><span class="kk9-chat-label">${LABELS[attrKey]||attrKey}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceRows}${modRows}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div></div></details></div>`;
+        await ChatMessage.create({ speaker: { alias: this.item.name }, content, flags: { kk9: { isRoll: true } } });
+      });
+
+      // Бросок навыка/способности — standalone, без actor
+      html.find(".dm-rollable").click(async e => {
+        const idx  = parseInt(e.currentTarget.dataset.index);
+        const sk   = this.item.system.skills?.[idx];
+        if (!sk) return;
+        const die    = sk.die || 6;
+        const mod    = sk.modifier || 0;
+        const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
+        const roll   = new Roll(`1d${die}x${modStr}`);
+        await roll.evaluate();
+        // Строим сообщение как у НПС (успехи)
+        const THRESH = 6;
+        const total  = roll.total;
+        let degree;
+        if (total <= 1) degree = { type:"snake_eyes", label:"Глаза змеи" };
+        else if (total < THRESH) degree = { type:"failure", label:"Неудача" };
+        else { const s = 1 + Math.floor((total - THRESH) / 4); degree = { type:"success", label: s===1?"1 успех":s<=4?`${s} успеха`:`${s} успехов` }; }
+        const portrait = this.item.img || "icons/svg/mystery-man.svg";
+        const nameClr  = "#c4a44a";
+        const cls = degree.type === "success" ? "kk9-result-success" : degree.type === "snake_eyes" ? "kk9-result-snake" : "kk9-result-failure";
+        // Dice HTML
+        const results = roll.terms[0]?.results ?? [];
+        let diceRows = results.map(r => `<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
+        if (mod) diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ мод.: ${modStr}</span></div>`;
+        const content = [
+          `<div class="kk9-chat-roll" style="--accent:#c4a44a">`,
+          `  <div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${this.item.name}">`,
+          `  <div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:${nameClr}">${this.item.name}</span>`,
+          `  <span class="kk9-chat-label">${sk.name}</span></div></div>`,
+          `  <details class="kk9-result-details"><summary class="kk9-result-summary ${cls}">`,
+          `    <span class="kk9-result-text">${degree.label}</span></summary>`,
+          `    <div class="kk9-dice-body">${diceRows}<div class="kk9-dsep"></div>`,
+          `    <div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div></div>`,
+          `  </details></div>`
+        ].join("\n");
+        await ChatMessage.create({ speaker: { alias: this.item.name }, content,
+          flags: { kk9: { isRoll: true } } });
+      });
+      // Удалить навык
+      html.find(".dm-skill-del").click(async e => {
+        const idx = parseInt(e.currentTarget.dataset.index);
+        const skills = [...(this.item.system.skills || [])];
+        skills.splice(idx, 1);
+        await this.item.update({ "system.skills": skills });
+      });
+      // Изменить die
+      html.find(".dm-skill-die").change(async e => {
+        const idx = parseInt(e.currentTarget.dataset.index);
+        const skills = foundry.utils.deepClone(this.item.system.skills || []);
+        if (skills[idx]) { skills[idx].die = parseInt(e.currentTarget.value); await this.item.update({ "system.skills": skills }); }
+      });
+      // Изменить modifier
+      html.find(".dm-skill-mod").change(async e => {
+        const idx = parseInt(e.currentTarget.dataset.index);
+        const skills = foundry.utils.deepClone(this.item.system.skills || []);
+        if (skills[idx]) { skills[idx].modifier = parseInt(e.currentTarget.value)||0; await this.item.update({ "system.skills": skills }); }
+      });
+    }
+
 
     // ── Факультет: убрать способность ──
     html.find(".remove-faculty-ability").click(async e => {

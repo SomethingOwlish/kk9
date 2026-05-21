@@ -24,6 +24,7 @@
           {{#each system.relations as |rel|}}
           <div class="relation-row {{#if rel.love}}relation-love{{/if}}">
             <div class="relation-top-row">
+              <input type="hidden" name="system.relations.{{@index}}.love" value="{{#if rel.love}}true{{else}}false{{/if}}" />
               <button type="button" class="love-toggle {{#if rel.love}}love-active{{/if}}" data-index="{{@index}}" title="Избранное">♥</button>
               <input type="text" name="system.relations.{{@index}}.name" value="{{rel.name}}" class="relation-name" placeholder="Имя..." />
               <select name="system.relations.{{@index}}.status" class="relation-status">
