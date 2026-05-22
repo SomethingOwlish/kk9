@@ -230,6 +230,12 @@ export class KK9CharacterSheet extends ActorSheet {
       if (!row) return;
       this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
     });
+    // Открытие abilities и statuses (у них rollable-ability/rollable-skill класс)
+    html.find(".skill-name").dblclick(e => {
+      const itemId = e.currentTarget.dataset.itemId;
+      if (!itemId) return;
+      this.actor.items.get(itemId)?.sheet.render(true);
+    });
 
     html.find(".item-create").click(this._onItemCreate.bind(this));
     html.find(".item-delete").click(this._onItemDelete.bind(this));

@@ -159,6 +159,72 @@ Hooks.once("ready", async function() {
 // ============================================================
 // Хук renderChatMessage
 // ============================================================
+
+// ── Кнопки типов бросков в интерфейсе чата (снизу) ──
+Hooks.on("renderChatLog", (app, html, data) => {
+  const el = html[0] ?? html;
+  const controls = el.querySelector("#chat-controls") ?? el.querySelector(".chat-controls");
+  if (!controls) return;
+
+  const bar = document.createElement("div");
+  bar.className = "kk9-chat-roll-bar";
+  bar.innerHTML = `
+    <button class="kk9-roll-btn" data-roll-type="attribute" title="Бросок атрибута">Атрибут</button>
+    <button class="kk9-roll-btn" data-roll-type="skill"     title="Бросок навыка">Навык</button>
+    <button class="kk9-roll-btn" data-roll-type="ability"   title="Бросок способности">Способность</button>
+    <button class="kk9-roll-btn" data-roll-type="initiative" title="Инициатива">Инициатива</button>
+    <button class="kk9-roll-btn" data-roll-type="toughness" title="Стойкость">Стойкость</button>
+  `;
+  controls.parentNode.insertBefore(bar, controls);
+
+  bar.querySelectorAll(".kk9-roll-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const rollType = btn.dataset.rollType;
+      const actor = canvas?.tokens?.controlled?.[0]?.actor ?? game.user?.character;
+      if (!actor) { ui.notifications.warn("Выбери токен или установи персонажа по умолчанию."); return; }
+      switch (rollType) {
+        case "attribute":
+          // Открываем диалог выбора атрибута
+          new Dialog({
+            title: "Бросок атрибута",
+            content: `<div style="padding:8px">
+              <select id="kk9-attr-pick" style="width:100%;padding:4px">
+                <option value="agility">Ловкость</option>
+                <option value="smarts">Смекалка</option>
+                <option value="spirit">Дух</option>
+                <option value="strength">Сила</option>
+                <option value="magic">Магия</option>
+              </select></div>`,
+            buttons: { roll: { label:"Бросить", callback: html => {
+              const attr = html[0].querySelector("#kk9-attr-pick").value;
+              actor.rollAttribute?.(attr);
+            }}},
+            default: "roll"
+          }).render(true);
+          break;
+        case "initiative": actor.rollInitiative?.(); break;
+        case "toughness":  actor.rollToughness?.(); break;
+        case "skill":
+        case "ability": {
+          const items = actor.items.filter(i => i.type === rollType || (rollType === "skill" && i.type === "skill") || (rollType === "ability" && i.type === "ability"));
+          if (!items.length) { ui.notifications.warn("Нет подходящих предметов."); return; }
+          const opts = items.map(i => `<option value="${i.id}">${i.name}</option>`).join("");
+          new Dialog({
+            title: rollType === "skill" ? "Бросок навыка" : "Бросок способности",
+            content: `<div style="padding:8px"><select id="kk9-item-pick" style="width:100%;padding:4px">${opts}</select></div>`,
+            buttons: { roll: { label:"Бросить", callback: html => {
+              const id = html[0].querySelector("#kk9-item-pick").value;
+              actor.rollSkillItem?.(id);
+            }}},
+            default: "roll"
+          }).render(true);
+          break;
+        }
+      }
+    });
+  });
+});
+
 Hooks.on("renderChatMessage", (message, html, data) => {
   const el = html[0] ?? html;
 

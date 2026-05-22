@@ -3399,3 +3399,24 @@ input[type="radio"][style*="display:none"] { display: none !important; }
   min-width: 36px;
   text-align: right;
 }
+
+/* ── Кнопки типов бросков в чате ── */
+.kk9-chat-roll-bar {
+  display: flex; flex-wrap: wrap; gap: 3px;
+  padding: 4px 6px;
+  background: var(--color-bg-option, rgba(0,0,0,0.2));
+  border-top: 1px solid var(--color-border-light-tertiary, rgba(255,255,255,0.07));
+}
+.kk9-roll-btn {
+  flex: 1; min-width: 60px;
+  padding: 3px 6px; font-size: 0.72em;
+  background: var(--bg3, rgba(255,255,255,0.05));
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border-radius: 3px; color: var(--text-dim, #aaa);
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.kk9-roll-btn:hover { border-color: var(--gold, #c4a44a); color: var(--gold, #c4a44a); }
+
+/* ── КО-пип лёгкого НПС ── */
+.pip-ko { border-style: dashed !important; }
+.pip-ko.pip-filled { border-style: solid !important; }

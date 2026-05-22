@@ -84,7 +84,7 @@
       {{!-- КОНФЛИКТ --}}
       <div class="tab" data-group="primary" data-tab="conflict">
 
-        <div class="section-title">Характеристики <span style="font-size:0.75em;color:#a855f7;font-weight:400">✦ дикий кубик д6</span></div>
+        <div class="section-title">Характеристики</div>
         <div class="npc-attributes-grid">
           {{#each system.attributes as |attr key|}}
           <div class="npc-attr-box rollable-npc-attr-boss" data-attribute="{{key}}" title="Бросить д6 + {{lookup ../attributeLabels key}}">
@@ -127,7 +127,7 @@
         {{!-- Активные статусы --}}
         <div class="active-statuses-block actor-status-drop" style="margin-top:10px" title="Перетащи статус-итем сюда">
           <div class="active-statuses-header">
-            <span class="active-statuses-title">⚡ Активные статусы</span>
+            <span class="active-statuses-title">Активные статусы</span>
           </div>
           {{#if system.active_statuses.length}}
           <div class="active-statuses-list">

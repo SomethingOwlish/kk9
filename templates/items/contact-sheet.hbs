@@ -12,7 +12,7 @@
           {{#if (eq system.access_level "open")}}Открытая
           {{else if (eq system.access_level "known")}}Общеизвестная
           {{else if (eq system.access_level "secret")}}Тайная
-          {{else}}⛔ Запрещённая{{/if}}
+          {{else}}Запрещённая{{/if}}
         </span>
       </div>
       <div class="con-sub-row">
@@ -22,10 +22,10 @@
           {{else if (eq system.org_type "government")}}Правительственная
           {{else if (eq system.org_type "magical")}}Магическая
           {{else if (eq system.org_type "corporate")}}Корпоративная
-          {{else if (eq system.org_type "underground")}}🕳 Подпольная
+          {{else if (eq system.org_type "underground")}}Подпольная
           {{else}}Прочая{{/if}}
         </span>
-        {{#if system.leader}}<span class="con-sub-dim">👤 {{system.leader}}</span>{{/if}}
+        {{#if system.leader}}<span class="con-sub-dim">{{system.leader}}</span>{{/if}}
         {{#if system.members.length}}<span class="con-sub-dim">{{system.members.length}} участн.</span>{{/if}}
       </div>
     </div>
@@ -44,7 +44,7 @@
           <option value="government"  {{#if (eq system.org_type "government")}}selected{{/if}}>Правительственная</option>
           <option value="magical"     {{#if (eq system.org_type "magical")}}selected{{/if}}>Магическая</option>
           <option value="corporate"   {{#if (eq system.org_type "corporate")}}selected{{/if}}>Корпоративная</option>
-          <option value="underground" {{#if (eq system.org_type "underground")}}selected{{/if}}>🕳 Подпольная</option>
+          <option value="underground" {{#if (eq system.org_type "underground")}}selected{{/if}}>Подпольная</option>
           <option value="other"       {{#if (eq system.org_type "other")}}selected{{/if}}>Прочая</option>
         </select>
       </div>
@@ -54,7 +54,7 @@
           <option value="open"      {{#if (eq system.access_level "open")}}selected{{/if}}>Открытая</option>
           <option value="known"     {{#if (eq system.access_level "known")}}selected{{/if}}>Общеизвестная</option>
           <option value="secret"    {{#if (eq system.access_level "secret")}}selected{{/if}}>Тайная</option>
-          <option value="forbidden" {{#if (eq system.access_level "forbidden")}}selected{{/if}}>⛔ Запрещённая</option>
+          <option value="forbidden" {{#if (eq system.access_level "forbidden")}}selected{{/if}}>Запрещённая</option>
         </select>
       </div>
       <div class="con-param-block">
@@ -89,7 +89,7 @@
           <span class="con-member-name con-open-actor" data-uuid="{{m.actor_uuid}}"
                 title="Открыть карточку">{{m.actor_name}}</span>
           <button type="button" class="con-remove-member fac-del"
-                  data-uuid="{{m.actor_uuid}}">✕</button>
+                  data-uuid="{{m.actor_uuid}}" style="margin-left:auto">✕</button>
         </div>
         {{/each}}
       </div>
@@ -114,7 +114,7 @@
                  value="{{m.comment}}" class="kk9-input con-former-comment"
                  placeholder="Причина ухода..." />
           <button type="button" class="con-remove-former fac-del"
-                  data-uuid="{{m.actor_uuid}}">✕</button>
+                  data-uuid="{{m.actor_uuid}}" style="margin-left:auto">✕</button>
         </div>
         {{/each}}
       </div>
@@ -126,7 +126,7 @@
     {{!-- Известные события --}}
     <div class="con-section contact-events-drop">
       <div class="con-section-header">
-        <span class="con-section-title">📖 Известные события</span>
+        <span class="con-section-title">Известные события</span>
         <span class="con-drop-hint">Перетащи запись из журнала</span>
       </div>
       {{#if system.events.length}}
@@ -134,7 +134,7 @@
         {{#each system.events as |ev|}}
         <div class="con-event-row">
           <span class="con-event-name con-open-journal" data-uuid="{{ev.uuid}}"
-                title="Открыть запись">📖 {{ev.name}}</span>
+                title="Открыть запись">{{ev.name}}</span>
           <button type="button" class="con-remove-event fac-del"
                   data-uuid="{{ev.uuid}}">✕</button>
         </div>

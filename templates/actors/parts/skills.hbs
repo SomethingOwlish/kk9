@@ -38,9 +38,6 @@
       {{#if sk.system.linkedAttribute}}
       <span class="skill-attr-hint">{{lookup ../attrLabels sk.system.linkedAttribute}}</span>
       {{/if}}
-      {{#if sk.system.category}}
-      <span class="item-badge cat-{{sk.system.category}}" style="font-size:0.62em">{{categoryLabel sk.system.category}}</span>
-      {{/if}}
       <div class="skill-controls">
         <select class="die-select-sm skill-die-select" data-item-id="{{sk.id}}"
                 data-max-die="{{lookup ../attrDice sk.system.linkedAttribute}}">
@@ -67,7 +64,7 @@
   </div>
 
   {{!-- Магические способности --}}
-  <h3 class="section-title magic-title" style="margin-top:12px">✦ Магические</h3>
+  <h3 class="section-title magic-title" style="margin-top:12px">Магические</h3>
   <div class="skills-list" data-drop-zone="abilities-magic">
     {{#each magicAbilities as |ab|}}
     <div class="skill-row" data-item-id="{{ab.id}}">
@@ -99,7 +96,6 @@
     {{#each personalAbilities as |ab|}}
     <div class="skill-row" data-item-id="{{ab.id}}">
       <span class="skill-name rollable-ability" data-item-id="{{ab.id}}">{{ab.name}}</span>
-      <span class="item-badge cat-{{ab.system.category}}" style="font-size:0.65em">{{categoryLabel ab.system.category}}</span>
       <div class="skill-controls">
         <select class="die-select-sm ability-die-select" data-item-id="{{ab.id}}">
           <option value="4"  {{#if (eq ab.system.die 4)}}selected{{/if}}>d4</option>
