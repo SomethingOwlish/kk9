@@ -4,7 +4,7 @@
 
 import {
   CharacterDataModel, NpcLightDataModel, NpcHardDataModel, NpcBossDataModel,
-  FacultyDataModel, SkillDataModel, AbilityDataModel, WeaponDataModel, GearDataModel,
+  FacultyDataModel, AbilityDataModel, WeaponDataModel, GearDataModel,
   ArtifactDataModel, SpellDataModel, DaemonDataModel, CompanionDataModel,
   VehicleDataModel, DeviceDataModel, ContactDataModel, LanguageDataModel,
   StatusDataModel
@@ -34,7 +34,7 @@ const KK9_DEFAULTS = {
   sceneBg:      "systems/kk9/media/scene-background.png",
 };
 
-const SKILL_TYPES = new Set(["skill","ability","faculty","language"]);
+const SKILL_TYPES = new Set(["ability","faculty","language"]);
 
 // ============================================================
 // INIT
@@ -55,7 +55,6 @@ Hooks.once("init", function () {
 
   CONFIG.Item.dataModels = {
     "faculty":   FacultyDataModel,
-    "skill":     SkillDataModel,
     "ability":   AbilityDataModel,
     "weapon":    WeaponDataModel,
     "gear":      GearDataModel,
@@ -99,6 +98,8 @@ Hooks.on("preCreateActor", (actor, data, options, userId) => {
   if (!data.prototypeToken?.texture?.src || data.prototypeToken?.texture?.src === defaultFoundry) {
     actor.updateSource({ "prototypeToken.texture.src": KK9_DEFAULTS.actor });
   }
+  // Все акторы — linked token (один инстанс, токен = карточка)
+  actor.updateSource({ "prototypeToken.actorLink": true });
 });
 
 // ============================================================
@@ -125,19 +126,16 @@ Hooks.on("createActor", async (actor, options, userId) => {
 
   if (actor.type !== "character") return;
 
-  const pack = game.packs.get("kk9.kk9-skills");
+  // Базовые способности из компендиума kk9-abilities с флагом isBase
+  const pack = game.packs.get("kk9.kk9-abilities");
   if (!pack) return;
 
   await pack.getIndex();
-  const skillDocs = await Promise.all(
+  const allDocs = await Promise.all(
     Array.from(pack.index).map(i => pack.getDocument(i._id))
   );
 
-  const toCreate = skillDocs.filter(Boolean).map(s => {
-    const data = s.toObject();
-    data.system.isBase = true;
-    return data;
-  });
+  const toCreate = allDocs.filter(d => d?.system?.isBase).map(s => s.toObject());
 
   if (toCreate.length) await Item.createDocuments(toCreate, { parent: actor });
 });
@@ -154,6 +152,8 @@ Hooks.once("ready", async function() {
   if (!game.user.isGM) return;
   await _ensureCompendiums();
   await _ensureStartScene();
+
+
 });
 
 // ============================================================
@@ -170,7 +170,6 @@ Hooks.on("renderChatLog", (app, html, data) => {
   bar.className = "kk9-chat-roll-bar";
   bar.innerHTML = `
     <button class="kk9-roll-btn" data-roll-type="attribute" title="Бросок атрибута">Атрибут</button>
-    <button class="kk9-roll-btn" data-roll-type="skill"     title="Бросок навыка">Навык</button>
     <button class="kk9-roll-btn" data-roll-type="ability"   title="Бросок способности">Способность</button>
     <button class="kk9-roll-btn" data-roll-type="initiative" title="Инициатива">Инициатива</button>
     <button class="kk9-roll-btn" data-roll-type="toughness" title="Стойкость">Стойкость</button>
@@ -204,13 +203,12 @@ Hooks.on("renderChatLog", (app, html, data) => {
           break;
         case "initiative": actor.rollInitiative?.(); break;
         case "toughness":  actor.rollToughness?.(); break;
-        case "skill":
         case "ability": {
-          const items = actor.items.filter(i => i.type === rollType || (rollType === "skill" && i.type === "skill") || (rollType === "ability" && i.type === "ability"));
+          const items = actor.items.filter(i => i.type === "ability");
           if (!items.length) { ui.notifications.warn("Нет подходящих предметов."); return; }
           const opts = items.map(i => `<option value="${i.id}">${i.name}</option>`).join("");
           new Dialog({
-            title: rollType === "skill" ? "Бросок навыка" : "Бросок способности",
+            title: "Бросок способности",
             content: `<div style="padding:8px"><select id="kk9-item-pick" style="width:100%;padding:4px">${opts}</select></div>`,
             buttons: { roll: { label:"Бросить", callback: html => {
               const id = html[0].querySelector("#kk9-item-pick").value;
@@ -348,7 +346,7 @@ async function _preloadTemplates() {
 // Хук renderDialog — скрываем системные типы из диалога создания
 // ============================================================
 // Типы Item, которые нельзя создавать вручную из интерфейса
-const HIDDEN_ITEM_TYPES = new Set(["skill", "faculty", "language"]);
+const HIDDEN_ITEM_TYPES = new Set(["faculty", "language"]);
 
 Hooks.on("renderDialog", (dialog, html) => {
   // Ищем select с типами документа — он есть в диалоге Create Document
@@ -401,7 +399,7 @@ async function _ensureCompendiums() {
 
   console.log("КК9 | Наполняем компендиумы...");
 
-  const packNames = ["kk9-skills","kk9-faculties","kk9-abilities","kk9-languages",
+  const packNames = ["kk9-faculties","kk9-abilities","kk9-languages",
     "kk9-weapons","kk9-gear","kk9-artifacts","kk9-spells","kk9-daemons",
     "kk9-companions","kk9-vehicles","kk9-devices","kk9-contacts","kk9-statuses",
     "kk9-npc-light","kk9-npc-hard","kk9-npc-boss"];
@@ -447,7 +445,7 @@ async function _ensureCompendiums() {
 
   await Item.createDocuments(
     SKILLS_DATA.map(sk => ({
-      name: sk.name, type: "skill", img: KK9_DEFAULTS.skillAbility,
+      name: sk.name, type: "ability", img: KK9_DEFAULTS.skillAbility,
       system: { description:"", linkedAttribute:sk.attr, die:4, modifier:-2, isBase:true }
     })),
     { pack: "kk9.kk9-skills" }

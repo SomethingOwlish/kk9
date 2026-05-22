@@ -32,7 +32,7 @@ export class KK9CharacterSheet extends ActorSheet {
     context.attributeLabels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
     context.attrLabels = { agility:"Ловк", smarts:"Смек", spirit:"Дух", strength:"Сила", magic:"Магия" };
 
-    const allSkills    = this.actor.items.filter(i => i.type === "skill");
+    const allSkills    = this.actor.items.filter(i => i.type === "ability");
     const allAbilities = this.actor.items.filter(i => i.type === "ability");
 
     context.attrDice = {
@@ -84,14 +84,18 @@ export class KK9CharacterSheet extends ActorSheet {
 
     context.weapons    = this.actor.items.filter(i => i.type === "weapon");
     context.gear       = this.actor.items.filter(i => i.type === "gear");
-    context.artifacts  = this.actor.items.filter(i => i.type === "artifact");
     context.spells     = this.actor.items.filter(i => i.type === "spell");
-    context.daemons    = this.actor.items.filter(i => i.type === "daemon");
-    context.companions = this.actor.items.filter(i => i.type === "companion");
     context.vehicles   = this.actor.items.filter(i => i.type === "vehicle");
     context.devices    = this.actor.items.filter(i => i.type === "device");
-    context.contacts   = this.actor.items.filter(i => i.type === "contact");
     context.languageItems = this.actor.items.filter(i => i.type === "language");
+
+    // Ссылочные типы — резолвим UUID из system.*_refs
+    const _resolveRefs = (field) =>
+      (this.actor.system[field] || []).map(uuid => fromUuidSync(uuid)).filter(Boolean);
+    context.artifacts  = _resolveRefs("artifact_refs");
+    context.daemons    = _resolveRefs("daemon_refs");
+    context.companions = _resolveRefs("companion_refs");
+    context.contacts   = _resolveRefs("contact_refs");
     return context;
   }
 
@@ -189,14 +193,27 @@ export class KK9CharacterSheet extends ActorSheet {
         await this.actor.update({ "system.languages": [...langs, { name: item.name, itemId: item.id }] });
       return;
     }
-    if (item.type === "skill") {
-      const existing = this.actor.items.find(i => i.type === "skill" && i.name === item.name);
-      if (existing) { ui.notifications.warn(`Навык "${item.name}" уже есть на карточке.`); return; }
-      const itemData = item.toObject(); itemData.system.isBase = true;
+    if (item.type === "ability") {
+      const existing = this.actor.items.find(i => i.type === "ability" && i.name === item.name);
+      if (existing) { ui.notifications.warn(`Способность "${item.name}" уже есть на карточке.`); return; }
+      const itemData = item.toObject();
       await Item.create(itemData, { parent: this.actor }); return;
     }
-    const standardTypes = ["contact","weapon","gear","artifact","spell","daemon","companion","vehicle","device"];
-    if (standardTypes.includes(item.type)) return super._onDrop(event);
+    // Embedded copy: weapon, gear, spell, vehicle, device
+    const embeddedTypes = ["weapon","gear","spell","vehicle","device"];
+    if (embeddedTypes.includes(item.type)) return super._onDrop(event);
+
+    // Ссылочные типы: artifact, daemon, companion, contact — хранить UUID
+    const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
+    if (REF_FIELD[item.type]) {
+      const field = REF_FIELD[item.type];
+      const uuid  = item.uuid;
+      const refs  = [...(this.actor.system[field] || [])];
+      if (refs.includes(uuid)) { ui.notifications.warn(`«${item.name}» уже привязан к карточке.`); return; }
+      refs.push(uuid);
+      await this.actor.update({ [`system.${field}`]: refs });
+      return;
+    }
     if (item.type === "ability") {
       const existing = this.actor.items.find(i => i.type === "ability" && i.name === item.name);
       if (existing) { ui.notifications.warn(`Способность "${item.name}" уже есть на карточке.`); return; }
@@ -225,10 +242,16 @@ export class KK9CharacterSheet extends ActorSheet {
     html.find(".health-pip[data-track='physical']").click(this._onPhysicalPipClick.bind(this));
     html.find(".health-pip[data-track='mental']").click(this._onMentalPipClick.bind(this));
 
-    html.find(".item-name-click, .item-img").click(e => {
-      const row = e.currentTarget.closest("[data-item-id]");
+    html.find(".item-name-click, .item-img").click(async e => {
+      // Поддержка и embedded (data-item-id) и linked (data-uuid)
+      const row = e.currentTarget.closest("[data-item-id], [data-uuid]");
       if (!row) return;
-      this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
+      if (row.dataset.uuid) {
+        const doc = await fromUuid(row.dataset.uuid);
+        doc?.sheet?.render(true);
+      } else {
+        this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
+      }
     });
     // Открытие abilities и statuses (у них rollable-ability/rollable-skill класс)
     html.find(".skill-name").dblclick(e => {
@@ -263,7 +286,7 @@ export class KK9CharacterSheet extends ActorSheet {
 
     html.find(".magic-level-select").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
-      const level  = parseInt(e.currentTarget.value);
+      const level  = e.currentTarget.value;
       const levels = [...(this.actor.system.magicLevels || [])];
       const idx    = levels.findIndex(l => l.itemId === itemId);
       if (idx >= 0) levels[idx].level = level;
@@ -326,6 +349,20 @@ export class KK9CharacterSheet extends ActorSheet {
     const el   = event.currentTarget;
     const type = el.dataset.type;
     const cat  = el.dataset.category;
+        const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
+    if (REF_FIELD[type]) {
+      // Ссылочный тип — создаём в директории Items, затем привязываем UUID
+      const typeLabels = { artifact:"Артефакт", daemon:"Даймон", companion:"Спутник", contact:"Контакт" };
+      const newItem = await Item.create({ name: `Новый ${typeLabels[type] || type}`, type }, { parent: null });
+      if (!newItem) return;
+      const field = REF_FIELD[type];
+      const refs  = [...(this.actor.system[field] || [])];
+      refs.push(newItem.uuid);
+      await this.actor.update({ [`system.${field}`]: refs });
+      newItem.sheet.render(true);
+      return;
+    }
+    // Embedded copy
     const data = { name: `Новый ${type}`, type };
     if (cat) data["system.category"] = cat;
     await Item.create(data, { parent: this.actor });
@@ -334,6 +371,17 @@ export class KK9CharacterSheet extends ActorSheet {
   async _onItemDelete(event) {
     event.preventDefault();
     const el     = event.currentTarget;
+    // Ссылочный тип — отвязать UUID, не удалять документ
+    const uuid    = el.dataset.uuid || el.closest("[data-uuid]")?.dataset.uuid;
+    const refType = el.dataset.refType || el.closest("[data-ref-type]")?.dataset.refType;
+        const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
+    if (uuid && refType && REF_FIELD[refType]) {
+      const field = REF_FIELD[refType];
+      const refs  = (this.actor.system[field] || []).filter(r => r !== uuid);
+      await this.actor.update({ [`system.${field}`]: refs });
+      return;
+    }
+    // Embedded item — удалить
     const itemId = el.dataset.itemId || el.closest("[data-item-id]")?.dataset.itemId;
     if (itemId) await this.actor.items.get(itemId)?.delete();
   }
@@ -421,6 +469,7 @@ export class KK9ItemSheet extends ItemSheet {
   getData() {
     const context = super.getData();
     context.system = context.data.system;
+    context.isGM   = game.user.isGM;
     context.categoryOptions = [
       {value:"common",label:"Общая"},{value:"personal",label:"Личная"},
       {value:"learned",label:"Изучаемая"},{value:"magic",label:"Магическая"}
@@ -469,7 +518,7 @@ export class KK9ItemSheet extends ItemSheet {
         if (data.type !== "Item") return;
         const item = await fromUuid(data.uuid);
         if (!item) return;
-        if (target.classList.contains("weapon-skill-drop") && ["skill","ability"].includes(item.type)) {
+        if (target.classList.contains("weapon-skill-drop") && ["ability"].includes(item.type)) {
           await this.item.update({ "system.skill_uuid": item.uuid, "system.skill_name": item.name });
           return;
         }
@@ -488,7 +537,7 @@ export class KK9ItemSheet extends ItemSheet {
         if (data.type !== "Item") return;
         const item = await fromUuid(data.uuid);
         if (!item) return;
-        if (target.classList.contains("artifact-skill-drop") && ["skill","ability"].includes(item.type)) {
+        if (target.classList.contains("artifact-skill-drop") && ["ability"].includes(item.type)) {
           await this.item.update({ "system.skill_uuid": item.uuid, "system.skill_name": item.name });
           return;
         }
@@ -496,7 +545,7 @@ export class KK9ItemSheet extends ItemSheet {
           await this.item.update({ "system.status_uuid": item.uuid, "system.status_name": item.name });
           return;
         }
-        if (target.classList.contains("artifact-skill-bonus-drop") && ["skill","ability"].includes(item.type)) {
+        if (target.classList.contains("artifact-skill-bonus-drop") && ["ability"].includes(item.type)) {
           const bonuses = [...(this.item.system.skill_bonuses || [])];
           if (!bonuses.find(b => b.item_uuid === item.uuid)) {
             bonuses.push({ item_uuid: item.uuid, item_name: item.name, bonus: 1 });
@@ -515,7 +564,7 @@ export class KK9ItemSheet extends ItemSheet {
         if (data.type !== "Item") return;
         const item = await fromUuid(data.uuid);
         if (!item) return;
-        if (target.classList.contains("spell-skill-drop") && ["skill","ability"].includes(item.type)) {
+        if (target.classList.contains("spell-skill-drop") && ["ability"].includes(item.type)) {
           await this.item.update({ "system.skill_uuid": item.uuid, "system.skill_name": item.name });
           return;
         }
@@ -523,7 +572,7 @@ export class KK9ItemSheet extends ItemSheet {
           await this.item.update({ "system.status_uuid": item.uuid, "system.status_name": item.name });
           return;
         }
-        if (target.classList.contains("spell-skill-bonus-drop") && ["skill","ability"].includes(item.type)) {
+        if (target.classList.contains("spell-skill-bonus-drop") && ["ability"].includes(item.type)) {
           const bonuses = [...(this.item.system.skill_bonuses || [])];
           if (!bonuses.find(b => b.item_uuid === item.uuid)) {
             bonuses.push({ item_uuid: item.uuid, item_name: item.name, bonus: 1 });
@@ -540,7 +589,7 @@ export class KK9ItemSheet extends ItemSheet {
       const target = event.target.closest(".daemon-items-drop");
       if (target && data.type === "Item") {
         const item = await fromUuid(data.uuid);
-        if (!item || !["skill","ability"].includes(item.type)) return;
+        if (!item || !["ability"].includes(item.type)) return;
         const skills = foundry.utils.deepClone(this.item.system.skills || []);
         if (!skills.find(sk => sk.uuid === item.uuid || sk.name === item.name)) {
           skills.push({ uuid: item.uuid, name: item.name, type: item.type,
@@ -556,7 +605,7 @@ export class KK9ItemSheet extends ItemSheet {
       const target = event.target.closest(".device-skill-drop");
       if (target && data.type === "Item") {
         const item = await fromUuid(data.uuid);
-        if (!item || !["skill","ability"].includes(item.type)) return;
+        if (!item || !["ability"].includes(item.type)) return;
         await this.item.update({ "system.bonus_skill_uuid": item.uuid, "system.bonus_skill_name": item.name });
         return;
       }
@@ -610,10 +659,10 @@ export class KK9ItemSheet extends ItemSheet {
     if (target.classList.contains("faculty-abilities-drop")) {
       if (data.type !== "Item") return;
       const item = await fromUuid(data.uuid);
-      if (!item || !["ability","skill"].includes(item.type)) return;
+      if (!item || !["ability"].includes(item.type)) return;
       const abilities = [...(this.item.system.abilities || [])];
       if (!abilities.find(a => a.itemId === item.id)) {
-        abilities.push({ name: item.name, itemId: item.id, category: item.system.category || (item.type === "skill" ? "common" : "learned") });
+        abilities.push({ name: item.name, itemId: item.id, category: item.system.category || "learned" });
         await this.item.update({ "system.abilities": abilities });
       }
       return;

@@ -29,17 +29,17 @@
   </div>
   {{/if}}
 
-  {{!-- Основные навыки --}}
-  <h3 class="section-title">Основные навыки</h3>
-  <div class="skills-list" data-drop-zone="skills-base">
+  {{!-- Базовые способности --}}
+  <h3 class="section-title">Базовые способности</h3>
+  <div class="skills-list" data-drop-zone="abilities-base">
     {{#each baseSkills as |sk|}}
     <div class="skill-row" data-item-id="{{sk.id}}">
-      <span class="skill-name rollable-skill" data-item-id="{{sk.id}}">{{sk.name}}</span>
+      <span class="skill-name rollable-ability" data-item-id="{{sk.id}}">{{sk.name}}</span>
       {{#if sk.system.linkedAttribute}}
       <span class="skill-attr-hint">{{lookup ../attrLabels sk.system.linkedAttribute}}</span>
       {{/if}}
       <div class="skill-controls">
-        <select class="die-select-sm skill-die-select" data-item-id="{{sk.id}}"
+        <select class="die-select-sm ability-die-select" data-item-id="{{sk.id}}"
                 data-max-die="{{lookup ../attrDice sk.system.linkedAttribute}}">
           <option value="4"  {{#if (eq sk.system.die 4)}}selected{{/if}}>d4</option>
           <option value="6"  {{#if (eq sk.system.die 6)}}selected{{/if}}>d6</option>
@@ -48,18 +48,16 @@
           <option value="12" {{#if (eq sk.system.die 12)}}selected{{/if}}>d12</option>
           <option value="20" {{#if (eq sk.system.die 20)}}selected{{/if}}>d20</option>
         </select>
-        <input type="number" class="mod-input-sm skill-mod-input" data-item-id="{{sk.id}}"
+        <input type="number" class="mod-input-sm ability-mod-input" data-item-id="{{sk.id}}"
                value="{{sk.system.modifier}}" placeholder="±0" />
-        {{!-- Кнопка удаления: только learned и personal, никогда common или базовые --}}
-        {{#if sk.system.category}}
-          {{#unless (eq sk.system.category "common")}}
-          <button type="button" class="item-delete btn-delete-skill" data-item-id="{{sk.id}}">✕</button>
-          {{/unless}}
-        {{/if}}
+        {{!-- Кнопка удаления: не показываем для базовых способностей (isBase) --}}
+        {{#unless sk.system.isBase}}
+        <button type="button" class="item-delete btn-delete-skill" data-item-id="{{sk.id}}">✕</button>
+        {{/unless}}
       </div>
     </div>
     {{else}}
-    <p class="empty-hint">Перетащи навыки из компендиума</p>
+    <p class="empty-hint">Перетащи способности из компендиума</p>
     {{/each}}
   </div>
 

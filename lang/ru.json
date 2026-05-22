@@ -2,88 +2,131 @@
   "TYPES": {
     "Actor": {
       "character": "Персонаж",
-      "npc-light":  "НПС (лёгкий)",
-      "npc-hard":   "НПС (сложный)",
-      "npc-boss":   "Босс / Непобедимый"
+      "npc-light": "НПС (лёгкий)",
+      "npc-hard": "НПС (сложный)",
+      "npc-boss": "Босс / Непобедимый"
     },
     "Item": {
-      "faculty":   "Факультет",
-      "skill":     "Навык",
-      "ability":   "Способность",
-      "weapon":    "Оружие",
-      "gear":      "Снаряжение",
-      "artifact":  "Артефакт",
-      "spell":     "Заклинание",
-      "daemon":    "Даймон",
+      "faculty": "Факультет",
+      "ability": "Способность",
+      "weapon": "Оружие",
+      "gear": "Снаряжение",
+      "artifact": "Артефакт",
+      "spell": "Заклинание",
+      "daemon": "Даймон",
       "companion": "Спутник",
-      "vehicle":   "Транспорт",
-      "device":    "Устройство",
-      "contact":   "Контакт",
-      "language":  "Язык",
-      "status":    "Статус"
+      "vehicle": "Транспорт",
+      "device": "Устройство",
+      "contact": "Контакт",
+      "language": "Язык",
+      "status": "Статус"
     }
   },
-
   "KK9": {
     "system": {
       "name": "КК9 — Кризисный Комитет №9"
     },
-
     "actor": {
       "types": {
         "character": "Персонаж",
-        "npc-light":  "НПС (лёгкий)",
-        "npc-hard":   "НПС (сложный)",
-        "npc-boss":   "Босс / Непобедимый"
+        "npc-light": "НПС (лёгкий)",
+        "npc-hard": "НПС (сложный)",
+        "npc-boss": "Босс / Непобедимый"
       }
     },
-
     "item": {
-      "types": {
-        "faculty":   "Факультет",
-        "skill":     "Навык",
-        "ability":   "Способность",
-        "weapon":    "Оружие",
-        "gear":      "Снаряжение",
-        "artifact":  "Артефакт",
-        "spell":     "Заклинание",
-        "daemon":    "Даймон",
-        "companion": "Спутник",
-        "vehicle":   "Транспорт",
-        "device":    "Устройство",
-        "contact":   "Контакт",
-        "language":  "Язык",
-        "status":    "Статус"
+      "artifact": {
+        "bonuses": "Бонусы",
+        "damage": "Урон",
+        "equipped": "Экипировано",
+        "active": "Активно",
+        "destroyed": "Уничтожено"
+      },
+      "spell": {
+        "cost": "Стоимость (энергия)",
+        "range": "Дальность",
+        "damage": "Урон",
+        "duration": "Длительность",
+        "school": "Школа",
+        "rollSkill": "Навык броска"
+      },
+      "weapon": {
+        "damage": "Урон",
+        "range": "Дальность",
+        "ap": "Бронепробиваемость",
+        "rof": "Темп стрельбы",
+        "weight": "Вес",
+        "equipped": "Экипировано",
+        "notes": "Заметки",
+        "attack": "Атака",
+        "rollDamage": "Урон"
+      },
+      "gear": {
+        "quantity": "Количество",
+        "weight": "Вес",
+        "equipped": "Экипировано",
+        "energyRestore": "Восстановление энергии"
+      },
+      "daemon": {
+        "abilities": "Способности",
+        "summonCondition": "Условие призыва",
+        "bondLevel": "Уровень связи"
+      },
+      "companion": {
+        "abilities": "Способности",
+        "bondLevel": "Уровень связи"
+      },
+      "faculty": {
+        "teacher": "Куратор",
+        "color": "Цвет факультета",
+        "abilities": "Способности факультета",
+        "students": "Студенты",
+        "dropouts": "Отчисленные",
+        "lore": "Предания"
+      },
+      "status": {
+        "permanent": "Постоянный",
+        "duration": "Длительность",
+        "curse": "Проклятие",
+        "fateRecoil": "Откат судьбы"
+      },
+      "contact": {
+        "type": "Тип контакта",
+        "location": "Местонахождение",
+        "notes": "Заметки"
+      },
+      "vehicle": {
+        "speed": "Скорость",
+        "handling": "Управляемость",
+        "armor": "Броня",
+        "passengers": "Пассажиры"
       }
     },
-
     "attributes": {
-      "agility":  "Ловкость",
-      "smarts":   "Смекалка",
-      "spirit":   "Дух",
+      "agility": "Ловкость",
+      "smarts": "Смекалка",
+      "spirit": "Дух",
       "strength": "Сила",
-      "magic":    "Магия"
+      "magic": "Магия"
     },
-
     "skills": {
-      "athletics":     "Атлетика",
-      "notice":        "Внимание",
-      "stealth":       "Скрытность",
-      "persuasion":    "Убеждение",
-      "fighting":      "Рукопашный бой",
-      "deception":     "Обман",
-      "navigation":    "Ориентирование",
-      "memory":        "Память",
-      "knowledge":     "Знания",
-      "intimidation":  "Запугивание",
-      "survival":      "Выживание",
-      "driving":       "Вождение"
+      "athletics": "Атлетика",
+      "notice": "Внимание",
+      "stealth": "Скрытность",
+      "persuasion": "Убеждение",
+      "fighting": "Рукопашный бой",
+      "deception": "Обман",
+      "navigation": "Ориентирование",
+      "memory": "Память",
+      "knowledge": "Знания",
+      "intimidation": "Запугивание",
+      "survival": "Выживание",
+      "driving": "Вождение"
     },
-
     "health": {
-      "physical":  "Физическое состояние",
-      "mental":    "Ментальное состояние",
-      "will":      "Воля",
+      "physical": "Физическое состояние",
+      "mental": "Ментальное состояние",
+      "will": "Воля",
       "toughness": "Стойкость",
       "physStates": {
         "0": "Здоров",
@@ -104,240 +147,159 @@
       "npcLight": {
         "physSlots": "Ячейки здоровья",
         "mentSlots": "Ячейки ментального",
-        "ko":        "Отключён"
+        "ko": "Отключён"
       }
     },
-
     "faculty": {
-      "label":     "Факультет",
-      "none":      "— не выбран —",
-      "white":     "Белый",
-      "black":     "Чёрный",
-      "blue":      "Синий",
-      "green":     "Зелёный",
-      "purple":    "Фиолетовый",
-      "red":       "Красный",
-      "brown":     "Бурый",
-      "mercury":   "Ртутный",
+      "label": "Факультет",
+      "none": "— не выбран —",
+      "white": "Белый",
+      "black": "Чёрный",
+      "blue": "Синий",
+      "green": "Зелёный",
+      "purple": "Фиолетовый",
+      "red": "Красный",
+      "brown": "Бурый",
+      "mercury": "Ртутный",
       "invisible": "Незримый"
     },
-
     "relations": {
-      "title":   "Связи с НПС",
-      "name":    "Имя",
-      "status":  "Статус",
-      "level":   "Уровень",
-      "notes":   "Заметки",
-      "add":     "Добавить связь",
-      "ally":    "Союзник",
-      "enemy":   "Враг",
+      "title": "Связи с НПС",
+      "name": "Имя",
+      "status": "Статус",
+      "level": "Уровень",
+      "notes": "Заметки",
+      "add": "Добавить связь",
+      "ally": "Союзник",
+      "enemy": "Враг",
       "neutral": "Нейтрал",
       "unknown": "Неизвестно",
-      "drop":    "Перетащи карточку актора"
+      "drop": "Перетащи карточку актора"
     },
-
     "sheet": {
       "tabs": {
-        "main":      "Основное",
-        "skills":    "Навыки",
-        "items":     "Снаряжение",
+        "main": "Основное",
+        "skills": "Навыки",
+        "items": "Снаряжение",
         "relations": "Связи",
         "biography": "Биография",
-        "gmnotes":   "Мастер",
-        "conflict":  "Конфликт"
+        "gmnotes": "Мастер",
+        "conflict": "Конфликт"
       },
-      "attributes":      "Атрибуты",
-      "modifier":        "Мод.",
-      "roll":            "Бросить",
-      "age":             "Возраст",
-      "academy_year":    "Курс",
-      "birthplace":      "Страна рождения",
-      "faculty":         "Факультет",
-      "dormitory":       "Общежитие",
-      "gender":          "Гендер",
-      "height":          "Рост",
-      "build":           "Сложение",
-      "allergies":       "Аллергии",
-      "weaknesses":      "Слабости",
-      "biography":       "Биография",
-      "notes":           "Заметки",
-      "gm_notes":        "Мастерские заметки",
-      "money":           "Деньги",
-      "experience":      "Опыт",
-      "bennies":         "Жетоны судьбы",
-      "energy":          "Энергия",
-      "initiative":      "Инициатива",
-      "toughness":       "Стойкость",
-      "languages":       "Языки",
-      "magicTalents":    "Магические таланты",
-      "customSkills":    "Индивидуальные навыки",
-      "race":            "Раса",
-      "world_origin":    "Мир происхождения",
-      "country_origin":  "Страна происхождения",
-      "world_home":      "Мир проживания",
-      "country_home":    "Страна проживания",
-      "organizations":   "Организации",
-      "goals":           "Цели",
-      "motives":         "Мотивы",
-      "appearance":      "Внешние особенности",
-      "role":            "Краткое описание",
+      "attributes": "Атрибуты",
+      "modifier": "Мод.",
+      "roll": "Бросить",
+      "age": "Возраст",
+      "academy_year": "Курс",
+      "birthplace": "Страна рождения",
+      "faculty": "Факультет",
+      "dormitory": "Общежитие",
+      "gender": "Гендер",
+      "height": "Рост",
+      "build": "Сложение",
+      "allergies": "Аллергии",
+      "weaknesses": "Слабости",
+      "biography": "Биография",
+      "notes": "Заметки",
+      "gm_notes": "Мастерские заметки",
+      "money": "Деньги",
+      "experience": "Опыт",
+      "bennies": "Жетоны судьбы",
+      "energy": "Энергия",
+      "initiative": "Инициатива",
+      "toughness": "Стойкость",
+      "languages": "Языки",
+      "magicTalents": "Магические таланты",
+      "customSkills": "Индивидуальные навыки",
+      "race": "Раса",
+      "world_origin": "Мир происхождения",
+      "country_origin": "Страна происхождения",
+      "world_home": "Мир проживания",
+      "country_home": "Страна проживания",
+      "organizations": "Организации",
+      "goals": "Цели",
+      "motives": "Мотивы",
+      "appearance": "Внешние особенности",
+      "role": "Краткое описание",
       "special_mechanic": "Особая механика",
-      "dragFaculty":     "Перетащи факультет",
-      "dragActor":       "Перетащи карточку актора"
+      "dragFaculty": "Перетащи факультет",
+      "dragActor": "Перетащи карточку актора"
     },
-
     "magic": {
-      "sparks":      "Зачатки",
-      "normal":      "Обычный",
+      "sparks": "Зачатки",
+      "normal": "Обычный",
       "exceptional": "Особый талант"
     },
-
     "ability": {
       "categories": {
-        "common":   "Общая",
+        "common": "Общая",
         "personal": "Индивидуальная",
-        "learned":  "Изученная",
-        "magic":    "Магическая"
+        "learned": "Изученная",
+        "magic": "Магическая"
       }
     },
-
     "rarity": {
-      "common":   "Обычный",
+      "common": "Обычный",
       "uncommon": "Необычный",
-      "rare":     "Редкий",
-      "unique":   "Уникальный"
+      "rare": "Редкий",
+      "unique": "Уникальный"
     },
-
     "condition": {
       "perfect": "Идеальное",
-      "good":    "Хорошее",
-      "worn":    "Изношенное",
-      "broken":  "Сломано",
+      "good": "Хорошее",
+      "worn": "Изношенное",
+      "broken": "Сломано",
       "destroyed": "Уничтожено"
     },
-
     "energy": {
-      "label":       "Энергия",
-      "meditate":    "Медитация",
+      "label": "Энергия",
+      "meditate": "Медитация",
       "meditateHint": "Бросить способность и восстановить энергию",
-      "restore":     "Восстановить",
-      "spent":       "Потрачено"
+      "restore": "Восстановить",
+      "spent": "Потрачено"
     },
-
     "roll": {
-      "initiative":    "Инициатива",
-      "toughness":     "Стойкость",
-      "success":       "Успех",
-      "failure":       "Неудача",
-      "critFail":      "Критический провал",
-      "snakeEyes":     "Глаза змеи",
-      "successes":     "успехов",
-      "wildDie":       "Дикий кубик",
-      "attribute":     "Атрибут",
-      "skill":         "Навык",
-      "ability":       "Способность",
-      "damage":        "Урон",
-      "attack":        "Атака",
-      "resist":        "Сопротивление",
-      "miss":          "Промах",
-      "formula":       "Формула"
+      "initiative": "Инициатива",
+      "toughness": "Стойкость",
+      "success": "Успех",
+      "failure": "Неудача",
+      "critFail": "Критический провал",
+      "snakeEyes": "Глаза змеи",
+      "successes": "успехов",
+      "wildDie": "Дикий кубик",
+      "attribute": "Атрибут",
+      "skill": "Навык",
+      "ability": "Способность",
+      "damage": "Урон",
+      "attack": "Атака",
+      "resist": "Сопротивление",
+      "miss": "Промах",
+      "formula": "Формула"
     },
-
     "chat": {
-      "longRest":      "Длинный отдых",
-      "longRestDone":  "Длинный отдых завершён. Здоровье восстановлено, статусы сняты, энергия полная.",
+      "longRest": "Длинный отдых",
+      "longRestDone": "Длинный отдых завершён. Здоровье восстановлено, статусы сняты, энергия полная.",
       "energyRestored": "Медитация: восстановлено {n} ед. энергии.",
-      "noMeditate":    "Нет доступных способностей медитации.",
-      "noEnergy":      "Недостаточно энергии.",
-      "spellCast":     "Заклинание применено"
+      "noMeditate": "Нет доступных способностей медитации.",
+      "noEnergy": "Недостаточно энергии.",
+      "spellCast": "Заклинание применено"
     },
-
     "npc": {
       "types": {
         "light": "Лёгкий",
-        "hard":  "Сложный",
-        "boss":  "Непобедимый"
+        "hard": "Сложный",
+        "boss": "Непобедимый"
       },
-      "wildDieNote":   "+ дикий куб",
+      "wildDieNote": "+ дикий куб",
       "specialMechanic": "Особая механика",
-      "skills":        "Навыки и способности",
-      "inventory":     "Имущество"
+      "skills": "Навыки и способности",
+      "inventory": "Имущество"
     },
-
-    "item": {
-      "artifact": {
-        "bonuses":    "Бонусы",
-        "damage":     "Урон",
-        "equipped":   "Экипировано",
-        "active":     "Активно",
-        "destroyed":  "Уничтожено"
-      },
-      "spell": {
-        "cost":       "Стоимость (энергия)",
-        "range":      "Дальность",
-        "damage":     "Урон",
-        "duration":   "Длительность",
-        "school":     "Школа",
-        "rollSkill":  "Навык броска"
-      },
-      "weapon": {
-        "damage":     "Урон",
-        "range":      "Дальность",
-        "ap":         "Бронепробиваемость",
-        "rof":        "Темп стрельбы",
-        "weight":     "Вес",
-        "equipped":   "Экипировано",
-        "notes":      "Заметки",
-        "attack":     "Атака",
-        "rollDamage": "Урон"
-      },
-      "gear": {
-        "quantity":   "Количество",
-        "weight":     "Вес",
-        "equipped":   "Экипировано",
-        "energyRestore": "Восстановление энергии"
-      },
-      "daemon": {
-        "abilities":       "Способности",
-        "summonCondition": "Условие призыва",
-        "bondLevel":       "Уровень связи"
-      },
-      "companion": {
-        "abilities":   "Способности",
-        "bondLevel":   "Уровень связи"
-      },
-      "faculty": {
-        "teacher":    "Куратор",
-        "color":      "Цвет факультета",
-        "abilities":  "Способности факультета",
-        "students":   "Студенты",
-        "dropouts":   "Отчисленные",
-        "lore":       "Предания"
-      },
-      "status": {
-        "permanent":  "Постоянный",
-        "duration":   "Длительность",
-        "curse":      "Проклятие",
-        "fateRecoil": "Откат судьбы"
-      },
-      "contact": {
-        "type":       "Тип контакта",
-        "location":   "Местонахождение",
-        "notes":      "Заметки"
-      },
-      "vehicle": {
-        "speed":      "Скорость",
-        "handling":   "Управляемость",
-        "armor":      "Броня",
-        "passengers": "Пассажиры"
-      }
-    },
-
     "errors": {
-      "noActor":        "Актор не найден",
-      "noItem":         "Предмет не найден",
+      "noActor": "Актор не найден",
+      "noItem": "Предмет не найден",
       "notEnoughEnergy": "Недостаточно энергии для {name}",
-      "brokenItem":     "{name} сломано — бросать нельзя"
+      "brokenItem": "{name} сломано — бросать нельзя"
     }
   }
 }

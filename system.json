@@ -59,9 +59,6 @@
           "system.description"
         ]
       },
-      "skill": {
-        "htmlFields": []
-      },
       "ability": {
         "htmlFields": [
           "system.description"
@@ -133,12 +130,6 @@
   "manifest": "https://raw.githubusercontent.com/SomethingOwlish/kk9/main/system.json",
   "download": "https://github.com/SomethingOwlish/kk9/archive/refs/heads/main.zip",
   "packs": [
-    {
-      "name": "kk9-skills",
-      "label": "КК9 — Навыки",
-      "type": "Item",
-      "system": "kk9"
-    },
     {
       "name": "kk9-faculties",
       "label": "КК9 — Факультеты",

@@ -23,11 +23,19 @@ class KK9NpcBaseSheet extends ActorSheet {
     c.relationLabels   = { ally:"Союзник", enemy:"Враг", neutral:"Нейтрал", unknown:"Неизвестно" };
     c.npcItemTypeLabel = (type) => NPC_ITEM_TYPE_LABELS[type] || type;
 
-    // Навыки и способности вместе
-    c.npcAllItems = this.actor.items.filter(i => i.type === "skill" || i.type === "ability");
+    // Навыки и способности — embedded
+    c.npcAllItems = this.actor.items.filter(i => i.type === "ability");
 
-    // Всё остальное имущество
-    c.npcGear = this.actor.items.filter(i => !["skill", "ability"].includes(i.type));
+    // Embedded имущество (weapon, gear, spell, device, vehicle)
+    c.npcGear = this.actor.items.filter(i => !["ability","artifact","daemon","companion","contact"].includes(i.type));
+
+    // Ссылочные типы — резолвим UUID
+    const _resolveRefs = (field) =>
+      (this.actor.system[field] || []).map(uuid => fromUuidSync(uuid)).filter(Boolean);
+    c.artifacts  = _resolveRefs("artifact_refs");
+    c.daemons    = _resolveRefs("daemon_refs");
+    c.companions = _resolveRefs("companion_refs");
+    c.contacts   = _resolveRefs("contact_refs");
 
     return c;
   }
@@ -35,14 +43,29 @@ class KK9NpcBaseSheet extends ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Открыть предмет по клику на имя
-    html.find(".item-name-click").click(e => {
-      const id = e.currentTarget.dataset.itemId;
-      this.actor.items.get(id)?.sheet.render(true);
+    // Открыть предмет по клику — embedded (data-item-id) или linked (data-uuid)
+    html.find(".item-name-click").click(async e => {
+      const row = e.currentTarget.closest("[data-item-id], [data-uuid]");
+      if (!row) return;
+      if (row.dataset.uuid) {
+        const doc = await fromUuid(row.dataset.uuid);
+        doc?.sheet?.render(true);
+      } else {
+        this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
+      }
     });
 
-    // Удалить предмет
+    // Удалить предмет — embedded или отвязать ref
     html.find(".btn-item-delete").click(async e => {
+          const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
+      const uuid    = e.currentTarget.dataset.uuid || e.currentTarget.closest("[data-uuid]")?.dataset.uuid;
+      const refType = e.currentTarget.dataset.refType || e.currentTarget.closest("[data-ref-type]")?.dataset.refType;
+      if (uuid && refType && REF_FIELD[refType]) {
+        const field = REF_FIELD[refType];
+        const refs  = (this.actor.system[field] || []).filter(r => r !== uuid);
+        await this.actor.update({ [`system.${field}`]: refs });
+        return;
+      }
       const id = e.currentTarget.dataset.itemId;
       await this.actor.items.get(id)?.delete();
     });
@@ -157,27 +180,41 @@ class KK9NpcBaseSheet extends ActorSheet {
     const item = await Item.fromDropData(data);
     if (!item) return;
 
-    // Не дублируем предмет если уже есть на акторе
-    const existing = this.actor.items.find(i => i.name === item.name && i.type === item.type);
-    if (existing) {
-      ui.notifications.warn(`«${item.name}» уже есть на карточке.`);
+        const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
+    if (REF_FIELD[item.type]) {
+      // Ссылочный тип — хранить UUID
+      const field = REF_FIELD[item.type];
+      const uuid  = item.uuid;
+      const refs  = [...(this.actor.system[field] || [])];
+      if (refs.includes(uuid)) { ui.notifications.warn(`«${item.name}» уже привязан.`); return; }
+      refs.push(uuid);
+      await this.actor.update({ [`system.${field}`]: refs });
       return;
     }
 
+    // Embedded copy для остальных типов
+    const existing = this.actor.items.find(i => i.name === item.name && i.type === item.type);
+    if (existing) { ui.notifications.warn(`«${item.name}» уже есть на карточке.`); return; }
     await Item.create(item.toObject(), { parent: this.actor });
   }
 
-  // Стандартный Foundry hook для drop из компендиумов/директории
   async _onDropItem(event, data) {
     const item = await Item.fromDropData(data);
     if (!item) return;
 
-    const existing = this.actor.items.find(i => i.name === item.name && i.type === item.type);
-    if (existing) {
-      ui.notifications.warn(`«${item.name}» уже есть на карточке.`);
+        const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
+    if (REF_FIELD[item.type]) {
+      const field = REF_FIELD[item.type];
+      const uuid  = item.uuid;
+      const refs  = [...(this.actor.system[field] || [])];
+      if (refs.includes(uuid)) { ui.notifications.warn(`«${item.name}» уже привязан.`); return; }
+      refs.push(uuid);
+      await this.actor.update({ [`system.${field}`]: refs });
       return;
     }
 
+    const existing = this.actor.items.find(i => i.name === item.name && i.type === item.type);
+    if (existing) { ui.notifications.warn(`«${item.name}» уже есть на карточке.`); return; }
     await Item.create(item.toObject(), { parent: this.actor });
   }
 

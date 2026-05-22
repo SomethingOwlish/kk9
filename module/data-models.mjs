@@ -153,6 +153,12 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
         })
       ),
       active_statuses: activeStatusesField(),
+
+      // Ссылки на связанные документы (UUID — не embedded copies)
+      artifact_refs:  new fields.ArrayField(new fields.StringField({ initial: "" })),
+      daemon_refs:    new fields.ArrayField(new fields.StringField({ initial: "" })),
+      companion_refs: new fields.ArrayField(new fields.StringField({ initial: "" })),
+      contact_refs:   new fields.ArrayField(new fields.StringField({ initial: "" })),
     };
   }
 
@@ -304,18 +310,6 @@ export class FacultyDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-export class SkillDataModel extends foundry.abstract.TypeDataModel {
-  static defineSchema() {
-    return {
-      description:     new fields.StringField({ initial: "" }),
-      linkedAttribute: new fields.StringField({ required: true, initial: "smarts", choices: ["agility","smarts","spirit","strength","magic"] }),
-      die:      new fields.NumberField({ required: true, initial: 4, choices: [4,6,8,10,12,20] }),
-      modifier: new fields.NumberField({ initial: -2, integer: true }),
-      isBase:   new fields.BooleanField({ initial: false })
-    };
-  }
-}
-
 export class AbilityDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
@@ -324,7 +318,8 @@ export class AbilityDataModel extends foundry.abstract.TypeDataModel {
       linkedAttribute: new fields.StringField({ initial: "smarts", choices: ["agility","smarts","spirit","strength","magic"] }),
       faculty_id:      new fields.StringField({ initial: null, nullable: true, blank: false }),
       die:             new fields.NumberField({ required: true, initial: 4, choices: [4,6,8,10,12,20] }),
-      modifier:        new fields.NumberField({ initial: -2, integer: true })
+      modifier:        new fields.NumberField({ initial: -2, integer: true }),
+      isBase:          new fields.BooleanField({ initial: false })
     };
   }
 }

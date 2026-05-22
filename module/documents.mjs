@@ -217,6 +217,33 @@ export class KK9Actor extends Actor {
   }
 
   // ----------------------------------------------------------
+  // Числовой результат для инициативы
+  // ----------------------------------------------------------
+  _buildInitiativeMessage(label, total, rollHtml = "") {
+    const portrait    = this.img || "icons/svg/mystery-man.svg";
+    const nameColor   = this._getFacultyColor();
+    const accentColor = nameColor === NEUTRAL_NAME_COLOR ? "#c4a44a" : nameColor;
+
+    return [
+      `<div class="kk9-chat-roll" data-result-type="initiative" style="--accent:${accentColor}">`,
+      `  <div class="kk9-chat-header">`,
+      `    <img class="kk9-chat-portrait" src="${portrait}" alt="${this.name}">`,
+      `    <div class="kk9-chat-header-text">`,
+      `      <span class="kk9-chat-name" style="color:${nameColor}">${this.name}</span>`,
+      `      <span class="kk9-chat-label">${label}</span>`,
+      `    </div>`,
+      `  </div>`,
+      `  <details class="kk9-result-details">`,
+      `    <summary class="kk9-result-summary kk9-result-initiative">`,
+      `      <span class="kk9-result-text">${total}</span>`,
+      `    </summary>`,
+      rollHtml ? `    <div class="kk9-dice-body">${rollHtml}</div>` : "",
+      `  </details>`,
+      `</div>`
+    ].filter(Boolean).join("\n");
+  }
+
+  // ----------------------------------------------------------
   // Механика успехов
   // ----------------------------------------------------------
   _getSuccessDegree(roll, halfResult = false) {
@@ -436,6 +463,14 @@ export class KK9Actor extends Actor {
   // ----------------------------------------------------------
   // АТРИБУТЫ
   // ----------------------------------------------------------
+  // Получить linked items по ref-полю (artifact_refs, daemon_refs и т.д.)
+  // ----------------------------------------------------------
+  getLinkedItems(refField) {
+    const refs = this.system[refField] || [];
+    return refs.map(uuid => fromUuidSync(uuid)).filter(Boolean);
+  }
+
+  // ----------------------------------------------------------
   async rollAttribute(attributeName, modifier = 0) {
     const attr = this.system.attributes?.[attributeName];
     if (!attr) return;
@@ -444,8 +479,7 @@ export class KK9Actor extends Actor {
     // Бонус от экипированных артефактов к атрибуту
     let artifactBonus = 0;
     const artifactReasons = [];
-    for (const eq of this.items) {
-      if (eq.type !== "artifact") continue;
+    for (const eq of this.getLinkedItems("artifact_refs")) {
       const cond = this._getItemConditionMod(eq);
       if (cond.blocked || !cond.buffActive) continue;
       const raw = eq.system.bonuses?.[attributeName] ?? 0;
@@ -528,7 +562,12 @@ export class KK9Actor extends Actor {
     const reasons = [];
     // Собственный модификатор способности
     if (baseMod !== 0) reasons.push(`модификатор: ${baseMod > 0 ? "+" : ""}${baseMod}`);
-    for (const eq of this.items) {
+    // Артефакты — из linked refs; девайсы — embedded
+    const allEquipForSkill = [
+      ...this.getLinkedItems("artifact_refs"),
+      ...this.items.filter(i => i.type === "device")
+    ];
+    for (const eq of allEquipForSkill) {
       if (!eq.system?.equipped) continue;
       const cond = this._getItemConditionMod(eq);
       if (cond.blocked) continue;
@@ -573,8 +612,7 @@ export class KK9Actor extends Actor {
     // Бонус от артефакта к linkedAttribute
     let attrArtifactBonus = 0;
     if (linkedAttr) {
-      for (const eq of this.items) {
-        if (eq.type !== "artifact") continue;
+      for (const eq of this.getLinkedItems("artifact_refs")) {
         const artCond = this._getItemConditionMod(eq);
         if (artCond.blocked || !artCond.buffActive) continue;
         const raw = eq.system.bonuses?.[linkedAttr] ?? 0;
@@ -616,26 +654,27 @@ export class KK9Actor extends Actor {
 
     const mAg = ag.modifier + hAg.mod;
     const mSm = sm.modifier + hSm.mod;
-    const sAg = mAg !== 0 ? (mAg > 0 ? `+${mAg}` : `${mAg}`) : "";
-    const sSm = mSm !== 0 ? (mSm > 0 ? `+${mSm}` : `${mSm}`) : "";
+    const mTotal = mAg + mSm;
+    const sMod   = mTotal !== 0 ? (mTotal > 0 ? `+${mTotal}` : `${mTotal}`) : "";
 
+    // Один wild die на весь бросок: берём два лучших из трёх кубиков
     const formula = isWC
-      ? `{1d${ag.die}x${sAg}, 1d6x${sAg}}kh + {1d${sm.die}x${sSm}, 1d6x${sSm}}kh`
-      : `1d${ag.die}x${sAg} + 1d${sm.die}x${sSm}`;
+      ? `{1d${ag.die}x, 1d${sm.die}x, 1d6x}kh2${sMod}`
+      : `1d${ag.die}x + 1d${sm.die}x${sMod}`;
 
     const reasons = [...hAg.reasons, ...hSm.reasons];
 
     const roll = new Roll(formula);
     await roll.evaluate();
-    const degree   = this._getSuccessDegree(roll);
-    const diceHtml = this._buildDiceHtml(roll);
-    const content  = this._buildRollMessage("Инициатива", degree, diceHtml, reasons);
+    const total    = roll.total;
+    const diceHtml = this._buildDiceHtml(roll, reasons);
+    const content  = this._buildInitiativeMessage("Инициатива", total, diceHtml);
 
     // Записываем в combat tracker если персонаж участвует в бою
     const combat = game?.combat;
     if (combat) {
       const combatant = combat.combatants.find(c => c.actorId === this.id);
-      if (combatant) await combatant.update({ initiative: roll.total });
+      if (combatant) await combatant.update({ initiative: total });
     }
 
     await ChatMessage.create({
@@ -643,7 +682,7 @@ export class KK9Actor extends Actor {
       content,
       flags: { kk9: { isRoll: true, actorId: this.id } }
     });
-    return { roll, degree };
+    return { roll, total };
   }
 
   // ----------------------------------------------------------
@@ -652,7 +691,7 @@ export class KK9Actor extends Actor {
   async rollToughness() {
     const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выжидание"];
     const available   = this.items.filter(i =>
-      (i.type === "skill" || i.type === "ability") && resistNames.includes(i.name)
+      i.type === "ability" && resistNames.includes(i.name)
     );
     const options = available.map(s =>
       `<option value="${s.id}|${s.system.die||4}">${s.name} (d${s.system.die||4})</option>`
@@ -690,13 +729,16 @@ export class KK9Actor extends Actor {
       const [itemId, skillDie] = result.split("|");
       const skillItem = this.items.get(itemId);
       labelExtra = skillItem ? ` + ${skillItem.name}` : "";
-      const skillMod    = (skillItem?.system?.modifier || 0) + h.mod;
-      const skillModStr = skillMod !== 0 ? (skillMod > 0 ? `+${skillMod}` : `${skillMod}`) : "";
+      const skillMod  = (skillItem?.system?.modifier || 0) + h.mod;
+      const mTotal    = mod + skillMod;
+      const totalStr  = mTotal !== 0 ? (mTotal > 0 ? `+${mTotal}` : `${mTotal}`) : "";
+      // Один wild die на весь бросок: берём два лучших из трёх кубиков
       formula = isWC
-        ? `{1d${spiritDie}x${modStr}, 1d6x${modStr}}kh + {1d${skillDie}x${skillModStr}, 1d6x${skillModStr}}kh`
-        : `1d${spiritDie}x${modStr} + 1d${skillDie}x${skillModStr}`;
+        ? `{1d${spiritDie}x, 1d${skillDie}x, 1d6x}kh2${totalStr}`
+        : `1d${spiritDie}x${modStr} + 1d${skillDie}x${skillMod !== 0 ? (skillMod > 0 ? "+" + skillMod : skillMod) : ""}`;
     } else {
-      formula = isWC ? `{1d${spiritDie}x${modStr}, 1d6x${modStr}}kh` : `1d${spiritDie}x${modStr}`;
+      // Только Дух — один кубик + wild die, берём лучший
+      formula = isWC ? `{1d${spiritDie}x, 1d6x}kh${modStr}` : `1d${spiritDie}x${modStr}`;
     }
 
     const roll = new Roll(formula);

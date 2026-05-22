@@ -2,88 +2,131 @@
   "TYPES": {
     "Actor": {
       "character": "Персонаж",
-      "npc-light":  "НПС (лёгкий)",
-      "npc-hard":   "НПС (сложный)",
-      "npc-boss":   "Босс / Непобедимый"
+      "npc-light": "НПС (лёгкий)",
+      "npc-hard": "НПС (сложный)",
+      "npc-boss": "Босс / Непобедимый"
     },
     "Item": {
-      "faculty":   "Факультет",
-      "skill":     "Навык",
-      "ability":   "Способность",
-      "weapon":    "Оружие",
-      "gear":      "Снаряжение",
-      "artifact":  "Артефакт",
-      "spell":     "Заклинание",
-      "daemon":    "Даймон",
+      "faculty": "Факультет",
+      "ability": "Способность",
+      "weapon": "Оружие",
+      "gear": "Снаряжение",
+      "artifact": "Артефакт",
+      "spell": "Заклинание",
+      "daemon": "Даймон",
       "companion": "Спутник",
-      "vehicle":   "Транспорт",
-      "device":    "Устройство",
-      "contact":   "Контакт",
-      "language":  "Язык",
-      "status":    "Статус"
+      "vehicle": "Транспорт",
+      "device": "Устройство",
+      "contact": "Контакт",
+      "language": "Язык",
+      "status": "Статус"
     }
   },
-
   "KK9": {
     "system": {
       "name": "KK9 — Crisis Committee No. 9"
     },
-
     "actor": {
       "types": {
         "character": "Персонаж",
-        "npc-light":  "НПС (лёгкий)",
-        "npc-hard":   "НПС (сложный)",
-        "npc-boss":   "Босс / Непобедимый"
+        "npc-light": "НПС (лёгкий)",
+        "npc-hard": "НПС (сложный)",
+        "npc-boss": "Босс / Непобедимый"
       }
     },
-
     "item": {
-      "types": {
-        "faculty":   "Факультет",
-        "skill":     "Навык",
-        "ability":   "Способность",
-        "weapon":    "Оружие",
-        "gear":      "Снаряжение",
-        "artifact":  "Артефакт",
-        "spell":     "Заклинание",
-        "daemon":    "Даймон",
-        "companion": "Спутник",
-        "vehicle":   "Транспорт",
-        "device":    "Устройство",
-        "contact":   "Контакт",
-        "language":  "Язык",
-        "status":    "Статус"
+      "artifact": {
+        "bonuses": "Bonuses",
+        "damage": "Damage",
+        "equipped": "Equipped",
+        "active": "Active",
+        "destroyed": "Destroyed"
+      },
+      "spell": {
+        "cost": "Cost (energy)",
+        "range": "Range",
+        "damage": "Damage",
+        "duration": "Duration",
+        "school": "School",
+        "rollSkill": "Roll Skill"
+      },
+      "weapon": {
+        "damage": "Damage",
+        "range": "Range",
+        "ap": "Armor Piercing",
+        "rof": "Rate of Fire",
+        "weight": "Weight",
+        "equipped": "Equipped",
+        "notes": "Notes",
+        "attack": "Attack",
+        "rollDamage": "Damage"
+      },
+      "gear": {
+        "quantity": "Quantity",
+        "weight": "Weight",
+        "equipped": "Equipped",
+        "energyRestore": "Energy Restore"
+      },
+      "daemon": {
+        "abilities": "Abilities",
+        "summonCondition": "Summon Condition",
+        "bondLevel": "Bond Level"
+      },
+      "companion": {
+        "abilities": "Abilities",
+        "bondLevel": "Bond Level"
+      },
+      "faculty": {
+        "teacher": "Faculty Head",
+        "color": "Faculty Color",
+        "abilities": "Faculty Abilities",
+        "students": "Students",
+        "dropouts": "Dropouts",
+        "lore": "Lore Entries"
+      },
+      "status": {
+        "permanent": "Permanent",
+        "duration": "Duration",
+        "curse": "Curse",
+        "fateRecoil": "Fate Recoil"
+      },
+      "contact": {
+        "type": "Contact Type",
+        "location": "Location",
+        "notes": "Notes"
+      },
+      "vehicle": {
+        "speed": "Speed",
+        "handling": "Handling",
+        "armor": "Armor",
+        "passengers": "Passengers"
       }
     },
-
     "attributes": {
-      "agility":  "Ловкость",
-      "smarts":   "Смекалка",
-      "spirit":   "Дух",
+      "agility": "Ловкость",
+      "smarts": "Смекалка",
+      "spirit": "Дух",
       "strength": "Сила",
-      "magic":    "Магия"
+      "magic": "Магия"
     },
-
     "skills": {
-      "athletics":     "Athletics",
-      "notice":        "Notice",
-      "stealth":       "Stealth",
-      "persuasion":    "Persuasion",
-      "fighting":      "Fighting",
-      "deception":     "Deception",
-      "navigation":    "Navigation",
-      "memory":        "Memory",
-      "knowledge":     "Knowledge",
-      "intimidation":  "Intimidation",
-      "survival":      "Survival",
-      "driving":       "Driving"
+      "athletics": "Athletics",
+      "notice": "Notice",
+      "stealth": "Stealth",
+      "persuasion": "Persuasion",
+      "fighting": "Fighting",
+      "deception": "Deception",
+      "navigation": "Navigation",
+      "memory": "Memory",
+      "knowledge": "Knowledge",
+      "intimidation": "Intimidation",
+      "survival": "Survival",
+      "driving": "Driving"
     },
-
     "health": {
-      "physical":  "Physical Condition",
-      "mental":    "Mental Condition",
-      "will":      "Will",
+      "physical": "Physical Condition",
+      "mental": "Mental Condition",
+      "will": "Will",
       "toughness": "Стойкость",
       "physStates": {
         "0": "Healthy",
@@ -104,240 +147,159 @@
       "npcLight": {
         "physSlots": "Health Slots",
         "mentSlots": "Mental Slots",
-        "ko":        "KO"
+        "ko": "KO"
       }
     },
-
     "faculty": {
-      "label":     "Faculty",
-      "none":      "— none selected —",
-      "white":     "White",
-      "black":     "Black",
-      "blue":      "Blue",
-      "green":     "Green",
-      "purple":    "Purple",
-      "red":       "Red",
-      "brown":     "Brown",
-      "mercury":   "Mercury",
+      "label": "Faculty",
+      "none": "— none selected —",
+      "white": "White",
+      "black": "Black",
+      "blue": "Blue",
+      "green": "Green",
+      "purple": "Purple",
+      "red": "Red",
+      "brown": "Brown",
+      "mercury": "Mercury",
       "invisible": "Invisible"
     },
-
     "relations": {
-      "title":   "Relations",
-      "name":    "Name",
-      "status":  "Status",
-      "level":   "Level",
-      "notes":   "Notes",
-      "add":     "Add relation",
-      "ally":    "Ally",
-      "enemy":   "Enemy",
+      "title": "Relations",
+      "name": "Name",
+      "status": "Status",
+      "level": "Level",
+      "notes": "Notes",
+      "add": "Add relation",
+      "ally": "Ally",
+      "enemy": "Enemy",
       "neutral": "Neutral",
       "unknown": "Unknown",
-      "drop":    "Drag an actor here"
+      "drop": "Drag an actor here"
     },
-
     "sheet": {
       "tabs": {
-        "main":      "Main",
-        "skills":    "Skills",
-        "items":     "Equipment",
+        "main": "Main",
+        "skills": "Skills",
+        "items": "Equipment",
         "relations": "Relations",
         "biography": "Biography",
-        "gmnotes":   "Мастер",
-        "conflict":  "Conflict"
+        "gmnotes": "Мастер",
+        "conflict": "Conflict"
       },
-      "attributes":      "Атрибуты",
-      "modifier":        "Mod.",
-      "roll":            "Бросить",
-      "age":             "Возраст",
-      "academy_year":    "Year",
-      "birthplace":      "Birthplace",
-      "faculty":         "Faculty",
-      "dormitory":       "Dormitory",
-      "gender":          "Gender",
-      "height":          "Height",
-      "build":           "Build",
-      "allergies":       "Allergies",
-      "weaknesses":      "Weaknesses",
-      "biography":       "Biography",
-      "notes":           "Notes",
-      "gm_notes":        "Мастер",
-      "money":           "Money",
-      "experience":      "Experience",
-      "bennies":         "Fate Tokens",
-      "energy":          "Энергия",
-      "initiative":      "Инициатива",
-      "toughness":       "Стойкость",
-      "languages":       "Languages",
-      "magicTalents":    "Магические таланты",
-      "customSkills":    "Personal Skills",
-      "race":            "Race",
-      "world_origin":    "World of Origin",
-      "country_origin":  "Country of Origin",
-      "world_home":      "Home World",
-      "country_home":    "Home Country",
-      "organizations":   "Organizations",
-      "goals":           "Goals",
-      "motives":         "Motives",
-      "appearance":      "Distinctive Features",
-      "role":            "Brief Description",
+      "attributes": "Атрибуты",
+      "modifier": "Mod.",
+      "roll": "Бросить",
+      "age": "Возраст",
+      "academy_year": "Year",
+      "birthplace": "Birthplace",
+      "faculty": "Faculty",
+      "dormitory": "Dormitory",
+      "gender": "Gender",
+      "height": "Height",
+      "build": "Build",
+      "allergies": "Allergies",
+      "weaknesses": "Weaknesses",
+      "biography": "Biography",
+      "notes": "Notes",
+      "gm_notes": "Мастер",
+      "money": "Money",
+      "experience": "Experience",
+      "bennies": "Fate Tokens",
+      "energy": "Энергия",
+      "initiative": "Инициатива",
+      "toughness": "Стойкость",
+      "languages": "Languages",
+      "magicTalents": "Магические таланты",
+      "customSkills": "Personal Skills",
+      "race": "Race",
+      "world_origin": "World of Origin",
+      "country_origin": "Country of Origin",
+      "world_home": "Home World",
+      "country_home": "Home Country",
+      "organizations": "Organizations",
+      "goals": "Goals",
+      "motives": "Motives",
+      "appearance": "Distinctive Features",
+      "role": "Brief Description",
       "special_mechanic": "Special Mechanic",
-      "dragFaculty":     "Drag a faculty here",
-      "dragActor":       "Drag an actor here"
+      "dragFaculty": "Drag a faculty here",
+      "dragActor": "Drag an actor here"
     },
-
     "magic": {
-      "sparks":      "Зачатки",
-      "normal":      "Обычный",
+      "sparks": "Зачатки",
+      "normal": "Обычный",
       "exceptional": "Особый талант"
     },
-
     "ability": {
       "categories": {
-        "common":   "Common",
+        "common": "Common",
         "personal": "Personal",
-        "learned":  "Learned",
-        "magic":    "Магия"
+        "learned": "Learned",
+        "magic": "Магия"
       }
     },
-
     "rarity": {
-      "common":   "Common",
+      "common": "Common",
       "uncommon": "Uncommon",
-      "rare":     "Rare",
-      "unique":   "Unique"
+      "rare": "Rare",
+      "unique": "Unique"
     },
-
     "condition": {
-      "perfect":   "Perfect",
-      "good":      "Good",
-      "worn":      "Worn",
-      "broken":    "Broken",
+      "perfect": "Perfect",
+      "good": "Good",
+      "worn": "Worn",
+      "broken": "Broken",
       "destroyed": "Destroyed"
     },
-
     "energy": {
-      "label":        "Энергия",
-      "meditate":     "Meditate",
+      "label": "Энергия",
+      "meditate": "Meditate",
       "meditateHint": "Roll ability and restore energy",
-      "restore":      "Restore",
-      "spent":        "Spent"
+      "restore": "Restore",
+      "spent": "Spent"
     },
-
     "roll": {
-      "initiative":  "Инициатива",
-      "toughness":   "Стойкость",
-      "success":     "Success",
-      "failure":     "Failure",
-      "critFail":    "Critical Failure",
-      "snakeEyes":   "Snake Eyes",
-      "successes":   "successes",
-      "wildDie":     "Wild Die",
-      "attribute":   "Attribute",
-      "skill":       "Skill",
-      "ability":     "Ability",
-      "damage":      "Damage",
-      "attack":      "Attack",
-      "resist":      "Resist",
-      "miss":        "Miss",
-      "formula":     "Formula"
+      "initiative": "Инициатива",
+      "toughness": "Стойкость",
+      "success": "Success",
+      "failure": "Failure",
+      "critFail": "Critical Failure",
+      "snakeEyes": "Snake Eyes",
+      "successes": "successes",
+      "wildDie": "Wild Die",
+      "attribute": "Attribute",
+      "skill": "Skill",
+      "ability": "Ability",
+      "damage": "Damage",
+      "attack": "Attack",
+      "resist": "Resist",
+      "miss": "Miss",
+      "formula": "Formula"
     },
-
     "chat": {
-      "longRest":       "Long Rest",
-      "longRestDone":   "Long rest complete. Health restored, statuses cleared, energy full.",
+      "longRest": "Long Rest",
+      "longRestDone": "Long rest complete. Health restored, statuses cleared, energy full.",
       "energyRestored": "Meditation: restored {n} energy.",
-      "noMeditate":     "No meditation abilities available.",
-      "noEnergy":       "Not enough energy.",
-      "spellCast":      "Spell cast"
+      "noMeditate": "No meditation abilities available.",
+      "noEnergy": "Not enough energy.",
+      "spellCast": "Spell cast"
     },
-
     "npc": {
       "types": {
         "light": "Minor",
-        "hard":  "Major",
-        "boss":  "Invincible"
+        "hard": "Major",
+        "boss": "Invincible"
       },
-      "wildDieNote":     "+ wild die",
+      "wildDieNote": "+ wild die",
       "specialMechanic": "Special Mechanic",
-      "skills":          "Skills & Abilities",
-      "inventory":       "Inventory"
+      "skills": "Skills & Abilities",
+      "inventory": "Inventory"
     },
-
-    "item": {
-      "artifact": {
-        "bonuses":   "Bonuses",
-        "damage":    "Damage",
-        "equipped":  "Equipped",
-        "active":    "Active",
-        "destroyed": "Destroyed"
-      },
-      "spell": {
-        "cost":      "Cost (energy)",
-        "range":     "Range",
-        "damage":    "Damage",
-        "duration":  "Duration",
-        "school":    "School",
-        "rollSkill": "Roll Skill"
-      },
-      "weapon": {
-        "damage":     "Damage",
-        "range":      "Range",
-        "ap":         "Armor Piercing",
-        "rof":        "Rate of Fire",
-        "weight":     "Weight",
-        "equipped":   "Equipped",
-        "notes":      "Notes",
-        "attack":     "Attack",
-        "rollDamage": "Damage"
-      },
-      "gear": {
-        "quantity":      "Quantity",
-        "weight":        "Weight",
-        "equipped":      "Equipped",
-        "energyRestore": "Energy Restore"
-      },
-      "daemon": {
-        "abilities":       "Abilities",
-        "summonCondition": "Summon Condition",
-        "bondLevel":       "Bond Level"
-      },
-      "companion": {
-        "abilities": "Abilities",
-        "bondLevel": "Bond Level"
-      },
-      "faculty": {
-        "teacher":   "Faculty Head",
-        "color":     "Faculty Color",
-        "abilities": "Faculty Abilities",
-        "students":  "Students",
-        "dropouts":  "Dropouts",
-        "lore":      "Lore Entries"
-      },
-      "status": {
-        "permanent":  "Permanent",
-        "duration":   "Duration",
-        "curse":      "Curse",
-        "fateRecoil": "Fate Recoil"
-      },
-      "contact": {
-        "type":     "Contact Type",
-        "location": "Location",
-        "notes":    "Notes"
-      },
-      "vehicle": {
-        "speed":      "Speed",
-        "handling":   "Handling",
-        "armor":      "Armor",
-        "passengers": "Passengers"
-      }
-    },
-
     "errors": {
-      "noActor":          "Actor not found",
-      "noItem":           "Item not found",
-      "notEnoughEnergy":  "Not enough energy for {name}",
-      "brokenItem":       "{name} is broken — cannot roll"
+      "noActor": "Actor not found",
+      "noItem": "Item not found",
+      "notEnoughEnergy": "Not enough energy for {name}",
+      "brokenItem": "{name} is broken — cannot roll"
     }
   }
 }
