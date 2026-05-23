@@ -136,13 +136,11 @@ class KK9NpcBaseSheet extends ActorSheet {
       });
     });
 
-    // KO-ячейки физического
+    // KO-пипы — только для Hard/Boss (у лёгкого пипы 1,3,5 без отдельного KO)
     html.find(".npc-ko-pip[data-track='npc-physical-ko']").click(async () => {
       const cur = this.actor.system.health?.physical?.knockout;
       await this.actor.update({ "system.health.physical.knockout": !cur });
     });
-
-    // KO-ячейки ментального
     html.find(".npc-ko-pip[data-track='npc-mental-ko']").click(async () => {
       const cur = this.actor.system.health?.mental?.knockout;
       await this.actor.update({ "system.health.mental.knockout": !cur });

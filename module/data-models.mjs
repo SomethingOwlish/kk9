@@ -180,14 +180,13 @@ export class NpcLightDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     return {
       ...npcCommonFields(),
+      // Лёгкий НПС: пипы 1, 3, 5 — max=5 как у Hard
       health: new fields.SchemaField({
         physical: new fields.SchemaField({
-          value:    new fields.NumberField({ required: true, initial: 0, min: 0, max: 2, integer: true }),
-          knockout: new fields.BooleanField({ initial: false })
+          value: new fields.NumberField({ required: true, initial: 0, min: 0, max: 5, integer: true })
         }),
         mental: new fields.SchemaField({
-          value:    new fields.NumberField({ required: true, initial: 0, min: 0, max: 2, integer: true }),
-          knockout: new fields.BooleanField({ initial: false })
+          value: new fields.NumberField({ required: true, initial: 0, min: 0, max: 5, integer: true })
         })
       }),
     };

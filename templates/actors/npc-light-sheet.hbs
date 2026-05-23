@@ -126,18 +126,19 @@
           <div class="health-track">
             <div class="track-header">
               <span class="track-label">Физическое состояние</span>
-              <span class="health-state-badge {{#if system.health.physical.knockout}}state-5{{else}}state-{{system.health.physical.value}}{{/if}}">{{#if system.health.physical.knockout}}{{healthLabel 5}}{{else}}{{healthLabel system.health.physical.value}}{{/if}}</span>
+              <span class="health-state-badge state-{{system.health.physical.value}}">{{healthLabel system.health.physical.value}}</span>
             </div>
             <div class="track-pips">
-              {{#times 2}}
-              <div class="health-pip {{#if (gte ../system.health.physical.value this)}}pip-filled pip-phys-{{this}}{{else}}pip-empty{{/if}}"
-                   data-track="npc-physical" data-value="{{this}}" title="{{healthLabel this}}">
-                <span class="pip-txt">{{healthLabel this}}</span>
+              <div class="health-pip {{#if (gte system.health.physical.value 1)}}pip-filled pip-phys-1{{else}}pip-empty{{/if}}"
+                   data-track="npc-physical" data-value="1" title="{{healthLabel 1}}">
+                <span class="pip-txt">{{healthLabel 1}}</span>
               </div>
-              {{/times}}
-              {{!-- КО-пип (критическое) --}}
-              <div class="npc-ko-pip health-pip pip-ko {{#if system.health.physical.knockout}}pip-filled pip-phys-5{{else}}pip-empty{{/if}}"
-                   data-track="npc-physical-ko" data-value="3" title="{{healthLabel 5}}">
+              <div class="health-pip {{#if (gte system.health.physical.value 3)}}pip-filled pip-phys-3{{else}}pip-empty{{/if}}"
+                   data-track="npc-physical" data-value="3" title="{{healthLabel 3}}">
+                <span class="pip-txt">{{healthLabel 3}}</span>
+              </div>
+              <div class="health-pip {{#if (gte system.health.physical.value 5)}}pip-filled pip-phys-5{{else}}pip-empty{{/if}}"
+                   data-track="npc-physical" data-value="5" title="{{healthLabel 5}}">
                 <span class="pip-txt">{{healthLabel 5}}</span>
               </div>
             </div>
@@ -145,18 +146,19 @@
           <div class="health-track" style="margin-top:8px">
             <div class="track-header">
               <span class="track-label">Ментальное состояние</span>
-              <span class="health-state-badge {{#if system.health.mental.knockout}}state-mental-5{{else}}state-mental-{{system.health.mental.value}}{{/if}}">{{#if system.health.mental.knockout}}{{mentalLabel 5}}{{else}}{{mentalLabel system.health.mental.value}}{{/if}}</span>
+              <span class="health-state-badge state-mental-{{system.health.mental.value}}">{{mentalLabel system.health.mental.value}}</span>
             </div>
             <div class="track-pips">
-              {{#times 2}}
-              <div class="health-pip {{#if (gte ../system.health.mental.value this)}}pip-filled pip-ment-{{this}}{{else}}pip-empty{{/if}}"
-                   data-track="npc-mental" data-value="{{this}}" title="{{mentalLabel this}}">
-                <span class="pip-txt">{{mentalLabel this}}</span>
+              <div class="health-pip {{#if (gte system.health.mental.value 1)}}pip-filled pip-ment-1{{else}}pip-empty{{/if}}"
+                   data-track="npc-mental" data-value="1" title="{{mentalLabel 1}}">
+                <span class="pip-txt">{{mentalLabel 1}}</span>
               </div>
-              {{/times}}
-              {{!-- КО-пип (критическое) --}}
-              <div class="npc-ko-pip health-pip pip-ko {{#if system.health.mental.knockout}}pip-filled pip-ment-5{{else}}pip-empty{{/if}}"
-                   data-track="npc-mental-ko" data-value="3" title="{{mentalLabel 5}}">
+              <div class="health-pip {{#if (gte system.health.mental.value 3)}}pip-filled pip-ment-3{{else}}pip-empty{{/if}}"
+                   data-track="npc-mental" data-value="3" title="{{mentalLabel 3}}">
+                <span class="pip-txt">{{mentalLabel 3}}</span>
+              </div>
+              <div class="health-pip {{#if (gte system.health.mental.value 5)}}pip-filled pip-ment-5{{else}}pip-empty{{/if}}"
+                   data-track="npc-mental" data-value="5" title="{{mentalLabel 5}}">
                 <span class="pip-txt">{{mentalLabel 5}}</span>
               </div>
             </div>
