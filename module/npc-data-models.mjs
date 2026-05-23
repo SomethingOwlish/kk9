@@ -24,6 +24,31 @@ function relationsField() {
   );
 }
 
+// --- Активные статусы (как у персонажа) ---
+function activeStatusesField() {
+  return new fields.ArrayField(
+    new fields.SchemaField({
+      uuid:        new fields.StringField({ required: true, initial: "" }),
+      statusName:  new fields.StringField({ initial: "" }),
+      status_type: new fields.StringField({ initial: "shock" }),
+      damage:      new fields.StringField({ initial: "none" }),
+      damage_type: new fields.StringField({ initial: "physical" }),
+      frequency:   new fields.StringField({ initial: "per_turn" }),
+      uses:        new fields.NumberField({ initial: -1, integer: true })
+    })
+  );
+}
+
+// --- Ссылочные поля (UUID на внешние документы) ---
+function refsFields() {
+  return {
+    artifact_refs:  new fields.ArrayField(new fields.StringField({ initial: "" })),
+    daemon_refs:    new fields.ArrayField(new fields.StringField({ initial: "" })),
+    companion_refs: new fields.ArrayField(new fields.StringField({ initial: "" })),
+    contact_refs:   new fields.ArrayField(new fields.StringField({ initial: "" })),
+  };
+}
+
 // ============================================================
 // НПС ЛЁГКИЙ
 // 2 ячейки физ + KO, 2 ячейки ментал + KO
@@ -71,6 +96,10 @@ export class NpcLightDataModel extends foundry.abstract.TypeDataModel {
 
       // Навыки и имущество хранятся как embedded Items через стандартный механизм Foundry
       // Дополнительных полей не нужно — items фильтруются в getData() по type
+
+      // Ссылочные типы и статусы
+      ...refsFields(),
+      active_statuses: activeStatusesField(),
     };
   }
 }
@@ -122,6 +151,10 @@ export class NpcHardDataModel extends foundry.abstract.TypeDataModel {
           value: new fields.NumberField({ required: true, initial: 0, min: 0, max: 5, integer: true })
         })
       }),
+
+      // Ссылочные типы и статусы
+      ...refsFields(),
+      active_statuses: activeStatusesField(),
     };
   }
 
@@ -169,6 +202,10 @@ export class NpcBossDataModel extends foundry.abstract.TypeDataModel {
       toughness:        new fields.NumberField({ initial: 5, integer: true }),
       energy:           new fields.NumberField({ initial: 0, integer: true }),
       special_mechanics: new fields.HTMLField({ initial: "" }),
+
+      // Ссылочные типы и статусы
+      ...refsFields(),
+      active_statuses: activeStatusesField(),
     };
   }
 }

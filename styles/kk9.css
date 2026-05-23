@@ -114,12 +114,12 @@
 
 .name-input {
   font-family: 'Caveat', cursive;
-  font-size: 1.6em;
+  font-size: 1.8em;
   font-weight: 700;
   color: #ece4d8;
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(200,180,140,0.3);
+  border-bottom: 1px solid var(--border);
   width: 100%;
   text-shadow: 0 1px 4px rgba(0,0,0,0.8);
   letter-spacing: 0.02em;
@@ -210,7 +210,7 @@
   user-select: none;
 }
 .bennie-pip:hover { transform: scale(1.2); }
-.bennie-on  { color: var(--gold); text-shadow: 0 0 6px rgba(196,164,74,0.5); }
+.bennie-on  { color: var(--border); text-shadow: 0 0 6px rgba(196,164,74,0.5); }
 .bennie-off { color: var(--border2); }
 
 /* Производные */
@@ -1928,7 +1928,7 @@
   object-fit: cover;
   object-position: top center;
   border-radius: 3px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
   flex-shrink: 0;
   /* Лёгкая виньетка по краям */
   box-shadow: inset 0 0 8px rgba(0,0,0,0.6);
@@ -1945,6 +1945,7 @@
   font-family: 'Caveat', cursive;
   font-size: 1.15em;
   font-weight: 700;
+ color: #c4a44a;
   line-height: 1.1;
   /* цвет приходит инлайном из JS */
 }

@@ -40,11 +40,11 @@
       <button type="button" class="item-create btn-add-sm" data-type="artifact">+</button>
     </div>
     {{#each artifacts}}
-    <div class="item-row" data-item-id="{{this.id}}">
+    <div class="item-row" data-uuid="{{this.uuid}}" data-ref-type="artifact">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
       <span class="item-badge rarity-{{this.system.rarity}}">{{lookup (hash common="обычный" uncommon="необычный" rare="редкий" unique="уникальный") this.system.rarity}}</span>
-      <button type="button" class="item-delete btn-delete-xs">✕</button>
+      <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="artifact">✕</button>
     </div>
     {{else}}<p class="empty-hint">Нет артефактов</p>{{/each}}
   </div>
@@ -72,11 +72,11 @@
       <button type="button" class="item-create btn-add-sm" data-type="daemon">+</button>
     </div>
     {{#each daemons}}
-    <div class="item-row" data-item-id="{{this.id}}">
+    <div class="item-row" data-uuid="{{this.uuid}}" data-ref-type="daemon">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
       {{#if this.system.summoned}}<span class="item-badge badge-summoned">Призван</span>{{/if}}
-      <button type="button" class="item-delete btn-delete-xs">✕</button>
+      <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="daemon">✕</button>
     </div>
     {{else}}<p class="empty-hint">Нет даймонов</p>{{/each}}
   </div>
@@ -103,10 +103,10 @@
       <button type="button" class="item-create btn-add-sm" data-type="companion">+</button>
     </div>
     {{#each companions}}
-    <div class="item-row" data-item-id="{{this.id}}">
+    <div class="item-row" data-uuid="{{this.uuid}}" data-ref-type="companion">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <button type="button" class="item-delete btn-delete-xs">✕</button>
+      <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="companion">✕</button>
     </div>
     {{else}}<p class="empty-hint">Нет спутников</p>{{/each}}
   </div>
@@ -134,11 +134,11 @@
       <button type="button" class="item-create btn-add-sm" data-type="contact">+</button>
     </div>
     {{#each contacts}}
-    <div class="item-row" data-item-id="{{this.id}}">
+    <div class="item-row" data-uuid="{{this.uuid}}" data-ref-type="contact">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
       <span class="item-meta">Доступ: {{this.system.access_level}}</span>
-      <button type="button" class="item-delete btn-delete-xs">✕</button>
+      <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="contact">✕</button>
     </div>
     {{else}}<p class="empty-hint">Нет контактов. Перетащи или создай.</p>{{/each}}
   </div>

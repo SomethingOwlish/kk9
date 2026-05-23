@@ -32,7 +32,6 @@ export class KK9CharacterSheet extends ActorSheet {
     context.attributeLabels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
     context.attrLabels = { agility:"Ловк", smarts:"Смек", spirit:"Дух", strength:"Сила", magic:"Магия" };
 
-    const allSkills    = this.actor.items.filter(i => i.type === "ability");
     const allAbilities = this.actor.items.filter(i => i.type === "ability");
 
     context.attrDice = {
@@ -59,24 +58,25 @@ export class KK9CharacterSheet extends ActorSheet {
     let facultyAbilityNames = new Set();
     if (facultyItem) (facultyItem.system.abilities || []).forEach(a => facultyAbilityNames.add(a.name));
 
-    const facultyItems = facultyId ? [
-      ...allAbilities.filter(i =>
-        i.system.faculty_id === facultyId ||
-        (i.system.category === "common" && facultyAbilityNames.has(i.name))
-      ),
-      ...allSkills.filter(i => facultyAbilityNames.has(i.name))
-    ] : [];
+    // Каждый ability попадает ровно в ОДИН список.
+    // Приоритет: faculty → magic → base
+    // faculty: явный faculty_id === facultyId
+    const facultyItems = facultyId
+      ? allAbilities.filter(i => i.system.faculty_id === facultyId)
+      : [];
     context.facultyAbilities = facultyItems;
-    const facultyAbilityIds = new Set(facultyItems.map(i => i.id));
+    const facultyIds = new Set(facultyItems.map(i => i.id));
 
+    // magic: category === "magic" и НЕ в факультетском блоке
+    // (магические с faculty_id остаются в факультетском блоке,
+    //  но всегда попадают в magicAbilities для блока талантов на основной вкладке)
     context.magicAbilities = allAbilities.filter(i => i.system.category === "magic");
+    const magicIds = new Set(context.magicAbilities.map(i => i.id));
 
-    context.baseSkills = allSkills.filter(i => !facultyAbilityIds.has(i.id));
-    const commonAbilities = allAbilities.filter(i =>
-      ["common","learned"].includes(i.system.category) && !facultyAbilityIds.has(i.id)
+    // base: всё остальное — не факультетское и не магическое
+    context.baseSkills = allAbilities.filter(i =>
+      !facultyIds.has(i.id) && !magicIds.has(i.id)
     );
-    context.baseSkills = [...context.baseSkills, ...commonAbilities];
-    context.personalAbilities = allAbilities.filter(i => i.system.category === "personal");
 
     const magicLevelMap = {};
     for (const ml of (context.system.magicLevels || [])) magicLevelMap[ml.itemId] = ml.level;
@@ -100,19 +100,10 @@ export class KK9CharacterSheet extends ActorSheet {
   }
 
   async _onDrop(event) {
+ console.trace("KK9 _onDrop called"); 
     event.preventDefault();
     let data;
     try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch(e) { return; }
-
-    // Статус на персонажа (drag-drop из айтемов)
-    if (data.type === "Item") {
-      const item = await fromUuid(data.uuid);
-      if (item?.type === "status") {
-        const { applyStatusToActor } = await import("./weapon-combat.mjs");
-        await applyStatusToActor(this.actor, item);
-        return;
-      }
-    }
 
     if (data.type === "Actor") {
       const actor = await fromUuid(data.uuid);
@@ -130,12 +121,22 @@ export class KK9CharacterSheet extends ActorSheet {
     if (data.type !== "Item") return super._onDrop(event);
     const item = await fromUuid(data.uuid);
     if (!item) return;
+    // Статус — обрабатываем здесь чтобы не было двойного fromUuid выше
+    if (item.type === "status") {
+      const { applyStatusToActor } = await import("./weapon-combat.mjs");
+      await applyStatusToActor(this.actor, item);
+      return;
+    }
     if (item.type === "faculty") {
       // enrollInFaculty принимает id, но факультет может быть из компендиума —
       // поэтому применяем логику напрямую с готовым объектом
       const fData = item.system;
       // Сохраняем uuid — работает и для мировых предметов и для компендиумных
       const facultyRef = data.uuid || item.uuid || item.id;
+
+      // Читаем старый факультет ДО update — после update this.actor.system.faculty уже изменится
+      const oldFacultyRef = this.actor.system.faculty;
+
       await this.actor.update({
         "system.faculty":       facultyRef,
         "system.faculty_color": fData.color     || "",
@@ -152,7 +153,24 @@ export class KK9CharacterSheet extends ActorSheet {
         }
       }
       // Способности факультета
-      const existingAbilities = this.actor.items.filter(i => i.type === "ability");
+      // При смене факультета — обрабатываем старые факультетские способности
+      if (oldFacultyRef && oldFacultyRef !== facultyRef) {
+        const oldFacultyAbilities = this.actor.items.filter(
+          i => i.type === "ability" && i.system.faculty_id === oldFacultyRef
+        );
+        for (const ab of oldFacultyAbilities) {
+          const isMagic    = ab.system.category === "magic";
+          const isUpgraded = ab.system.die > 4 || ab.system.modifier > -2;
+          const isBase     = ab.system.isBase === true;
+          if (isMagic || isUpgraded || isBase) {
+            await ab.update({ "system.faculty_id": null });
+          } else {
+            await ab.delete();
+          }
+        }
+      }
+      // FIX: свежий список ПОСЛЕ всех await delete/update — snapshot до этой точки содержал уже удалённые объекты
+      const existingAbilities = [...this.actor.items].filter(i => i.type === "ability");
       for (const abilityRef of (fData.abilities || [])) {
         const existing = existingAbilities.find(a => a.name === abilityRef.name);
         if (existing) {
@@ -193,12 +211,6 @@ export class KK9CharacterSheet extends ActorSheet {
         await this.actor.update({ "system.languages": [...langs, { name: item.name, itemId: item.id }] });
       return;
     }
-    if (item.type === "ability") {
-      const existing = this.actor.items.find(i => i.type === "ability" && i.name === item.name);
-      if (existing) { ui.notifications.warn(`Способность "${item.name}" уже есть на карточке.`); return; }
-      const itemData = item.toObject();
-      await Item.create(itemData, { parent: this.actor }); return;
-    }
     // Embedded copy: weapon, gear, spell, vehicle, device
     const embeddedTypes = ["weapon","gear","spell","vehicle","device"];
     if (embeddedTypes.includes(item.type)) return super._onDrop(event);
@@ -221,12 +233,20 @@ export class KK9CharacterSheet extends ActorSheet {
       if (item.system.category === "common") {
         const fid = this.actor.system.faculty;
         if (fid) {
-          const fi = game.packs.get("kk9.kk9-faculties")?.get(fid);
+          const fi = await fromUuid(fid).catch(() => game.items.get(fid));
           if (fi && (fi.system.abilities || []).find(a => a.name === item.name))
             itemData.system.faculty_id = fid;
         }
       }
-      await Item.create(itemData, { parent: this.actor });
+if (item.type === "ability") {
+  const existing = this.actor.items.find(i => i.type === "ability" && i.name === item.name);
+  if (existing) { ui.notifications.warn(`Способность "${item.name}" уже есть на карточке.`); return; }
+  const itemData = item.toObject();
+  // ...faculty_id логика...
+  console.trace("KK9 ability create");  // ← добавь эту строку
+  await Item.create(itemData, { parent: this.actor });
+  return;
+}
     }
   }
 

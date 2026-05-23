@@ -52,7 +52,7 @@
                value="{{sk.system.modifier}}" placeholder="±0" />
         {{!-- Кнопка удаления: не показываем для базовых способностей (isBase) --}}
         {{#unless sk.system.isBase}}
-        <button type="button" class="item-delete btn-delete-skill" data-item-id="{{sk.id}}">✕</button>
+        <button type="button" class="item-delete" data-item-id="{{sk.id}}">✕</button>
         {{/unless}}
       </div>
     </div>
@@ -85,32 +85,7 @@
     {{/each}}
   </div>
 
-  {{!-- Индивидуальные навыки (способности) --}}
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-bottom:4px;border-bottom:1px solid var(--border)">
-    <span class="section-title" style="margin:0;border:none">Индивидуальные навыки</span>
-    <button type="button" class="item-create btn-add-sm" data-type="ability" data-category="personal">+</button>
-  </div>
-  <div class="skills-list" data-drop-zone="abilities-personal">
-    {{#each personalAbilities as |ab|}}
-    <div class="skill-row" data-item-id="{{ab.id}}">
-      <span class="skill-name rollable-ability" data-item-id="{{ab.id}}">{{ab.name}}</span>
-      <div class="skill-controls">
-        <select class="die-select-sm ability-die-select" data-item-id="{{ab.id}}">
-          <option value="4"  {{#if (eq ab.system.die 4)}}selected{{/if}}>d4</option>
-          <option value="6"  {{#if (eq ab.system.die 6)}}selected{{/if}}>d6</option>
-          <option value="8"  {{#if (eq ab.system.die 8)}}selected{{/if}}>d8</option>
-          <option value="10" {{#if (eq ab.system.die 10)}}selected{{/if}}>d10</option>
-          <option value="12" {{#if (eq ab.system.die 12)}}selected{{/if}}>d12</option>
-          <option value="20" {{#if (eq ab.system.die 20)}}selected{{/if}}>d20</option>
-        </select>
-        <input type="number" class="mod-input-sm ability-mod-input" data-item-id="{{ab.id}}" value="{{ab.system.modifier}}" />
-        <button type="button" class="item-delete btn-delete-xs" data-item-id="{{ab.id}}">✕</button>
-      </div>
-    </div>
-    {{else}}
-    <p class="empty-hint">Нет индивидуальных навыков. Нажми + или перетащи.</p>
-    {{/each}}
-  </div>
+
 
 
 

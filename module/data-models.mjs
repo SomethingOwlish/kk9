@@ -69,6 +69,11 @@ function npcCommonFields() {
       max:   new fields.NumberField({ required: true, initial: 10, integer: true })
     }),
     active_statuses: activeStatusesField(),
+    // Ссылочные типы (UUID — не embedded copies)
+    artifact_refs:  new fields.ArrayField(new fields.StringField({ initial: "" })),
+    daemon_refs:    new fields.ArrayField(new fields.StringField({ initial: "" })),
+    companion_refs: new fields.ArrayField(new fields.StringField({ initial: "" })),
+    contact_refs:   new fields.ArrayField(new fields.StringField({ initial: "" })),
   };
 }
 
@@ -226,6 +231,7 @@ export class NpcBossDataModel extends foundry.abstract.TypeDataModel {
     return {
       ...npcCommonFields(),
       special_mechanics: new fields.StringField({ initial: "" }),
+      wild_die: new fields.NumberField({ initial: 6, choices: [4,6,8,10,12], integer: true }),
     };
   }
   prepareDerivedData() {

@@ -819,6 +819,150 @@ export class KK9Actor extends Actor {
       speaker: ChatMessage.getSpeaker({ actor: this })
     });
   }
+
+  // ============================================================
+  // БРОСКИ НПС
+  // ============================================================
+
+  // Формула для НПС — без wildcard или с настраиваемым wild_die (босс)
+  _npcRollFormula(die, modStr, isWC = false, wcDie = 6) {
+    const mod = modStr ? ` ${modStr}` : "";
+    return isWC
+      ? `{1d${die}x, 1d${wcDie}x}kh${mod}`.trim()
+      : `1d${die}x${mod}`.trim();
+  }
+
+  // Бросок атрибута НПС — все типы используют system.attributes
+  async rollNpcAttribute(attributeName) {
+    const isBoss = this.type === "npc-boss";
+    const isWC   = isBoss;
+    const wcDie  = isBoss ? (this.system.wild_die || 6) : 6;
+
+    const attr = this.system.attributes?.[attributeName];
+    if (!attr) { ui.notifications.warn(`Атрибут «${attributeName}» не найден.`); return; }
+    const die = attr.die;
+
+    const labels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+    const label  = labels[attributeName] || attributeName;
+    const formula = this._npcRollFormula(die, "", isWC, wcDie);
+    return this._doRoll(formula, label, { attrKey: null });
+  }
+
+  // Бросок инициативы НПС — формула как у персонажа: {d_agi, d_sma, d_wc}kh2
+  async rollNpcInitiative() {
+    const isBoss = this.type === "npc-boss";
+    const isWC   = isBoss;
+    const wcDie  = isBoss ? (this.system.wild_die || 6) : 6;
+
+    const dieAgi    = this.system.attributes?.agility?.die  || 6;
+    const dieSmarts = this.system.attributes?.smarts?.die   || 6;
+
+    const modAgi    = this.system.attributes?.agility?.modifier  || 0;
+    const modSmarts = this.system.attributes?.smarts?.modifier   || 0;
+    const mTotal    = modAgi + modSmarts;
+    const modStr    = mTotal !== 0 ? (mTotal > 0 ? `+${mTotal}` : `${mTotal}`) : "";
+
+    const formula = isWC
+      ? `{1d${dieAgi}x, 1d${dieSmarts}x, 1d${wcDie}x}kh2${modStr}`
+      : `1d${dieAgi}x + 1d${dieSmarts}x${modStr}`;
+
+    const roll = new Roll(formula);
+    await roll.evaluate();
+    const total    = roll.total;
+    const diceHtml = this._buildDiceHtml(roll, []);
+    const content  = this._buildInitiativeMessage("Инициатива", total, diceHtml);
+
+    const combat = game?.combat;
+    if (combat) {
+      const combatant = combat.combatants.find(c => c.actorId === this.id);
+      if (combatant) await combatant.update({ initiative: total });
+    }
+
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: this }),
+      content,
+      flags: { kk9: { isRoll: true, actorId: this.id } }
+    });
+    return { roll, total };
+  }
+
+  // Бросок стойкости НПС — Дух + опциональный навык сопротивления (как у персонажа)
+  async rollNpcToughness() {
+    const isBoss  = this.type === "npc-boss";
+    const isWC    = isBoss;
+    const wcDie   = isBoss ? (this.system.wild_die || 6) : 6;
+
+    const spiritDie = this.system.attributes?.spirit?.die || 6;
+
+    // Навыки сопротивления — abilities с нужными именами
+    const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выжидание"];
+    const available   = this.items.filter(i => i.type === "ability" && resistNames.includes(i.name));
+    const options     = available.map(s =>
+      `<option value="${s.id}|${s.system.die||4}">${s.name} (d${s.system.die||4})</option>`
+    ).join("");
+
+    let result = null;
+    try {
+      result = await Dialog.prompt({
+        title: "Бросок Стойкости",
+        content: `<div style="padding:8px">
+          <p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>
+          ${available.length
+            ? `<select id="resist-skill" style="width:100%">
+                 <option value="">— только Дух —</option>${options}
+               </select>`
+            : "<em>Нет доступных навыков сопротивления</em>"}
+        </div>`,
+        label: "Бросить",
+        callback: html => html.find("#resist-skill").val() || null
+      });
+    } catch(e) { return; }
+
+    const modStr = "";
+    let formula, labelExtra = "";
+
+    if (result) {
+      const [itemId, skillDie] = result.split("|");
+      const skillItem = this.items.get(itemId);
+      labelExtra = skillItem ? ` + ${skillItem.name}` : "";
+      formula = isWC
+        ? `{1d${spiritDie}x, 1d${skillDie}x, 1d${wcDie}x}kh2`
+        : `1d${spiritDie}x + 1d${skillDie}x`;
+    } else {
+      formula = isWC
+        ? `{1d${spiritDie}x, 1d${wcDie}x}kh`
+        : `1d${spiritDie}x`;
+    }
+
+    const roll = new Roll(formula);
+    await roll.evaluate();
+    const degree   = this._getSuccessDegree(roll, false);
+    const diceHtml = this._buildDiceHtml(roll, []);
+    const content  = this._buildRollMessage(`Стойкость${labelExtra}`, degree, diceHtml, []);
+
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: this }),
+      content,
+      flags: { kk9: { isRoll: true, actorId: this.id } }
+    });
+    return { roll, degree };
+  }
+
+  // Бросок способности/навыка НПС по item id
+  async rollNpcSkill(itemId) {
+    const item = this.items.get(itemId);
+    if (!item) { ui.notifications.warn("Способность не найдена."); return; }
+
+    const isBoss = this.type === "npc-boss";
+    const isWC   = isBoss;
+    const wcDie  = isBoss ? (this.system.wild_die || 6) : 6;
+    const die    = item.system.die || 4;
+    const mod    = item.system.modifier || 0;
+    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
+    const formula = this._npcRollFormula(die, modStr, isWC, wcDie);
+    return this._doRoll(formula, item.name, { attrKey: null });
+  }
+
 }
 
 // ============================================================

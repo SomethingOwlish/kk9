@@ -26,16 +26,20 @@ class KK9NpcBaseSheet extends ActorSheet {
     // Навыки и способности — embedded
     c.npcAllItems = this.actor.items.filter(i => i.type === "ability");
 
-    // Embedded имущество (weapon, gear, spell, device, vehicle)
-    c.npcGear = this.actor.items.filter(i => !["ability","artifact","daemon","companion","contact"].includes(i.type));
+    // Embedded снаряжение — только нужные типы
+    // artifact/daemon/companion/contact — ref-типы, хранятся как UUID, не embedded
+    const NPC_GEAR_TYPES = new Set(["weapon","gear","spell","vehicle","device"]);
+    c.npcGear = this.actor.items.filter(i => NPC_GEAR_TYPES.has(i.type));
 
-    // Ссылочные типы — резолвим UUID
-    const _resolveRefs = (field) =>
-      (this.actor.system[field] || []).map(uuid => fromUuidSync(uuid)).filter(Boolean);
-    c.artifacts  = _resolveRefs("artifact_refs");
-    c.daemons    = _resolveRefs("daemon_refs");
-    c.companions = _resolveRefs("companion_refs");
-    c.contacts   = _resolveRefs("contact_refs");
+    // Ссылочные типы — одна общая коллекция npcRefs с uuid и refType
+    const REF_MAP = { artifact_refs:"artifact", daemon_refs:"daemon", companion_refs:"companion", contact_refs:"contact" };
+    c.npcRefs = [];
+    for (const [field, refType] of Object.entries(REF_MAP)) {
+      for (const uuid of (this.actor.system[field] || [])) {
+        const doc = fromUuidSync(uuid);
+        if (doc) c.npcRefs.push({ uuid, refType, name: doc.name, type: doc.type, img: doc.img });
+      }
+    }
 
     return c;
   }
@@ -56,8 +60,8 @@ class KK9NpcBaseSheet extends ActorSheet {
     });
 
     // Удалить предмет — embedded или отвязать ref
-    html.find(".btn-item-delete").click(async e => {
-          const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
+    const _onItemDel = async e => {
+      const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
       const uuid    = e.currentTarget.dataset.uuid || e.currentTarget.closest("[data-uuid]")?.dataset.uuid;
       const refType = e.currentTarget.dataset.refType || e.currentTarget.closest("[data-ref-type]")?.dataset.refType;
       if (uuid && refType && REF_FIELD[refType]) {
@@ -66,9 +70,10 @@ class KK9NpcBaseSheet extends ActorSheet {
         await this.actor.update({ [`system.${field}`]: refs });
         return;
       }
-      const id = e.currentTarget.dataset.itemId;
-      await this.actor.items.get(id)?.delete();
-    });
+      const id = e.currentTarget.dataset.itemId || e.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      if (id) await this.actor.items.get(id)?.delete();
+    };
+    html.find(".btn-item-delete, .npc-item-del").click(_onItemDel);
 
     // Связи — удалить
     html.find(".btn-relation-delete, .delete-relation").click(async e => {
@@ -155,6 +160,26 @@ class KK9NpcBaseSheet extends ActorSheet {
       await this.actor.rollNpcToughness(this.actor.type === "npc-boss");
     });
 
+    // Бросок способности/навыка НПС
+    html.find(".npc-rollable").click(async e => {
+      const id = e.currentTarget.dataset.itemId;
+      if (id) await this.actor.rollNpcSkill(id);
+    });
+
+    // Сохранение кубика способности НПС
+    html.find(".npc-skill-die").change(async e => {
+      const id  = e.currentTarget.dataset.itemId;
+      const die = parseInt(e.currentTarget.value);
+      if (id) await this.actor.items.get(id)?.update({ "system.die": die });
+    });
+
+    // Сохранение модификатора способности НПС
+    html.find(".npc-skill-mod").change(async e => {
+      const id  = e.currentTarget.dataset.itemId;
+      const mod = parseInt(e.currentTarget.value) || 0;
+      if (id) await this.actor.items.get(id)?.update({ "system.modifier": mod });
+    });
+
     // Удалить активный статус
     html.find(".actor-remove-status").click(async e => {
       const idx = parseInt(e.currentTarget.dataset.index);
@@ -164,58 +189,67 @@ class KK9NpcBaseSheet extends ActorSheet {
     });
   }
 
-  // ── Правильный drop через Foundry DragDrop API ──
-  // Вызывается автоматически когда dropSelector срабатывает
   async _onDrop(event) {
     event.preventDefault();
-    let data;
-    try {
-      data = JSON.parse(event.dataTransfer.getData("text/plain"));
-    } catch(e) {
-      return super._onDrop(event);
+    // Foundry v13: используем TextDropData через super для получения data
+    const data = await TextEditor.getDragEventData(event);
+    if (!data) return super._onDrop(event);
+
+    // ── Актор → связь ──
+    if (data.type === "Actor") {
+      const actor = await fromUuid(data.uuid);
+      if (!actor || actor.id === this.actor.id) return;
+      const relations = this.actor.system.relations || [];
+      if (!relations.find(r => r.name === actor.name)) {
+        await this.actor.update({ "system.relations": [...relations, {
+          name: actor.name, status: "neutral", level: 0, notes: "", love: false
+        }] });
+      }
+      return;
     }
 
-    if (!data || data.type !== "Item") return super._onDrop(event);
-
-    const item = await Item.fromDropData(data);
+    if (data.type !== "Item") return;
+    const item = await fromUuid(data.uuid);
     if (!item) return;
 
-        const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
+    // ── Статус → active_statuses ──
+    if (item.type === "status") {
+      const { applyStatusToActor } = await import("./weapon-combat.mjs");
+      await applyStatusToActor(this.actor, item);
+      return;
+    }
+
+    // ── Faculty и language — игнорируем ──
+    if (item.type === "faculty" || item.type === "language") return;
+
+    // ── Ability → embedded ──
+    if (item.type === "ability") {
+      const existing = this.actor.items.find(i => i.name === item.name && i.type === "ability");
+      if (existing) { ui.notifications.warn(`«${item.name}» уже есть на карточке.`); return; }
+      await Item.create(item.toObject(), { parent: this.actor });
+      return;
+    }
+
+    // ── Ref-типы → UUID в system.*_refs ──
+    const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
     if (REF_FIELD[item.type]) {
-      // Ссылочный тип — хранить UUID
       const field = REF_FIELD[item.type];
       const uuid  = item.uuid;
       const refs  = [...(this.actor.system[field] || [])];
-      if (refs.includes(uuid)) { ui.notifications.warn(`«${item.name}» уже привязан.`); return; }
+        if (refs.includes(uuid)) { ui.notifications.warn(`«${item.name}» уже привязан.`); return; }
       refs.push(uuid);
       await this.actor.update({ [`system.${field}`]: refs });
       return;
     }
 
-    // Embedded copy для остальных типов
-    const existing = this.actor.items.find(i => i.name === item.name && i.type === item.type);
-    if (existing) { ui.notifications.warn(`«${item.name}» уже есть на карточке.`); return; }
-    await Item.create(item.toObject(), { parent: this.actor });
-  }
-
-  async _onDropItem(event, data) {
-    const item = await Item.fromDropData(data);
-    if (!item) return;
-
-        const REF_FIELD = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs", contact:"contact_refs" };
-    if (REF_FIELD[item.type]) {
-      const field = REF_FIELD[item.type];
-      const uuid  = item.uuid;
-      const refs  = [...(this.actor.system[field] || [])];
-      if (refs.includes(uuid)) { ui.notifications.warn(`«${item.name}» уже привязан.`); return; }
-      refs.push(uuid);
-      await this.actor.update({ [`system.${field}`]: refs });
+    // ── Embedded снаряжение ──
+    const GEAR_TYPES = new Set(["weapon","gear","spell","vehicle","device"]);
+    if (GEAR_TYPES.has(item.type)) {
+      const existing = this.actor.items.find(i => i.name === item.name && i.type === item.type);
+      if (existing) { ui.notifications.warn(`«${item.name}» уже есть на карточке.`); return; }
+      await Item.create(item.toObject(), { parent: this.actor });
       return;
     }
-
-    const existing = this.actor.items.find(i => i.name === item.name && i.type === item.type);
-    if (existing) { ui.notifications.warn(`«${item.name}» уже есть на карточке.`); return; }
-    await Item.create(item.toObject(), { parent: this.actor });
   }
 
   _buildRollFormula(die, modStr) { return `1d${die}${modStr}`; }
@@ -232,7 +266,7 @@ export class KK9NpcLightSheet extends KK9NpcBaseSheet {
       width: 720, height: 640,
       tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "main" }],
       // FIX: dropSelector задан — Foundry теперь перехватывает drop события
-      dragDrop: [{ dragSelector: null, dropSelector: ".npc-drop-zone" }]
+      dragDrop: [{ dragSelector: null, dropSelector: "form" }]
     });
   }
 
@@ -255,8 +289,9 @@ export class KK9NpcLightSheet extends KK9NpcBaseSheet {
     // Бросок атрибута лёгкого НПС (без wild die, с успехами)
     html.find(".rollable-npc-attr").click(async e => {
       const attr = e.currentTarget.dataset.attribute;
-      await this.actor.rollNpcAttribute(attr, false);
+      await this.actor.rollNpcAttribute(attr);
     });
+
   }
 }
 
@@ -271,7 +306,7 @@ export class KK9NpcHardSheet extends KK9NpcBaseSheet {
       width: 760, height: 680,
       tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "main" }],
       // FIX: dropSelector задан
-      dragDrop: [{ dragSelector: null, dropSelector: ".npc-drop-zone" }]
+      dragDrop: [{ dragSelector: null, dropSelector: "form" }]
     });
   }
 
@@ -281,7 +316,7 @@ export class KK9NpcHardSheet extends KK9NpcBaseSheet {
     // Бросок атрибута сложного НПС (без wild die, с успехами)
     html.find(".rollable-npc-attr, .rollable-attribute").click(async e => {
       const attr = e.currentTarget.dataset.attribute;
-      await this.actor.rollNpcAttribute(attr, false);
+      await this.actor.rollNpcAttribute(attr);
     });
   }
 }
@@ -298,7 +333,7 @@ export class KK9NpcBossSheet extends KK9NpcBaseSheet {
       width: 760, height: 700,
       tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "main" }],
       // FIX: dropSelector задан
-      dragDrop: [{ dragSelector: null, dropSelector: ".npc-drop-zone" }]
+      dragDrop: [{ dragSelector: null, dropSelector: "form" }]
     });
   }
 
@@ -310,7 +345,7 @@ export class KK9NpcBossSheet extends KK9NpcBaseSheet {
     // Бросок атрибута босса (wild die d6 + свой кубик, с успехами)
     html.find(".rollable-attribute-boss, .rollable-npc-attr-boss").click(async e => {
       const attr = e.currentTarget.dataset.attribute;
-      await this.actor.rollNpcAttribute(attr, true);
+      await this.actor.rollNpcAttribute(attr);
     });
   }
 }

@@ -211,6 +211,21 @@
           {{/each}}
         </div>
 
+        <div class="section-title" style="margin-top:12px">Связанные объекты</div>
+        <div class="npc-skill-list">
+          {{#each npcRefs}}
+          <div class="skill-row" data-uuid="{{this.uuid}}" data-ref-type="{{this.refType}}">
+            <span class="skill-name item-name-click">{{this.name}}</span>
+            <div class="skill-controls">
+              <span class="skill-attr-hint">{{npcItemTypeLabel this.type}}</span>
+              <button type="button" class="btn-delete-xs npc-item-del" data-uuid="{{this.uuid}}" data-ref-type="{{this.refType}}">✕</button>
+            </div>
+          </div>
+          {{else}}
+          <p class="drop-hint">Перетащи артефакт, даймона, спутника или контакт</p>
+          {{/each}}
+        </div>
+
       </div>
     </div>
   </div>
