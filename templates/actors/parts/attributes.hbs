@@ -1,27 +1,23 @@
-{{!-- Атрибуты v1.2 — SVG-кубик вместо псевдоэлемента ⬡, без эмоджи --}}
+{{!-- Атрибуты v2.0 — строка кликабельна, иконка убрана --}}
 <section class="attributes-section">
   <h3 class="section-title">{{localize "KK9.sheet.attributes"}}</h3>
   <div class="attributes-grid">
     {{#each system.attributes as |attr key|}}
-    <div class="attribute-row">
+    <div class="attribute-row rollable-attribute" data-attribute="{{key}}" title="{{localize "KK9.sheet.roll"}}">
       <label class="attr-label">{{lookup ../attributeLabels key}}</label>
-      <span class="die-badge rollable-attribute" data-attribute="{{key}}" title="{{localize "KK9.sheet.roll"}}">
-        <svg class="die-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M10 2 L18 7 L18 13 L10 18 L2 13 L2 7 Z" fill="none" stroke="currentColor" stroke-width="1.2"/>
-          <text x="10" y="13.5" text-anchor="middle" font-size="6.5" fill="currentColor" font-family="'Jost',sans-serif" font-weight="500">d{{attr.die}}</text>
-        </svg>
-      </span>
-      <select name="system.attributes.{{key}}.die" class="die-select">
-        <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
-        <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
-        <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
-        <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
-        <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
-        <option value="20" {{#if (eq attr.die 20)}}selected{{/if}}>d20</option>
-      </select>
-      <span class="wild-die-hint">+d6</span>
-      <span class="mod-label">{{localize "KK9.sheet.modifier"}}</span>
-      <input type="number" name="system.attributes.{{key}}.modifier" value="{{attr.modifier}}" class="mod-input" />
+      <div class="attr-controls" onclick="event.stopPropagation()">
+        <select name="system.attributes.{{key}}.die" class="die-select">
+          <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
+          <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
+          <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
+          <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
+          <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
+          <option value="20" {{#if (eq attr.die 20)}}selected{{/if}}>d20</option>
+        </select>
+        <span class="wild-die-hint">+d6</span>
+        <span class="mod-label">{{localize "KK9.sheet.modifier"}}</span>
+        <input type="number" name="system.attributes.{{key}}.modifier" value="{{attr.modifier}}" class="mod-input" onclick="event.stopPropagation()" />
+      </div>
     </div>
     {{/each}}
   </div>

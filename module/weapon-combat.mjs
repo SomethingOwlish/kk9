@@ -62,11 +62,25 @@ export async function applyStatusToActor(actor, statusItem) {
 export async function rollWeaponAttack(weaponItem, actor) {
   const weapon = weaponItem.system;
 
-  // Найти навык
+  // Найти навык — сначала у актора, потом глобально по UUID
   let skillItem = null;
   if (weapon.skill_uuid) {
-    skillItem = actor.items.find(i => i.uuid === weapon.skill_uuid || i.id === weapon.skill_uuid);
+    if (actor) {
+      // Ищем у актора: по uuid, по id, по имени (если uuid из мира а у актора embedded копия)
+      const worldItem = fromUuidSync(weapon.skill_uuid);
+      skillItem = actor.items.find(i =>
+        i.uuid === weapon.skill_uuid ||
+        i.id === weapon.skill_uuid ||
+        (worldItem && i.name === worldItem.name && i.type === worldItem.type)
+      ) ?? worldItem ?? null;
+    } else {
+      skillItem = fromUuidSync(weapon.skill_uuid) ?? null;
+    }
   }
+
+  // Актор опционален — если нет, считаем как персонаж (с wildcard)
+  const isWC = actor ? actor.type === "character" : true;
+  const attackerName = actor?.name ?? weaponItem.name;
 
   // Формула броска
   let formula, skillLabel;
@@ -74,12 +88,9 @@ export async function rollWeaponAttack(weaponItem, actor) {
     const die = skillItem.system.die || 4;
     const mod = skillItem.system.modifier || 0;
     const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-    const isWC = actor.type === "character";
     formula    = isWC ? `{1d${die}${modStr}, 1d6${modStr}}kh` : `1d${die}${modStr}`;
     skillLabel = skillItem.name;
   } else {
-    // Анскилд: d4-2
-    const isWC = actor.type === "character";
     formula    = isWC ? `{1d4-2, 1d6-2}kh` : `1d4-2`;
     skillLabel = "без навыка";
   }
@@ -93,7 +104,7 @@ export async function rollWeaponAttack(weaponItem, actor) {
 
   // Список акторов для выбора цели (все кроме атакующего)
   const targetOptions = game.actors
-    .filter(a => a.id !== actor.id && ["character","npc-light","npc-hard","npc-boss"].includes(a.type))
+    .filter(a => a.id !== actor?.id && ["character","npc-light","npc-hard","npc-boss"].includes(a.type))
     .map(a => `<option value="${a.id}">${a.name}</option>`)
     .join("");
 
@@ -117,7 +128,7 @@ export async function rollWeaponAttack(weaponItem, actor) {
       border-radius:4px;
     ">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <strong style="color:var(--text-head,#d8d0c8)">${actor.name}</strong>
+        <strong style="color:var(--text-head,#d8d0c8)">${attackerName}</strong>
         <span style="color:var(--text-dim,#6a6560);font-size:0.82em">атакует</span>
         <strong style="color:var(--text-head,#d8d0c8)">${weaponItem.name}</strong>
       </div>
@@ -330,7 +341,7 @@ async function _processTurnStatuses(actor, frequency) {
       await applyDamageToActor(actor, st.damage, st.damage_type);
       ChatMessage.create({
         content: `<div style="font-family:'Jost',sans-serif;padding:5px 8px;border-left:3px solid #a855f7;background:var(--bg2,#232323)">
-          ${STATUS_ICONS[st.status_type] || "⚡"} <strong>${actor.name}</strong>: статус «${st.statusName}» срабатывает
+          ${STATUS_ICONS[st.status_type] || "⚡"} <strong>${attackerName}</strong>: статус «${st.statusName}» срабатывает
           (${DAMAGE_LABELS[st.damage]}, ${st.damage_type === "mental" ? "ментально" : "физически"})
         </div>`,
         speaker: ChatMessage.getSpeaker({ alias: "Статус" })
@@ -345,7 +356,7 @@ async function _processTurnStatuses(actor, frequency) {
         toRemove.push(i);
         ChatMessage.create({
           content: `<div style="font-family:'Jost',sans-serif;padding:5px 8px;border-left:3px solid #6a6560;background:var(--bg2,#232323)">
-            Статус «${st.statusName}» у <strong>${actor.name}</strong> снят (исчерпан).
+            Статус «${st.statusName}» у <strong>${attackerName}</strong> снят (исчерпан).
           </div>`,
           speaker: ChatMessage.getSpeaker({ alias: "Статус" })
         });

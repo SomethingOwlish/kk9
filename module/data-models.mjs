@@ -60,7 +60,7 @@ function npcCommonFields() {
       agility:  npcAttributeField(),
       smarts:   npcAttributeField(),
       spirit:   npcAttributeField(),
-      strength: npcAttributeField(),
+      endurance: npcAttributeField(),
       magic:    npcAttributeField(),
     }),
     toughness: new fields.NumberField({ initial: 5, integer: true }),
@@ -104,7 +104,7 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
         agility:  attributeField(),
         smarts:   attributeField(),
         spirit:   attributeField(),
-        strength: attributeField(),
+        endurance: attributeField(),
         magic:    attributeField(),
       }),
       skills: new fields.SchemaField({}),
@@ -320,7 +320,7 @@ export class AbilityDataModel extends foundry.abstract.TypeDataModel {
     return {
       description:     new fields.HTMLField({ initial: "" }),
       category:        new fields.StringField({ initial: "common", choices: ["common","personal","learned","magic"] }),
-      linkedAttribute: new fields.StringField({ initial: "smarts", choices: ["agility","smarts","spirit","strength","magic"] }),
+      linkedAttribute: new fields.StringField({ initial: "smarts", choices: ["agility","smarts","spirit","endurance","magic"] }),
       faculty_id:      new fields.StringField({ initial: null, nullable: true, blank: false }),
       die:             new fields.NumberField({ required: true, initial: 4, choices: [4,6,8,10,12,20] }),
       modifier:        new fields.NumberField({ initial: -2, integer: true }),
@@ -406,7 +406,7 @@ export class ArtifactDataModel extends foundry.abstract.TypeDataModel {
       }),
 
       // Состояние
-      equipped:   new fields.BooleanField({ initial: false }),
+      equipped:   new fields.StringField({ initial: "home", choices: ["home","carried","equipped"] }),
       condition:  new fields.StringField({ initial: "good", choices: ["broken","worn","good","perfect"] }),
       active:     new fields.BooleanField({ initial: false }),
       destroyed:  new fields.BooleanField({ initial: false }),
@@ -416,7 +416,7 @@ export class ArtifactDataModel extends foundry.abstract.TypeDataModel {
         agility:   new fields.NumberField({ initial: 0, integer: true }),
         smarts:    new fields.NumberField({ initial: 0, integer: true }),
         spirit:    new fields.NumberField({ initial: 0, integer: true }),
-        strength:  new fields.NumberField({ initial: 0, integer: true }),
+        endurance:  new fields.NumberField({ initial: 0, integer: true }),
         magic:     new fields.NumberField({ initial: 0, integer: true }),
         toughness: new fields.NumberField({ initial: 0, integer: true })
       }),
@@ -504,7 +504,7 @@ export class SpellDataModel extends foundry.abstract.TypeDataModel {
         agility:   new fields.NumberField({ initial: 0, integer: true }),
         smarts:    new fields.NumberField({ initial: 0, integer: true }),
         spirit:    new fields.NumberField({ initial: 0, integer: true }),
-        strength:  new fields.NumberField({ initial: 0, integer: true }),
+        endurance:  new fields.NumberField({ initial: 0, integer: true }),
         magic:     new fields.NumberField({ initial: 0, integer: true }),
         toughness: new fields.NumberField({ initial: 0, integer: true })
       }),
@@ -593,7 +593,7 @@ export class DaemonDataModel extends foundry.abstract.TypeDataModel {
           die:      new fields.NumberField({ initial: 6, integer: true }),
           modifier: new fields.NumberField({ initial: 0, integer: true })
         }),
-        strength: new fields.SchemaField({
+        endurance: new fields.SchemaField({
           die:      new fields.NumberField({ initial: 6, integer: true }),
           modifier: new fields.NumberField({ initial: 0, integer: true })
         }),
@@ -630,7 +630,7 @@ export class CompanionDataModel extends foundry.abstract.TypeDataModel {
         agility:  new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
         smarts:   new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
         spirit:   new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
-        strength: new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        endurance: new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
         magic:    new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
       }),
       bond:        new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),

@@ -19,7 +19,7 @@ class KK9NpcBaseSheet extends ActorSheet {
   getData() {
     const c = super.getData();
     c.system = c.data.system;
-    c.attributeLabels  = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+    c.attributeLabels  = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
     c.relationLabels   = { ally:"Союзник", enemy:"Враг", neutral:"Нейтрал", unknown:"Неизвестно" };
     c.npcItemTypeLabel = (type) => NPC_ITEM_TYPE_LABELS[type] || type;
 
@@ -37,7 +37,7 @@ class KK9NpcBaseSheet extends ActorSheet {
     for (const [field, refType] of Object.entries(REF_MAP)) {
       for (const uuid of (this.actor.system[field] || [])) {
         const doc = fromUuidSync(uuid);
-        if (doc) c.npcRefs.push({ uuid, refType, name: doc.name, type: doc.type, img: doc.img });
+        if (doc) c.npcRefs.push({ uuid, refType, name: doc.name, type: doc.type, img: doc.img, system: doc.system });
       }
     }
 
@@ -56,6 +56,46 @@ class KK9NpcBaseSheet extends ActorSheet {
         doc?.sheet?.render(true);
       } else {
         this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
+      }
+    });
+
+    // ── Артефакт НПС: переключение иконок ──
+    html.find(".artifact-toggle-btn").click(async e => {
+      e.stopPropagation();
+      const uuid   = e.currentTarget.dataset.uuid;
+      const toggle = e.currentTarget.dataset.toggle;
+      const doc    = await fromUuid(uuid);
+      if (!doc) return;
+      if (toggle === "active") {
+        await doc.update({ "system.active": !doc.system.active });
+      } else if (toggle === "equipped") {
+        const cycle = { home: "carried", carried: "equipped", equipped: "home" };
+        await doc.update({ "system.equipped": cycle[doc.system.equipped] || "home" });
+      }
+      this.render();
+    });
+
+    // ── Артефакт НПС: кнопка применения ──
+    html.find(".artifact-use-btn").click(async e => {
+      e.stopPropagation();
+      const uuid   = e.currentTarget.dataset.uuid;
+      const action = e.currentTarget.dataset.action;
+      const doc    = await fromUuid(uuid);
+      if (!doc) return;
+      if (action === "attack") {
+        const { rollWeaponAttack } = await import("./weapon-combat.mjs");
+        await rollWeaponAttack(doc, this.actor);
+      } else if (action === "energy") {
+        const base    = doc.system.energy_restore || 0;
+        const cond    = doc.system.condition;
+        if (cond === "broken") { ui.notifications.warn("Артефакт сломан."); return; }
+        const mult    = cond === "perfect" ? 1.5 : cond === "worn" ? 0.5 : 1;
+        const restore = Math.floor(base * mult);
+        const cur     = this.actor.system.energy?.value ?? 0;
+        const max     = this.actor.system.energy?.max   ?? 0;
+        const newVal  = Math.min(cur + restore, max);
+        await this.actor.update({ "system.energy.value": newVal });
+        ui.notifications.info(`${doc.name}: восстановлено ${newVal - cur} ед. энергии.`);
       }
     });
 

@@ -29,8 +29,8 @@ export class KK9CharacterSheet extends ActorSheet {
     const context = super.getData();
     context.system = context.data.system;
     context.isGM = game.user.isGM;
-    context.attributeLabels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
-    context.attrLabels = { agility:"Ловк", smarts:"Смек", spirit:"Дух", strength:"Сила", magic:"Магия" };
+    context.attributeLabels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
+    context.attrLabels = { agility:"Ловк", smarts:"Смек", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
 
     const allAbilities = this.actor.items.filter(i => i.type === "ability");
 
@@ -38,7 +38,7 @@ export class KK9CharacterSheet extends ActorSheet {
       agility:  context.system.attributes.agility.die,
       smarts:   context.system.attributes.smarts.die,
       spirit:   context.system.attributes.spirit.die,
-      strength: context.system.attributes.strength.die,
+      endurance: context.system.attributes.endurance.die,
       magic:    context.system.attributes.magic.die,
     };
     context.categoryLabels = { common:"Общая", personal:"Личная", learned:"Изучаемая", magic:"Магическая" };
@@ -100,7 +100,6 @@ export class KK9CharacterSheet extends ActorSheet {
   }
 
   async _onDrop(event) {
- console.trace("KK9 _onDrop called"); 
     event.preventDefault();
     let data;
     try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch(e) { return; }
@@ -238,15 +237,8 @@ export class KK9CharacterSheet extends ActorSheet {
             itemData.system.faculty_id = fid;
         }
       }
-if (item.type === "ability") {
-  const existing = this.actor.items.find(i => i.type === "ability" && i.name === item.name);
-  if (existing) { ui.notifications.warn(`Способность "${item.name}" уже есть на карточке.`); return; }
-  const itemData = item.toObject();
-  // ...faculty_id логика...
-  console.trace("KK9 ability create");  // ← добавь эту строку
-  await Item.create(itemData, { parent: this.actor });
-  return;
-}
+      await Item.create(itemData, { parent: this.actor });
+      return;
     }
   }
 
@@ -268,7 +260,11 @@ if (item.type === "ability") {
       if (!row) return;
       if (row.dataset.uuid) {
         const doc = await fromUuid(row.dataset.uuid);
-        doc?.sheet?.render(true);
+        // Сохраняем actorId на sheet объекте до рендера
+        if (doc?.sheet) {
+          doc.sheet._contextActorId = this.actor?.id;
+          doc.sheet.render(true);
+        }
       } else {
         this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
       }
@@ -281,6 +277,49 @@ if (item.type === "ability") {
     });
 
     html.find(".item-create").click(this._onItemCreate.bind(this));
+
+    // ── Артефакт: переключение экипировки и активности из строки ──
+    html.find(".artifact-toggle-btn").click(async e => {
+      e.stopPropagation();
+      const uuid   = e.currentTarget.dataset.uuid;
+      const toggle = e.currentTarget.dataset.toggle;
+      const doc    = await fromUuid(uuid);
+      if (!doc) return;
+      if (toggle === "active") {
+        await doc.update({ "system.active": !doc.system.active });
+      } else if (toggle === "equipped") {
+        const cycle = { home: "carried", carried: "equipped", equipped: "home" };
+        await doc.update({ "system.equipped": cycle[doc.system.equipped] || "home" });
+      }
+      // Перерисовываем лист персонажа чтобы иконки обновились
+      this.render();
+    });
+
+    // ── Артефакт: кнопка применения из строки ──
+    html.find(".artifact-use-btn").click(async e => {
+      e.stopPropagation();
+      const uuid   = e.currentTarget.dataset.uuid;
+      const action = e.currentTarget.dataset.action;
+      const doc    = await fromUuid(uuid);
+      if (!doc) return;
+
+      // Открываем sheet с контекстом актора и вызываем нужное действие
+      if (action === "attack") {
+        const { rollWeaponAttack } = await import("./weapon-combat.mjs");
+        await rollWeaponAttack(doc, this.actor);
+      } else if (action === "energy") {
+        const base    = doc.system.energy_restore || 0;
+        const cond    = doc.system.condition;
+        if (cond === "broken") { ui.notifications.warn("Артефакт сломан."); return; }
+        const mult    = cond === "perfect" ? 1.5 : cond === "worn" ? 0.5 : 1;
+        const restore = Math.floor(base * mult);
+        const cur     = this.actor.system.energy?.value ?? 0;
+        const max     = this.actor.system.energy?.max   ?? 0;
+        const newVal  = Math.min(cur + restore, max);
+        await this.actor.update({ "system.energy.value": newVal });
+        ui.notifications.info(`${doc.name}: восстановлено ${newVal - cur} ед. энергии.`);
+      }
+    });
     html.find(".item-delete").click(this._onItemDelete.bind(this));
     html.find(".btn-delete-skill").click(this._onItemDelete.bind(this));
 
@@ -474,6 +513,50 @@ if (item.type === "ability") {
 // ITEM ЛИСТ
 // ============================================================
 export class KK9ItemSheet extends ItemSheet {
+  // Если лист открыт из карточки актора — возвращаем того актора
+  get contextActor() {
+    if (this.item.actor) return this.item.actor;
+    if (this._contextActorId) return game.actors.get(this._contextActorId);
+    return null;
+  }
+
+  // Показывает диалог выбора актора у которого есть этот итем в refs
+  async _pickActorForItem(silent = false) {
+    const uuid = this.item.uuid;
+    const refField = {
+      artifact: "artifact_refs", daemon: "daemon_refs",
+      companion: "companion_refs", contact: "contact_refs"
+    }[this.item.type];
+
+    // Собираем акторов у которых есть этот UUID и у которых есть права
+    const candidates = game.actors.filter(a => {
+      if (!a.testUserPermission(game.user, "OBSERVER")) return false;
+      const refs = refField ? (a.system[refField] || []) : [];
+      // Также проверяем embedded items
+      const embedded = a.items?.some(i => i.uuid === uuid || i.id === this.item.id);
+      return refs.includes(uuid) || embedded;
+    });
+
+    if (candidates.length === 0) {
+      if (!silent) ui.notifications.warn("Нет доступных персонажей с этим предметом.");
+      return null;
+    }
+    if (candidates.length === 1) return candidates[0];
+
+    // Диалог выбора
+    const options = candidates.map(a => `<option value="${a.id}">${a.name}</option>`).join("");
+    const actorId = await Dialog.prompt({
+      title: "Применить к персонажу",
+      content: `<div style="padding:8px">
+        <p style="margin-bottom:8px">К кому применить?</p>
+        <select id="pick-actor" style="width:100%">${options}</select>
+      </div>`,
+      label: "Применить",
+      callback: html => html.find("#pick-actor").val()
+    }).catch(() => null);
+
+    return actorId ? game.actors.get(actorId) : null;
+  }
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["kk9","sheet","item"],
@@ -761,18 +844,67 @@ export class KK9ItemSheet extends ItemSheet {
       });
     }
 
+    // ── Gear: восстановление энергии ──
+    if (this.item.type === "gear") {
+      html.find(".gear-use-energy-restore").click(async () => {
+        const item  = this.item;
+        if (!item.system.equipped) { ui.notifications.warn("Нельзя применить — снаряжение не экипировано."); return; }
+        const actor = await this._pickActorForItem();
+        if (!actor) return;
+        const base    = item.system.energy_restore || 0;
+        const cond    = item.system.condition;
+        if (cond === "broken")  { ui.notifications.warn("Снаряжение сломано — восстановление невозможно."); return; }
+        const mult    = cond === "perfect" ? 1.5 : cond === "worn" ? 0.5 : 1;
+        const restore = Math.floor(base * mult);
+        const cur     = actor.system.energy?.value ?? 0;
+        const max     = actor.system.energy?.max   ?? 0;
+        const newVal  = Math.min(cur + restore, max);
+        await actor.update({ "system.energy.value": newVal });
+        ui.notifications.info(`${item.name}: восстановлено ${newVal - cur} ед. энергии.`);
+      });
+    }
+
     // ── Артефакт: атака ──
     if (this.item.type === "artifact") {
       html.find(".artifact-attack-roll").click(async () => {
-        if (!this.item.actor) { ui.notifications.warn("Артефакт должен быть на карточке персонажа."); return; }
+        if (this.item.system.equipped !== "equipped") { ui.notifications.warn("Артефакт не экипирован."); return; }
+        if (!this.item.system.active) { ui.notifications.warn("Артефакт не активен."); return; }
+        // Пытаемся найти актора через диалог (для прокачанного навыка)
+        // Если не нашли — бросаем без актора (world item навык)
+        let actor = null;
+        try { actor = await this._pickActorForItem(true); } catch(e) {}
         const { rollWeaponAttack } = await import("./weapon-combat.mjs");
-        await rollWeaponAttack(this.item, this.item.actor);
+        await rollWeaponAttack(this.item, actor);
       });
       html.find(".art-clear-skill").click(async () => {
         await this.item.update({ "system.skill_uuid": "", "system.skill_name": "" });
       });
       html.find(".art-clear-status").click(async () => {
         await this.item.update({ "system.status_uuid": "", "system.status_name": "" });
+      });
+      // Кнопки переключения состояния экипировки
+      html.find(".art-equipped-btn").click(async e => {
+        const val = e.currentTarget.dataset.value;
+        await this.item.update({ "system.equipped": val });
+      });
+
+      html.find(".art-use-energy-restore").click(async () => {
+        const item  = this.item;
+        if (item.system.equipped !== "equipped") { ui.notifications.warn("Нельзя применить — артефакт не экипирован."); return; }
+        if (!item.system.active) { ui.notifications.warn("Нельзя применить — артефакт не активен."); return; }
+        const actor = await this._pickActorForItem();
+        if (!actor) return;
+        const base    = item.system.energy_restore || 0;
+        if (!base) { ui.notifications.warn("У этого артефакта нет восстановления энергии."); return; }
+        const cond    = item.system.condition;
+        if (cond === "broken")  { ui.notifications.warn("Артефакт сломан — восстановление невозможно."); return; }
+        const mult    = cond === "perfect" ? 1.5 : cond === "worn" ? 0.5 : 1;
+        const restore = Math.floor(base * mult);
+        const cur     = actor.system.energy?.value ?? 0;
+        const max     = actor.system.energy?.max   ?? 0;
+        const newVal  = Math.min(cur + restore, max);
+        await actor.update({ "system.energy.value": newVal });
+        ui.notifications.info(`${item.name}: восстановлено ${newVal - cur} ед. энергии.`);
       });
       html.find(".art-remove-skill-bonus").click(async e => {
         const uuid    = e.currentTarget.dataset.uuid;
@@ -816,7 +948,7 @@ export class KK9ItemSheet extends ItemSheet {
         const attrKey = e.currentTarget.dataset.attr;
         const attr    = this.item.system.attributes?.[attrKey];
         if (!attr) return;
-        const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+        const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
         const die    = attr.die || 6;
         const mod    = attr.modifier || 0;
         const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
@@ -975,7 +1107,7 @@ export class KK9ItemSheet extends ItemSheet {
         const attrKey = e.currentTarget.dataset.attr;
         const attr    = this.item.system.attributes?.[attrKey];
         if (!attr) return;
-        const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+        const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
         const die    = attr.die || 6;
         const mod    = attr.modifier || 0;
         const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";

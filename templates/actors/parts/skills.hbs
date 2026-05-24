@@ -23,6 +23,7 @@
         <input type="number" class="mod-input-sm ability-mod-input" data-item-id="{{ab.id}}"
                value="{{ab.system.modifier}}" placeholder="±0" />
         {{!-- Факультетские навыки нельзя удалить вручную --}}
+        <span class="btn-delete-xs delete-placeholder"></span>
       </div>
     </div>
     {{/each}}
@@ -51,9 +52,11 @@
         <input type="number" class="mod-input-sm ability-mod-input" data-item-id="{{sk.id}}"
                value="{{sk.system.modifier}}" placeholder="±0" />
         {{!-- Кнопка удаления: не показываем для базовых способностей (isBase) --}}
-        {{#unless sk.system.isBase}}
-        <button type="button" class="item-delete" data-item-id="{{sk.id}}">✕</button>
-        {{/unless}}
+        {{#if sk.system.isBase}}
+        <span class="btn-delete-xs delete-placeholder"></span>
+        {{else}}
+        <button type="button" class="item-delete btn-delete-xs" data-item-id="{{sk.id}}">✕</button>
+        {{/if}}
       </div>
     </div>
     {{else}}

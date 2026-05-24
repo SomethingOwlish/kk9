@@ -106,7 +106,7 @@
       "agility": "Ловкость",
       "smarts": "Смекалка",
       "spirit": "Дух",
-      "strength": "Сила",
+      "endurance": "Сила",
       "magic": "Магия"
     },
     "skills": {

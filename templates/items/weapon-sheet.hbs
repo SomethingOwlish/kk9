@@ -92,7 +92,7 @@
 
     <div>
       <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
-      {{editor system.description target="system.description" button=true owner=true editable=editable}}
+      <textarea name="system.description" class="kk9-textarea" style="min-height:120px;width:100%;resize:vertical" placeholder="Описание...">{{system.description}}</textarea>
     </div>
   </div>
 </form>

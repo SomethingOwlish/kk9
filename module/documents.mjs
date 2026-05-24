@@ -21,7 +21,7 @@ const NEUTRAL_NAME_COLOR = "#c4a44a";
 // ============================================================
 // Атрибуты по группам
 // ============================================================
-const PHYS_ATTRS   = new Set(["agility", "strength", "magic"]);
+const PHYS_ATTRS   = new Set(["agility", "endurance", "magic"]);
 const MENTAL_ATTRS = new Set(["smarts", "spirit", "magic"]);
 
 // ============================================================
@@ -202,7 +202,7 @@ export class KK9Actor extends Actor {
       `  <div class="kk9-chat-header">`,
       `    <img class="kk9-chat-portrait" src="${portrait}" alt="${this.name}">`,
       `    <div class="kk9-chat-header-text">`,
-      `      <span class="kk9-chat-name" style="color:${nameColor}">${this.name}</span>`,
+      `      <span class="kk9-chat-name">${this.name}</span>`,
       `      <span class="kk9-chat-label">${label}</span>`,
       `    </div>`,
       `  </div>`,
@@ -229,7 +229,7 @@ export class KK9Actor extends Actor {
       `  <div class="kk9-chat-header">`,
       `    <img class="kk9-chat-portrait" src="${portrait}" alt="${this.name}">`,
       `    <div class="kk9-chat-header-text">`,
-      `      <span class="kk9-chat-name" style="color:${nameColor}">${this.name}</span>`,
+      `      <span class="kk9-chat-name">${this.name}</span>`,
       `      <span class="kk9-chat-label">${label}</span>`,
       `    </div>`,
       `  </div>`,
@@ -475,7 +475,7 @@ export class KK9Actor extends Actor {
     const attr = this.system.attributes?.[attributeName];
     if (!attr) return;
     const die = attr.die;
-    const labels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+    const labels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
     // Бонус от экипированных артефактов к атрибуту
     let artifactBonus = 0;
     const artifactReasons = [];
@@ -842,7 +842,7 @@ export class KK9Actor extends Actor {
     if (!attr) { ui.notifications.warn(`Атрибут «${attributeName}» не найден.`); return; }
     const die = attr.die;
 
-    const labels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", strength:"Сила", magic:"Магия" };
+    const labels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
     const label  = labels[attributeName] || attributeName;
     const formula = this._npcRollFormula(die, "", isWC, wcDie);
     return this._doRoll(formula, label, { attrKey: null });
@@ -995,7 +995,7 @@ export class KK9Item extends Item {
   <div class="kk9-chat-header">
     <img class="kk9-chat-portrait" src="${portrait}" alt="${actor.name}">
     <div class="kk9-chat-header-text">
-      <span class="kk9-chat-name" style="color:${nameColor}">${actor.name}</span>
+      <span class="kk9-chat-name">${actor.name}</span>
       <span class="kk9-chat-label">${this.name}</span>
     </div>
   </div>` : ""}

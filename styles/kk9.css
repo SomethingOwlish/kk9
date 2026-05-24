@@ -1802,14 +1802,28 @@
 }
 
 /* Кнопка отправки */
-#chat-form button[type="submit"],
-#chat-controls button {
+#chat-form button[type="submit"] {
   background: #2a2a2a !important;
   border: 1px solid #4a4a4a !important;
-  color: #6a6560 !important;
+  color: #c4a44a !important;
   font-family: 'Jost', sans-serif !important;
   border-radius: 3px !important;
   transition: all 0.15s !important;
+}
+/* chat-controls — НЕ переопределяем font-family, иконки FA требуют свой шрифт */
+#chat-controls button {
+  background: #2a2a2a !important;
+  border: 1px solid #4a4a4a !important;
+  color: rgba(196,164,74,0.45) !important;
+  border-radius: 3px !important;
+  transition: all 0.15s !important;
+}
+/* Активная/выбранная кнопка — ярко золотая */
+#chat-controls button[aria-pressed="true"],
+#chat-controls button.active {
+  color: #c4a44a !important;
+  border-color: rgba(196,164,74,0.5) !important;
+  background: rgba(196,164,74,0.08) !important;
 }
 #chat-form button:hover,
 #chat-controls button:hover {
@@ -1943,11 +1957,10 @@
 
 .kk9-chat-name {
   font-family: 'Caveat', cursive;
-  font-size: 1.15em;
+  font-size: 1.84em !important;
   font-weight: 700;
- color: #c4a44a;
+  color: #c4a44a !important;
   line-height: 1.1;
-  /* цвет приходит инлайном из JS */
 }
 
 .kk9-chat-label {
@@ -2855,6 +2868,21 @@ li.chat-message.kk9-roll-message .message-header {
   overflow: hidden;
 }
 
+/* Тело item-sheet — скроллируется, editor виден */
+.kk9-sheet.item-sheet > form {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  overflow: hidden !important;
+}
+.kk9-sheet.item-sheet > form > div,
+.kk9-sheet.item-sheet > div:not(header) {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+}
+
+
 /* Шапка — всегда сверху, горизонтальная строка */
 .kk9-sheet.item-sheet > header,
 .kk9-sheet.item-sheet > form > header,
@@ -3248,10 +3276,11 @@ input[type="radio"][style*="display:none"] { display: none !important; }
   min-width: 0;
 }
 .kk9-chat-name {
-  font-size: 0.95em;
+  font-size: 1.52em !important;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: 0.02em;
+  color: #c4a44a !important;
 }
 .kk9-chat-label {
   font-size: 0.72em;
@@ -3313,6 +3342,7 @@ input[type="radio"][style*="display:none"] { display: none !important; }
   display: flex;
   flex-direction: column;
   gap: 4px;
+  font-size: 1.3em;
 }
 
 .kk9-drow {
@@ -3409,15 +3439,196 @@ input[type="radio"][style*="display:none"] { display: none !important; }
   border-top: 1px solid var(--color-border-light-tertiary, rgba(255,255,255,0.07));
 }
 .kk9-roll-btn {
-  flex: 1; min-width: 60px;
-  padding: 3px 6px; font-size: 0.72em;
-  background: var(--bg3, rgba(255,255,255,0.05));
-  border: 1px solid var(--border, rgba(255,255,255,0.1));
-  border-radius: 3px; color: var(--text-dim, #aaa);
-  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  flex: 1 !important; min-width: 60px !important;
+  padding: 3px 6px !important; font-size: 0.78em !important;
+  background: var(--bg3, rgba(255,255,255,0.05)) !important;
+  border: 1px solid var(--border, rgba(255,255,255,0.15)) !important;
+  border-radius: 3px !important; color: #b8b0a4 !important;
+  cursor: pointer !important; transition: all 0.15s !important;
+  white-space: nowrap !important; font-family: 'Jost', sans-serif !important;
+  height: auto !important; line-height: 1.5 !important;
 }
-.kk9-roll-btn:hover { border-color: var(--gold, #c4a44a); color: var(--gold, #c4a44a); }
+.kk9-roll-btn:hover {
+  border-color: var(--gold, #c4a44a) !important;
+  color: var(--gold, #c4a44a) !important;
+  background: rgba(196,164,74,0.08) !important;
+}
 
 /* ── КО-пип лёгкого НПС ── */
 .pip-ko { border-style: dashed !important; }
 .pip-ko.pip-filled { border-style: solid !important; }
+
+/* ═══════════════════════════════════════
+   КАРТОЧКА СПОСОБНОСТИ (ability-sheet)
+═══════════════════════════════════════ */
+
+.ability-sheet {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+/* Шапка */
+.ability-sheet .ab-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.ability-sheet .ab-avatar {
+  width: 48px; height: 48px;
+  border-radius: 4px; object-fit: cover; cursor: pointer;
+  flex-shrink: 0;
+}
+.ability-sheet .ab-header-right { flex: 1; min-width: 0; }
+.ability-sheet .ab-name-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.ability-sheet .ab-name-input {
+  flex: 1; background: transparent; border: none;
+  border-bottom: 1px solid var(--border2);
+  color: var(--text-head); font-family: 'Caveat', cursive;
+  font-size: 1.3em;
+}
+.ability-sheet .ab-cat-badge {
+  font-size: 0.72em; padding: 2px 6px; border-radius: 3px;
+  background: rgba(255,255,255,0.08); color: var(--text-dim);
+  white-space: nowrap; flex-shrink: 0;
+}
+.ability-sheet .ab-sub-row {
+  display: flex; gap: 6px; align-items: center;
+  margin-top: 3px; font-size: 0.78em; color: var(--text-dim);
+}
+.ability-sheet .ab-sub-label { opacity: 0.6; }
+.ability-sheet .ab-sub-val { color: var(--gold, #c4a44a); }
+
+/* Тело */
+.ability-sheet .ab-body {
+  flex: 1; overflow-y: auto; padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* Сетка параметров */
+.ability-sheet .ab-params-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ability-sheet .ab-param-block {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ability-sheet .ab-param-label {
+  font-size: 0.72em; color: var(--text-dim); display: block;
+}
+
+/* Формула */
+.ability-sheet .ab-formula-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.85em; color: var(--text-dim);
+}
+.ability-sheet .ab-formula-val {
+  color: var(--gold, #c4a44a); font-weight: 600;
+}
+
+/* Описание */
+.ability-sheet .ab-desc-block {
+  display: flex; flex-direction: column; gap: 4px; flex: 1;
+}
+.ability-sheet .ab-desc-ta {
+  flex: 1; min-height: 100px; resize: vertical;
+  width: 100%; box-sizing: border-box;
+}
+
+/* ── Placeholder вместо крестика — выравнивает правый край ── */
+.delete-placeholder {
+  display: inline-flex;
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  visibility: hidden;
+}
+
+/* ── Атрибуты v2.0 — вся строка кликабельна ── */
+.attribute-row {
+  cursor: pointer;
+  user-select: none;
+}
+.attribute-row:hover {
+  background: var(--bg2);
+  border-radius: 3px;
+}
+.attribute-row .attr-label {
+  flex: 1;
+  cursor: pointer;
+}
+.attribute-row .attr-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+/* Убираем иконку шестиугольника если осталась */
+.attribute-row .die-badge { display: none !important; }
+
+/* ── Артефакт: кнопки состояния экипировки ── */
+.art-equipped-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.art-equipped-btn:hover {
+  border-color: var(--gold, #c4a44a);
+  color: var(--gold, #c4a44a);
+}
+.art-equipped-active {
+  border-color: var(--gold, #c4a44a) !important;
+  color: var(--gold, #c4a44a) !important;
+  background: rgba(196,164,74,0.1) !important;
+}
+
+/* ── Иконки артефакта в строке снаряжения ── */
+.btn-ref-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.85em;
+  transition: color 0.15s;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+.btn-ref-icon:hover { color: var(--gold, #c4a44a); }
+
+.btn-ref-action {
+  background: transparent;
+  border: 1px solid rgba(196,164,74,0.3);
+  border-radius: 3px;
+  color: var(--gold, #c4a44a);
+  cursor: pointer;
+  padding: 1px 5px;
+  font-size: 0.8em;
+  transition: all 0.15s;
+  flex: 0 0 auto !important;
+  white-space: nowrap;
+  width: auto !important;
+}
+.btn-ref-action:hover {
+  background: rgba(196,164,74,0.1);
+  border-color: var(--gold, #c4a44a);
+}
+
+/* item-name внутри artifact-item-row явно получает min-width: 0 */
+.artifact-item-row .item-name {
+  flex: 1 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}

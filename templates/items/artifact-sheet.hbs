@@ -59,15 +59,20 @@
           <option value="huge"      {{#if (eq system.size "huge")}}selected{{/if}}>Огромный</option>
           <option value="immovable" {{#if (eq system.size "immovable")}}selected{{/if}}>Неподвижный</option>
         </select></div>
-      <div style="display:flex;align-items:flex-end;gap:10px;padding-bottom:2px;flex-wrap:wrap">
-        <label style="font-size:0.75em;color:var(--text-dim);display:flex;align-items:center;gap:4px">
-          <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
-          Экипирован
-        </label>
-        <label style="font-size:0.75em;color:var(--accent,#c4a44a);display:flex;align-items:center;gap:4px">
-          <input type="checkbox" name="system.active" {{#if system.active}}checked{{/if}} />
-          Активен
-        </label>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:0.75em;color:var(--text-dim)">Экипировка</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button type="button" class="art-equipped-btn {{#if (eq system.equipped 'home')}}art-equipped-active{{/if}}"
+                  data-value="home" style="font-size:0.8em;padding:4px 10px;white-space:nowrap">Дома</button>
+          <button type="button" class="art-equipped-btn {{#if (eq system.equipped 'carried')}}art-equipped-active{{/if}}"
+                  data-value="carried" style="font-size:0.8em;padding:4px 10px;white-space:nowrap">С собой</button>
+          <button type="button" class="art-equipped-btn {{#if (eq system.equipped 'equipped')}}art-equipped-active{{/if}}"
+                  data-value="equipped" style="font-size:0.8em;padding:4px 10px;white-space:nowrap">Экипирован</button>
+          <label style="font-size:0.75em;color:var(--accent,#c4a44a);display:flex;align-items:center;gap:4px;margin-left:4px;flex-shrink:0">
+            <input type="checkbox" name="system.active" {{#if system.active}}checked{{/if}} />
+            Активен
+          </label>
+        </div>
       </div>
     </div>
     {{else}}
@@ -131,7 +136,7 @@
         {{#each system.bonuses as |val key|}}
         <div>
           <label style="font-size:0.68em;color:var(--text-dim);display:block">
-            {{#if (eq key "agility")}}Ловкость{{else if (eq key "smarts")}}Смекалка{{else if (eq key "spirit")}}Дух{{else if (eq key "strength")}}Сила{{else if (eq key "magic")}}Магия{{else if (eq key "toughness")}}Стойкость{{else}}{{key}}{{/if}}
+            {{#if (eq key "agility")}}Ловкость{{else if (eq key "smarts")}}Смекалка{{else if (eq key "spirit")}}Дух{{else if (eq key "endurance")}}Выносливость{{else if (eq key "magic")}}Магия{{else if (eq key "toughness")}}Стойкость{{else}}{{key}}{{/if}}
           </label>
           <input type="number" name="system.bonuses.{{key}}" value="{{val}}" class="kk9-input" style="text-align:center" />
         </div>
@@ -214,7 +219,7 @@
     {{!-- Описание --}}
     <div>
       <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>
-      {{editor system.description target="system.description" button=true editable=editable}}
+      <textarea name="system.description" class="kk9-textarea" style="min-height:120px;width:100%;resize:vertical" placeholder="Описание...">{{system.description}}</textarea>
     </div>
 
   </div>

@@ -19,7 +19,7 @@
           {{#if (eq system.linkedAttribute "agility")}}Ловкость
           {{else if (eq system.linkedAttribute "smarts")}}Смекалка
           {{else if (eq system.linkedAttribute "spirit")}}Дух
-          {{else if (eq system.linkedAttribute "strength")}}Сила
+          {{else if (eq system.linkedAttribute "endurance")}}Выносливость
           {{else if (eq system.linkedAttribute "magic")}}Магия
           {{else}}—{{/if}}
         </span>
@@ -46,11 +46,11 @@
       <div class="ab-param-block">
         <span class="ab-param-label">Связанный атрибут</span>
         <select name="system.linkedAttribute" class="kk9-select">
-          <option value="agility"  {{#if (eq system.linkedAttribute "agility")}}selected{{/if}}>Ловкость</option>
-          <option value="smarts"   {{#if (eq system.linkedAttribute "smarts")}}selected{{/if}}>Смекалка</option>
-          <option value="spirit"   {{#if (eq system.linkedAttribute "spirit")}}selected{{/if}}>Дух</option>
-          <option value="strength" {{#if (eq system.linkedAttribute "strength")}}selected{{/if}}>Сила</option>
-          <option value="magic"    {{#if (eq system.linkedAttribute "magic")}}selected{{/if}}>Магия</option>
+          <option value="agility"   {{#if (eq system.linkedAttribute "agility")}}selected{{/if}}>Ловкость</option>
+          <option value="smarts"    {{#if (eq system.linkedAttribute "smarts")}}selected{{/if}}>Смекалка</option>
+          <option value="spirit"    {{#if (eq system.linkedAttribute "spirit")}}selected{{/if}}>Дух</option>
+          <option value="endurance" {{#if (eq system.linkedAttribute "endurance")}}selected{{/if}}>Выносливость</option>
+          <option value="magic"     {{#if (eq system.linkedAttribute "magic")}}selected{{/if}}>Магия</option>
         </select>
       </div>
 
@@ -92,160 +92,5 @@
                 placeholder="Описание способности...">{{system.description}}</textarea>
     </div>
 
-    {{!-- faculty_id — скрытое техническое поле --}}
-    <input type="hidden" name="system.faculty_id" value="{{system.faculty_id}}" />
-
-    {{!-- GM-only: флаг базовой способности --}}
-    {{#if isGM}}
-    <div class="ab-gm-box">
-      <label class="ab-gm-label">
-        <input type="checkbox" name="system.isBase" {{#if system.isBase}}checked{{/if}} />
-        Базовая способность (выдаётся персонажу при создании)
-      </label>
-    </div>
-    {{/if}}
-
   </div>
-
 </form>
-
-<style>
-.ability-sheet {
-  flex-direction: column !important;
-  overflow-y: auto;
-}
-
-/* ── Шапка ── */
-.ability-sheet .ab-header {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.ability-sheet .ab-avatar {
-  width: 48px; height: 48px;
-  border-radius: 50%; object-fit: cover;
-  cursor: pointer; flex-shrink: 0;
-  border: 2px solid var(--border2);
-}
-
-.ability-sheet .ab-header-right {
-  flex: 1; min-width: 0;
-  display: flex; flex-direction: column; gap: 4px;
-}
-
-.ability-sheet .ab-name-row {
-  display: flex; align-items: center; gap: 8px;
-}
-
-.ability-sheet .ab-name-input {
-  flex: 1;
-  font-family: 'Caveat', cursive;
-  font-size: 1.4em; font-weight: 700;
-  background: transparent; border: none;
-  border-bottom: 2px solid var(--border2);
-  color: var(--text-head);
-  padding: 0 0 1px; outline: none;
-  transition: border-color 0.2s; min-width: 0;
-}
-.ability-sheet .ab-name-input:focus { border-bottom-color: var(--gold); }
-
-/* Бейдж категории — используем глобальные cat-* классы */
-.ability-sheet .ab-cat-badge {
-  flex-shrink: 0;
-  font-size: 0.66em; font-weight: 500;
-  text-transform: uppercase; letter-spacing: 0.07em;
-  padding: 2px 8px; border-radius: 10px;
-}
-
-.ability-sheet .ab-sub-row {
-  display: flex; align-items: center; gap: 6px;
-}
-.ability-sheet .ab-sub-label {
-  font-size: 0.65em; text-transform: uppercase;
-  letter-spacing: 0.07em; color: var(--text-dim);
-}
-.ability-sheet .ab-sub-val {
-  font-size: 0.78em; color: var(--text);
-}
-
-/* ── Тело ── */
-.ability-sheet .ab-body {
-  flex: 1;
-  padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 12px;
-  overflow-y: auto;
-}
-
-/* Параметры — четыре колонки */
-.ability-sheet .ab-params-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
-  gap: 10px;
-  align-items: end;
-}
-
-.ability-sheet .ab-param-block {
-  display: flex; flex-direction: column; gap: 3px;
-}
-.ability-sheet .ab-param-block--sm { min-width: 80px; }
-
-.ability-sheet .ab-param-label {
-  font-size: 0.65em;
-  text-transform: uppercase; letter-spacing: 0.07em;
-  color: var(--text-dim);
-}
-
-.ability-sheet .ab-mod-input {
-  width: 70px !important;
-  text-align: center;
-}
-
-/* Формула */
-.ability-sheet .ab-formula-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 10px;
-  background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
-}
-.ability-sheet .ab-formula-label {
-  font-size: 0.68em; text-transform: uppercase;
-  letter-spacing: 0.07em; color: var(--text-dim);
-}
-.ability-sheet .ab-formula-val {
-  font-family: 'Caveat', cursive;
-  font-size: 1.1em; font-weight: 700; color: var(--gold);
-}
-
-/* Описание */
-.ability-sheet .ab-desc-block {
-  display: flex; flex-direction: column; gap: 4px;
-}
-.ability-sheet .ab-desc-ta { min-height: 80px; }
-
-/* GM-only блок */
-.ability-sheet .ab-gm-box {
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: rgba(196,164,74,0.06);
-  border: 1px solid rgba(196,164,74,0.2);
-  border-radius: 4px;
-}
-.ability-sheet .ab-gm-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.78em;
-  color: var(--gold-dim);
-  cursor: pointer;
-}
-.ability-sheet .ab-gm-label input[type="checkbox"] {
-  width: 14px; height: 14px;
-  accent-color: var(--gold);
-  flex-shrink: 0;
-}
-</style>
