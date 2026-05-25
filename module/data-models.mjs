@@ -76,6 +76,10 @@ function npcCommonFields() {
     daemon_refs:    new fields.ArrayField(new fields.StringField({ initial: "" })),
     companion_refs: new fields.ArrayField(new fields.StringField({ initial: "" })),
     contact_refs:   new fields.ArrayField(new fields.StringField({ initial: "" })),
+    // KK9 связь
+    kk9_linked:             new fields.BooleanField({ initial: false }),
+    operative_class:        new fields.StringField({ initial: "" }),
+    operative_faculty_color: new fields.StringField({ initial: "" }),
   };
 }
 
@@ -395,7 +399,7 @@ export class ArtifactDataModel extends foundry.abstract.TypeDataModel {
       // Тип артефакта
       artifact_type: new fields.StringField({
         initial: "utility",
-        choices: ["attack","defense","binding","spatial","utility","buff","transforming","prophetic","wand"]
+        choices: ["attack","defense","binding","spatial","utility","buff","transforming","prophetic","ring"]
       }),
 
       // Класс
@@ -414,6 +418,10 @@ export class ArtifactDataModel extends foundry.abstract.TypeDataModel {
       // Создатель и условие активации
       creator:           new fields.StringField({ initial: "" }),
       activation_condition: new fields.StringField({ initial: "" }),
+
+      // Поля кольца (artifact_type === "ring")
+      ring_material: new fields.StringField({ initial: "" }),
+      ring_stone:    new fields.StringField({ initial: "" }),
 
       // Размер
       size: new fields.StringField({
@@ -792,6 +800,23 @@ export class LanguageDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
+
+// ============================================================
+// КОНТЕЙНЕР
+// ============================================================
+export class ContainerDataModel extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const { fields } = foundry.data;
+    return {
+      description:   new fields.StringField({ initial: "" }),
+      money:         new fields.NumberField({ initial: 0, min: 0, integer: true }),
+      // UUID-ссылки для уникальных объектов (как у персонажа)
+      artifact_refs: new fields.ArrayField(new fields.StringField({ initial: "" })),
+      daemon_refs:   new fields.ArrayField(new fields.StringField({ initial: "" })),
+      companion_refs: new fields.ArrayField(new fields.StringField({ initial: "" })),
+    };
+  }
+}
 
 // ============================================================
 // СТАТУС (новый тип v0.9.0)

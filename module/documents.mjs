@@ -812,11 +812,13 @@ export class KK9Actor extends Actor {
       }
     }
 
-    ChatMessage.create({
-      content: `<div style="font-family:'Jost',sans-serif;padding:6px 10px;border-left:3px solid ${fData.color || '#c9a84c'};background:rgba(0,0,0,0.3);color:#b8b0a4">
-        <strong style="color:${fData.color || '#c9a84c'}">${this.name}</strong> зачислен на <strong>${facultyItem.name}</strong>.
-        ${teacherName ? `<br><em style="opacity:0.7">Куратор ${teacherName} добавлен в связи.</em>` : ""}
-      </div>`,
+    const _enrollAccent  = fData.color || "#c4a44a";
+    const _enrollPortrait = this.img || "icons/svg/mystery-man.svg";
+    const _enrollText = teacherName
+      ? `${this.name} зачислен на ${facultyItem.name}.<br><em style="opacity:0.7;font-size:0.9em">Куратор ${teacherName} добавлен в связи.</em>`
+      : `${this.name} зачислен на ${facultyItem.name}.`;
+    await ChatMessage.create({
+      content: `<div class="kk9-chat-roll" data-result-type="success" style="--accent:${_enrollAccent}"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${_enrollPortrait}" alt="${this.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:${_enrollAccent}">${this.name}</span><span class="kk9-chat-label">Зачисление на факультет</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-success"><span class="kk9-result-text">${_enrollText}</span></summary></details></div>`,
       speaker: ChatMessage.getSpeaker({ actor: this }),
       flags: { kk9: { isRoll: true, actorId: this.id } }
     });

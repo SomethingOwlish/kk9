@@ -30,7 +30,7 @@
     </div>
 
     {{!-- Тип, класс, размер --}}
-    {{#unless (eq system.artifact_type "wand")}}
+    {{#unless (eq system.artifact_type "ring")}}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Тип</label>
         <select name="system.artifact_type" class="kk9-select">
@@ -42,7 +42,7 @@
           <option value="buff"         {{#if (eq system.artifact_type "buff")}}selected{{/if}}>Усиление</option>
           <option value="transforming" {{#if (eq system.artifact_type "transforming")}}selected{{/if}}>Трансформация</option>
           <option value="prophetic"    {{#if (eq system.artifact_type "prophetic")}}selected{{/if}}>Пророческий</option>
-          <option value="wand"         {{#if (eq system.artifact_type "wand")}}selected{{/if}}>Палочка</option>
+          <option value="ring"         {{#if (eq system.artifact_type "ring")}}selected{{/if}}>Кольцо</option>
         </select></div>
       <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Класс</label>
         <select name="system.artifact_class" class="kk9-select">
@@ -68,15 +68,17 @@
                   data-value="carried" style="font-size:0.8em;padding:4px 10px;white-space:nowrap">С собой</button>
           <button type="button" class="art-equipped-btn {{#if (eq system.equipped 'equipped')}}art-equipped-active{{/if}}"
                   data-value="equipped" style="font-size:0.8em;padding:4px 10px;white-space:nowrap">Экипирован</button>
+          {{#unless (eq system.artifact_type "ring")}}
           <label style="font-size:0.75em;color:var(--gold,#c4a44a);display:flex;align-items:center;gap:4px;margin-left:4px;flex-shrink:0">
             <input type="checkbox" name="system.active" {{#if system.active}}checked{{/if}} />
             Активен
           </label>
+          {{/unless}}
         </div>
       </div>
     </div>
     {{else}}
-    {{!-- Палочка — тип всегда wand, показываем выбор для смены типа маленьким --}}
+    {{!-- Кольцо — тип всегда wand, показываем выбор для смены типа маленьким --}}
     <div style="display:flex;gap:8px;align-items:center">
       <select name="system.artifact_type" class="kk9-select" style="font-size:0.8em">
         <option value="attack"       {{#if (eq system.artifact_type "attack")}}selected{{/if}}>Атака</option>
@@ -87,23 +89,33 @@
         <option value="buff"         {{#if (eq system.artifact_type "buff")}}selected{{/if}}>Усиление</option>
         <option value="transforming" {{#if (eq system.artifact_type "transforming")}}selected{{/if}}>Трансформация</option>
         <option value="prophetic"    {{#if (eq system.artifact_type "prophetic")}}selected{{/if}}>Пророческий</option>
-        <option value="wand"         {{#if (eq system.artifact_type "wand")}}selected{{/if}}>Палочка</option>
+        <option value="ring"         {{#if (eq system.artifact_type "ring")}}selected{{/if}}>Кольцо</option>
       </select>
-      <label style="font-size:0.75em;color:var(--text-dim)">Экипирована</label>
-      <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
+
     </div>
     {{/unless}}
 
-    {{!-- ПАЛОЧКА: специфичные поля --}}
-    {{#if (eq system.artifact_type "wand")}}
+    {{!-- Кольцо: специфичные поля --}}
+    {{#if (eq system.artifact_type "ring")}}
     <div style="display:flex;flex-direction:column;gap:6px">
       <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Создатель</label>
         <input type="text" name="system.creator" value="{{system.creator}}" class="kk9-input" placeholder="Имя мастера-волшебника" /></div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:0.75em;color:var(--text-dim)">Экипировка</span>
+        <div style="display:flex;align-items:flex-end;gap:6px">
+          <button type="button" class="art-equipped-btn {{#if (eq system.equipped 'home')}}art-equipped-active{{/if}}"
+                  data-value="home" style="font-size:0.8em;padding:4px 10px;white-space:nowrap">Дома</button>
+          <button type="button" class="art-equipped-btn {{#if (eq system.equipped 'carried')}}art-equipped-active{{/if}}"
+                  data-value="carried" style="font-size:0.8em;padding:4px 10px;white-space:nowrap">С собой</button>
+          <button type="button" class="art-equipped-btn {{#if (eq system.equipped 'equipped')}}art-equipped-active{{/if}}"
+                  data-value="equipped" style="font-size:0.8em;padding:4px 10px;white-space:nowrap">Экипировано</button>
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Древесина</label>
-          <input type="text" name="system.wand_wood" value="{{system.wand_wood}}" class="kk9-input" placeholder="Дуб, ясень..." /></div>
+        <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Материал</label>
+          <input type="text" name="system.ring_material" value="{{system.ring_material}}" class="kk9-input" placeholder="Серебро, золото..." /></div>
         <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Сердечник</label>
-          <input type="text" name="system.wand_core" value="{{system.wand_core}}" class="kk9-input" placeholder="Волос дракона..." /></div>
+          <input type="text" name="system.ring_stone" value="{{system.ring_stone}}" class="kk9-input" placeholder="Рубин, сапфир..." /></div>
       </div>
       {{#if (or (eq system.rarity "rare") (eq system.rarity "unique"))}}
       <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Возраст (лет)</label>

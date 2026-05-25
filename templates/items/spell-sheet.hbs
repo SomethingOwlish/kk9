@@ -13,7 +13,7 @@
         <span class="sp-type-badge sp-type-{{system.spell_type}}">
           {{#if (eq system.spell_type "attack")}}Атака
           {{else if (eq system.spell_type "defense")}}Защита
-          {{else if (eq system.spell_type "binding")}}Связующее
+          {{else if (eq system.spell_type "binding")}}Связь
           {{else if (eq system.spell_type "spatial")}}Пространственное
           {{else if (eq system.spell_type "utility")}}Утилита
           {{else if (eq system.spell_type "buff")}}Бафф
@@ -32,7 +32,7 @@
           <span class="sp-sub-dim">{{system.duration}} ход.</span>
         {{/if}}
         {{#if system.no_wand_needed}}
-        <span class="sp-no-wand">без палочки</span>
+        <span class="sp-no-wand">без кольца</span>
         {{/if}}
       </div>
     </div>
@@ -48,7 +48,7 @@
         <select name="system.spell_type" class="kk9-select">
           <option value="attack"      {{#if (eq system.spell_type "attack")}}selected{{/if}}>Атака</option>
           <option value="defense"     {{#if (eq system.spell_type "defense")}}selected{{/if}}>Защита</option>
-          <option value="binding"     {{#if (eq system.spell_type "binding")}}selected{{/if}}>Связующее</option>
+          <option value="binding"     {{#if (eq system.spell_type "binding")}}selected{{/if}}>Связь</option>
           <option value="spatial"     {{#if (eq system.spell_type "spatial")}}selected{{/if}}>Пространственное</option>
           <option value="utility"     {{#if (eq system.spell_type "utility")}}selected{{/if}}>Утилита</option>
           <option value="buff"        {{#if (eq system.spell_type "buff")}}selected{{/if}}>Бафф</option>
@@ -80,7 +80,6 @@
         <div class="sp-color-row">
           <input type="color" name="system.effect_color"
                  value="{{system.effect_color}}" class="sp-color-picker" />
-          <span class="sp-color-preview" style="background:{{system.effect_color}}"></span>
         </div>
       </div>
       <div class="sp-param-block" style="grid-column: span 2">
@@ -91,7 +90,7 @@
       </div>
     </div>
 
-    {{!-- Навык-тип + без палочки --}}
+    {{!-- Навык-тип + без кольца --}}
     <div class="sp-params-grid sp-params-grid--skill">
       <div class="spell-skill-drop sp-skill-drop">
         <span class="sp-param-label">Магический навык</span>
@@ -110,10 +109,10 @@
           <input type="checkbox" name="system.no_wand_needed"
                  {{#if system.no_wand_needed}}checked{{/if}}
                  class="sp-wand-checkbox" />
-          {{#if system.no_wand_needed}}Можно без палочки{{else}}Нужна палочка{{/if}}
+          {{#if system.no_wand_needed}}Можно без кольца{{else}}Нужно кольцо{{/if}}
         </label>
         {{#unless system.no_wand_needed}}
-        <span class="sp-wand-hint">Требует экипированный артефакт-палочку</span>
+        <span class="sp-wand-hint">Требует экипированное кольцо-артефакт</span>
         {{/unless}}
       </div>
     </div>
@@ -231,7 +230,7 @@
             <input type="number" name="system.skill_bonuses.{{@index}}.bonus"
                    value="{{sb.bonus}}" class="kk9-input sp-bonus-input" />
             <button type="button" class="sp-remove-skill-bonus fac-del"
-                    data-index="{{@index}}">✕</button>
+                    data-uuid="{{sb.item_uuid}}" data-index="{{@index}}">✕</button>
           </div>
           {{/each}}
         {{else}}
@@ -240,6 +239,12 @@
       </div>
     </div>
     {{/if}}
+
+    {{!-- Сохраняем item_uuid и item_name вне buff-блока чтобы не затирались при смене типа --}}
+    {{#each system.skill_bonuses as |sb|}}
+    <input type="hidden" name="system.skill_bonuses.{{@index}}.item_uuid" value="{{sb.item_uuid}}" />
+    <input type="hidden" name="system.skill_bonuses.{{@index}}.item_name" value="{{sb.item_name}}" />
+    {{/each}}
 
     {{!-- Описание --}}
     <div class="sp-param-block">

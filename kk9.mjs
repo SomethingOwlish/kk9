@@ -3,7 +3,7 @@
 // ============================================================
 
 import {
-  CharacterDataModel, NpcLightDataModel, NpcHardDataModel, NpcBossDataModel,
+  CharacterDataModel, NpcLightDataModel, NpcHardDataModel, NpcBossDataModel, ContainerDataModel,
   FacultyDataModel, AbilityDataModel, WeaponDataModel, GearDataModel,
   ArtifactDataModel, SpellDataModel, DaemonDataModel, CompanionDataModel,
   VehicleDataModel, DeviceDataModel, ContactDataModel, LanguageDataModel,
@@ -19,7 +19,7 @@ import {
 
 // FIX: НПС-листы — из npc-sheets.mjs (единственный источник правды)
 import {
-  KK9NpcLightSheet, KK9NpcHardSheet, KK9NpcBossSheet
+  KK9NpcLightSheet, KK9NpcHardSheet, KK9NpcBossSheet, KK9ContainerSheet
 } from "./module/npc-sheets.mjs";
 
 import { registerCombatHooks, registerChatListeners } from "./module/weapon-combat.mjs";
@@ -40,7 +40,7 @@ const SKILL_TYPES = new Set(["ability","faculty","language"]);
 // INIT
 // ============================================================
 Hooks.once("init", function () {
-  console.log("КК9 | Инициализация v0.9.1");
+  console.log("КК9 | Инициализация v0.9.9");
 
   CONFIG.Actor.documentClass = KK9Actor;
   CONFIG.Item.documentClass  = KK9Item;
@@ -50,7 +50,8 @@ Hooks.once("init", function () {
     "character": CharacterDataModel,
     "npc-light": NpcLightDataModel,
     "npc-hard":  NpcHardDataModel,
-    "npc-boss":  NpcBossDataModel
+    "npc-boss":  NpcBossDataModel,
+    "container": ContainerDataModel
   };
 
   CONFIG.Item.dataModels = {
@@ -74,6 +75,7 @@ Hooks.once("init", function () {
   Actors.registerSheet("kk9", KK9NpcLightSheet,  { types:["npc-light"], makeDefault:true, label:"КК9 | НПС лёгкий" });
   Actors.registerSheet("kk9", KK9NpcHardSheet,   { types:["npc-hard"],  makeDefault:true, label:"КК9 | НПС сложный" });
   Actors.registerSheet("kk9", KK9NpcBossSheet,   { types:["npc-boss"],  makeDefault:true, label:"КК9 | Босс" });
+  Actors.registerSheet("kk9", KK9ContainerSheet, { types:["container"], makeDefault:true, label:"КК9 | Контейнер" });
 
   Items.unregisterSheet("core", ItemSheet);
   Items.registerSheet("kk9", KK9ItemSheet, { makeDefault:true, label:"КК9 | Предмет" });

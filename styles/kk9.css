@@ -4,6 +4,14 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Jost:wght@300;400;500&display=swap');
 
+/* ── Переопределение системных переменных Foundry ── */
+:root {
+  --color-scrollbar: var(--gold, #c4a44a) !important;
+}
+* {
+  scrollbar-color: var(--gold, #c4a44a) transparent !important;
+}
+
 /* --- Переменные --- */
 .kk9-sheet {
   --bg:        #1c1c1c;
@@ -693,6 +701,12 @@
 .btn-delete-sm  { padding: 1px 5px; font-size: 0.8em; }
 .btn-delete-xs  { padding: 1px 4px; font-size: 0.75em; }
 .btn-delete:hover, .btn-delete-sm:hover, .btn-delete-xs:hover { color: var(--accent2); }
+.btn-delete:focus, .btn-delete-sm:focus, .btn-delete-xs:focus,
+.item-delete:focus, .fac-del:focus, .delete-relation:focus,
+.delete-language:focus, .actor-remove-status:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
 
 /* ============================================================
    СНАРЯЖЕНИЕ
@@ -3209,6 +3223,15 @@ input[type="radio"][style*="display:none"] { display: none !important; }
 }
 .btn-delete-xs:hover, .btn-delete-sm:hover,
 .item-delete:hover, .fac-del:hover { color: #c0392b !important; }
+form.kk9-sheet[style*="--faculty-accent"] .btn-delete-xs:hover,
+form.kk9-sheet[style*="--faculty-accent"] .btn-delete-sm:hover,
+form.kk9-sheet[style*="--faculty-accent"] .item-delete:hover,
+form.kk9-sheet[style*="--faculty-accent"] .fac-del:hover {
+  color: var(--faculty-accent) !important;
+}
+.kk9-sheet .item-row .btn-delete-xs:hover {
+  box-shadow: 0 0 5px var(--color-shadow-primary) !important;
+}
 
 /* ── 5. Spell ── */
 .spell-sheet .sp-cast-btn {
@@ -3569,8 +3592,14 @@ input[type="radio"][style*="display:none"] { display: none !important; }
   gap: 6px;
   margin-left: auto;
 }
-/* Убираем иконку шестиугольника если осталась */
-.attribute-row .die-badge { display: none !important; }
+/* die-badge в attribute-row — SVG кубик, отображаем */
+/* attr-label кликабелен — hover подсветка */
+form.kk9-sheet[style*="--faculty-accent"] .attr-label.rollable-attribute:hover {
+  color: var(--faculty-accent) !important;
+}
+.attr-label.rollable-attribute:hover {
+  color: var(--gold) !important;
+}
 
 /* ── Артефакт: кнопки состояния экипировки ── */
 .art-equipped-btn {
@@ -3631,4 +3660,340 @@ input[type="radio"][style*="display:none"] { display: none !important; }
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
+}
+
+
+
+/* ============================================================
+   ФАКУЛЬТЕТСКИЙ АКЦЕНТ v5 — --faculty-accent
+   Ставится на form.kk9-sheet из sheets.mjs
+   ============================================================ */
+
+/* Переопределяем системные переменные Foundry для крестиков и hover */
+form.kk9-sheet[style*="--faculty-accent"] {
+  --color-shadow-highlight: var(--faculty-accent) !important;
+  --color-shadow-primary: var(--faculty-accent-dim) !important;
+}
+
+/* Вкладки — активная */
+form.kk9-sheet[style*="--faculty-accent"] .sheet-tabs .item.active {
+  color: var(--faculty-accent) !important;
+  border-bottom-color: var(--faculty-accent) !important;
+}
+
+/* Заголовки секций — кроме magic-title */
+form.kk9-sheet[style*="--faculty-accent"] .section-title:not(.magic-title) {
+  color: var(--faculty-accent-dim) !important;
+  border-bottom-color: var(--faculty-accent-dim) !important;
+}
+
+/* Заголовки групп снаряжения */
+form.kk9-sheet[style*="--faculty-accent"] .item-group-title {
+  color: var(--faculty-accent-dim) !important;
+}
+form.kk9-sheet[style*="--faculty-accent"] .item-group-header {
+  border-bottom-color: var(--faculty-accent-dim) !important;
+}
+
+/* Имя персонажа */
+form.kk9-sheet[style*="--faculty-accent"] .name-input {
+  border-bottom-color: var(--faculty-accent) !important;
+}
+
+/* Подсветка фокуса */
+form.kk9-sheet[style*="--faculty-accent"] input:not([type="range"]):not([type="hidden"]):not([type="checkbox"]):focus,
+form.kk9-sheet[style*="--faculty-accent"] select:focus,
+form.kk9-sheet[style*="--faculty-accent"] textarea:focus {
+  border-color: var(--faculty-accent) !important;
+  box-shadow: 0 0 0 1px var(--faculty-accent-dim) !important;
+  outline: none !important;
+}
+/* Кнопки — никакого box-shadow при focus */
+form.kk9-sheet[style*="--faculty-accent"] button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Жетоны судьбы */
+form.kk9-sheet[style*="--faculty-accent"] .bennie-on {
+  color: var(--faculty-accent) !important;
+  text-shadow: 0 0 6px var(--faculty-accent-dim) !important;
+}
+
+/* Связи — значение уровня */
+form.kk9-sheet[style*="--faculty-accent"] .relation-level-val {
+  color: var(--faculty-accent) !important;
+}
+
+/* Активные статусы — все в цвет факультета */
+form.kk9-sheet[style*="--faculty-accent"] .active-status-row {
+  border-left-color: var(--faculty-accent) !important;
+}
+
+/* Кнопки действий снаряжения — только базовый цвет, без hover */
+form.kk9-sheet[style*="--faculty-accent"] .btn-ref-action {
+  color: var(--faculty-accent) !important;
+  border: none !important;
+  background: transparent !important;
+}
+form.kk9-sheet[style*="--faculty-accent"] .btn-ref-action:hover {
+  color: var(--faculty-accent) !important;
+  border: none !important;
+  background: transparent !important;
+}
+/* btn-ref-icon (щит, молния) — НЕ меняем цвет при hover */
+form.kk9-sheet[style*="--faculty-accent"] .btn-ref-icon:hover {
+  color: var(--text-dim) !important;
+}
+
+/* Hover имён */
+form.kk9-sheet[style*="--faculty-accent"] .item-name-click:hover,
+form.kk9-sheet[style*="--faculty-accent"] .item-row .item-name:hover,
+form.kk9-sheet[style*="--faculty-accent"] .skill-name:hover {
+  color: var(--faculty-accent) !important;
+}
+
+/* Крестики — цвет берётся из --color-shadow-highlight выше */
+
+/* Die badge */
+form.kk9-sheet[style*="--faculty-accent"] .die-badge:hover {
+  color: var(--faculty-accent) !important;
+}
+
+/* Кнопки + */
+form.kk9-sheet[style*="--faculty-accent"] .btn-add:hover,
+form.kk9-sheet[style*="--faculty-accent"] .btn-add-sm:hover {
+  border-color: var(--faculty-accent) !important;
+  color: var(--faculty-accent) !important;
+}
+
+/* Derived buttons */
+form.kk9-sheet[style*="--faculty-accent"] .derived-btn:hover {
+  border-color: var(--faculty-accent-dim) !important;
+}
+
+
+/* Слайдер связей — webkit override (accent-color не работает в старом Electron) */
+form.kk9-sheet[style*="--faculty-accent"] .relation-level-range::-webkit-slider-thumb {
+  -webkit-appearance: none !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  background: var(--faculty-accent) !important;
+  cursor: pointer !important;
+}
+form.kk9-sheet[style*="--faculty-accent"] .relation-level-range::-webkit-slider-runnable-track {
+  background: var(--border2) !important;
+  height: 4px !important;
+  border-radius: 2px !important;
+}
+
+/* ============================================================
+   КОНТЕЙНЕР
+   ============================================================ */
+.container-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Jost', sans-serif;
+  height: 100%;
+  overflow-y: auto;
+}
+.container-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.container-title-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.container-desc {
+  font-size: 0.82em;
+  color: var(--text-dim);
+}
+.container-money-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.container-money-label {
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+.container-money-input { width: 70px; text-align: center; }
+.container-money-val   { font-weight: 500; color: var(--gold); }
+.container-money-unit  { color: var(--text-dim); font-size: 0.85em; }
+.container-take-money-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.container-take-money-input { width: 60px; text-align: center; }
+
+.container-items-section {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.container-items-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.container-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+.container-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+}
+.container-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: var(--bg3);
+  transition: background 0.1s;
+}
+.container-item-row:hover { background: var(--bg2); }
+.container-item-img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.container-item-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88em;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.container-item-name:hover { color: var(--gold); }
+.btn-take-item {
+  flex-shrink: 0;
+  padding: 2px 10px !important;
+  font-size: 0.75em !important;
+  width: auto !important;
+  white-space: nowrap;
+}
+.container-take-qty {
+  width: 44px !important;
+  flex-shrink: 0;
+  text-align: center;
+}
+.container-locked-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.container-take-qty-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.container-take-qty { width: 44px !important; text-align: center; }
+.container-item-qty { font-size: 0.8em; color: var(--text-dim); flex-shrink: 0; }
+.container-locked-text { font-size: 0.72em; color: var(--text-dim); }
+.container-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.82em;
+  font-style: italic;
+}
+.container-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0;
+}
+.container-count-badge {
+  font-size: 0.75em;
+  color: var(--text-dim);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+.container-initiative-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg2);
+  border: 1px solid rgba(196,164,74,0.2);
+  border-radius: 4px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.container-initiative-select { flex: 1; min-width: 0; }
+.btn-container-initiative {
+  padding: 3px 10px;
+  font-size: 0.8em;
+  background: rgba(196,164,74,0.1);
+  border: 1px solid rgba(196,164,74,0.3);
+  border-radius: 3px;
+  color: var(--gold);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  width: auto !important;
+  transition: all 0.15s;
+}
+.btn-container-initiative:hover {
+  background: rgba(196,164,74,0.2);
+  border-color: var(--gold);
+}
+.btn-take-item {
+  padding: 2px 8px;
+  font-size: 0.75em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.btn-take-item, .btn-take-money {
+  padding: 2px 8px;
+  font-size: 0.75em;
+  background: rgba(196,164,74,0.1);
+  border: 1px solid rgba(196,164,74,0.3);
+  border-radius: 3px;
+  color: var(--gold);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-take-item:hover, .btn-take-money:hover {
+  background: rgba(196,164,74,0.2);
+  border-color: var(--gold);
 }

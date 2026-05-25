@@ -9,11 +9,12 @@
                value="{{item.name}}" placeholder="Название языка" />
         <span class="lang-world-badge lang-world-{{system.world}}">
           {{#if (eq system.world "upper")}}Верхний мир
-          {{else if (eq system.world "lower")}}🌑 Нижний мир
+          {{else if (eq system.world "lower")}}Нижний мир
+          {{else if (eq system.world "mystic")}}Мистический
           {{else}}Оба мира{{/if}}
         </span>
         {{#if system.is_dead}}
-        <span class="lang-dead-badge">💀 Мёртвый</span>
+        <span class="lang-dead-badge">Мёртвый</span>
         {{/if}}
       </div>
     </div>
@@ -27,8 +28,9 @@
         <span class="lang-param-label">Мир</span>
         <select name="system.world" class="kk9-select">
           <option value="upper" {{#if (eq system.world "upper")}}selected{{/if}}>Верхний мир</option>
-          <option value="lower" {{#if (eq system.world "lower")}}selected{{/if}}>🌑 Нижний мир</option>
+          <option value="lower" {{#if (eq system.world "lower")}}selected{{/if}}>Нижний мир</option>
           <option value="both"  {{#if (eq system.world "both")}}selected{{/if}}>Оба мира</option>
+          <option value="mystic" {{#if (eq system.world "mystic")}}selected{{/if}}>Мистический</option>
         </select>
       </div>
       <div class="lang-param-block lang-param-block--check">
@@ -36,7 +38,7 @@
         <label class="lang-dead-toggle {{#if system.is_dead}}lang-dead-on{{/if}}">
           <input type="checkbox" name="system.is_dead"
                  {{#if system.is_dead}}checked{{/if}} />
-          💀 Мёртвый язык
+          Мёртвый язык
         </label>
       </div>
     </div>
@@ -78,6 +80,7 @@
 .language-sheet .lang-world-upper { background: rgba(251,191,36,0.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
 .language-sheet .lang-world-lower { background: rgba(139,92,246,0.1);  color: #a78bfa; border: 1px solid rgba(139,92,246,0.25); }
 .language-sheet .lang-world-both  { background: rgba(148,163,184,0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.25); }
+.language-sheet .lang-world-mystic { background: rgba(168,85,247,0.1);  color: #c084fc; border: 1px solid rgba(168,85,247,0.3); }
 
 .language-sheet .lang-dead-badge {
   font-size: 0.66em; padding: 2px 8px; border-radius: 10px;

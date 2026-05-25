@@ -195,11 +195,13 @@ export class KK9CharacterSheet extends ActorSheet {
           }, { parent: this.actor });
         }
       }
-      ChatMessage.create({
-        content: `<div style="font-family:'Jost',sans-serif;padding:6px 10px;border-left:3px solid ${fData.color || '#c9a84c'};background:rgba(0,0,0,0.3);color:#b8b0a4">
-          <strong style="color:${fData.color || '#c9a84c'}">${this.actor.name}</strong> зачислен на <strong>${item.name}</strong>.
-          ${teacherName ? `<br><em style="opacity:0.7">Куратор ${teacherName} добавлен в связи.</em>` : ""}
-        </div>`,
+      const _accent   = fData.color || "#c4a44a";
+      const _portrait = this.actor.img || "icons/svg/mystery-man.svg";
+      const _text     = teacherName
+        ? `${this.actor.name} зачислен на ${item.name}.<br><em style="opacity:0.7;font-size:0.9em">Куратор ${teacherName} добавлен в связи.</em>`
+        : `${this.actor.name} зачислен на ${item.name}.`;
+      await ChatMessage.create({
+        content: `<div class="kk9-chat-roll" data-result-type="success" style="--accent:${_accent}"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${_portrait}" alt="${this.actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:${_accent}">${this.actor.name}</span><span class="kk9-chat-label">Зачисление на факультет</span></div></div><div class="kk9-dice-body" style="padding:6px 10px;font-size:0.88em;color:#b8b0a4;line-height:1.5">${_text}</div></div>`,
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
         flags: { kk9: { isRoll: true, actorId: this.actor.id } }
       });
@@ -246,9 +248,24 @@ export class KK9CharacterSheet extends ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    html.find(".rollable-attribute").click(e => this.actor.rollAttribute(e.currentTarget.dataset.attribute));
-    html.find(".rollable-skill").click(e => this.actor.rollSkillItem(e.currentTarget.dataset.itemId));
-    html.find(".rollable-ability").click(e => this.actor.rollAbility(e.currentTarget.dataset.itemId));
+    // Цвет акцентов из факультета
+    const facultyColor = this.actor.system?.faculty_color;
+    if (facultyColor) {
+      const form = (html[0]?.tagName === "FORM" ? html[0] : null) ?? html.find("form.kk9-sheet")[0] ?? html[0];
+      if (form) {
+        form.style.setProperty("--faculty-accent", facultyColor);
+        form.style.setProperty("--faculty-accent-dim", facultyColor + "99");
+        // Слайдеры связей — красим напрямую и через CSS var
+        html.find(".relation-level-range").each(function() {
+          this.style.accentColor = facultyColor;
+          this.style.setProperty("accent-color", facultyColor);
+        });
+      }
+    }
+
+    html.find(".rollable-attribute").click(e => { e.stopPropagation(); this.actor.rollAttribute(e.currentTarget.dataset.attribute); });
+    html.find(".rollable-skill").click(e => { e.stopPropagation(); this.actor.rollSkillItem(e.currentTarget.dataset.itemId); });
+    html.find(".rollable-ability").click(e => { e.stopPropagation(); this.actor.rollAbility(e.currentTarget.dataset.itemId); });
     html.find(".roll-initiative").click(() => this.actor.rollInitiative());
     html.find(".roll-toughness").click(() => this.actor.rollToughness());
 
@@ -270,13 +287,6 @@ export class KK9CharacterSheet extends ActorSheet {
         this.actor.items.get(row.dataset.itemId)?.sheet.render(true);
       }
     });
-    // Открытие abilities и statuses (у них rollable-ability/rollable-skill класс)
-    html.find(".skill-name").dblclick(e => {
-      const itemId = e.currentTarget.dataset.itemId;
-      if (!itemId) return;
-      this.actor.items.get(itemId)?.sheet.render(true);
-    });
-
     html.find(".item-create").click(this._onItemCreate.bind(this));
 
     // ── Артефакт: переключение экипировки и активности из строки ──
@@ -378,11 +388,35 @@ export class KK9CharacterSheet extends ActorSheet {
 
     html.find(".ability-die-select").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
-      await this.actor.items.get(itemId)?.update({ "system.die": parseInt(e.currentTarget.value) });
+      const item   = this.actor.items.get(itemId);
+      if (!item) return;
+      let newDie = parseInt(e.currentTarget.value);
+      const linkedAttr = item.system.linkedAttribute;
+      if (linkedAttr) {
+        const attrDie = this.actor.system.attributes?.[linkedAttr]?.die;
+        if (attrDie && newDie > attrDie) {
+          ui.notifications.warn(`Способность не может быть выше атрибута (d${attrDie}). Установлено d${attrDie}.`);
+          newDie = attrDie;
+          e.currentTarget.value = attrDie;
+        }
+      }
+      await item.update({ "system.die": newDie });
     });
     html.find(".ability-mod-input").change(async e => {
       const itemId = e.currentTarget.dataset.itemId;
-      await this.actor.items.get(itemId)?.update({ "system.modifier": parseInt(e.currentTarget.value) || 0 });
+      const item   = this.actor.items.get(itemId);
+      if (!item) return;
+      let newMod = parseInt(e.currentTarget.value) || 0;
+      const linkedAttr = item.system.linkedAttribute;
+      if (linkedAttr) {
+        const attrMod = this.actor.system.attributes?.[linkedAttr]?.modifier ?? 0;
+        if (newMod > attrMod) {
+          ui.notifications.warn(`Модификатор способности не может быть выше модификатора атрибута (${attrMod}). Установлено ${attrMod}.`);
+          newMod = attrMod;
+          e.currentTarget.value = attrMod;
+        }
+      }
+      await item.update({ "system.modifier": newMod });
     });
 
     html.find(".attr-die-select").change(async e => {

@@ -88,7 +88,7 @@
         <div class="con-member-row">
           <span class="con-member-name con-open-actor" data-uuid="{{m.actor_uuid}}"
                 title="Открыть карточку">{{m.actor_name}}</span>
-          <button type="button" class="con-remove-member fac-del"
+          <button type="button" class="contact-remove-member fac-del"
                   data-uuid="{{m.actor_uuid}}" style="margin-left:auto">✕</button>
         </div>
         {{/each}}
@@ -113,7 +113,7 @@
           <input type="text" name="system.former_members.{{@index}}.comment"
                  value="{{m.comment}}" class="kk9-input con-former-comment"
                  placeholder="Причина ухода..." />
-          <button type="button" class="con-remove-former fac-del"
+          <button type="button" class="contact-remove-former fac-del"
                   data-uuid="{{m.actor_uuid}}" style="margin-left:auto">✕</button>
         </div>
         {{/each}}
@@ -133,9 +133,9 @@
       <div class="con-events-list">
         {{#each system.events as |ev|}}
         <div class="con-event-row">
-          <span class="con-event-name con-open-journal" data-uuid="{{ev.uuid}}"
+          <span class="con-event-name fac-open-journal" data-uuid="{{ev.uuid}}"
                 title="Открыть запись">{{ev.name}}</span>
-          <button type="button" class="con-remove-event fac-del"
+          <button type="button" class="contact-remove-event fac-del"
                   data-uuid="{{ev.uuid}}">✕</button>
         </div>
         {{/each}}
@@ -243,8 +243,8 @@
   padding: 3px 6px; border-radius: 3px; background: var(--bg3);
 }
 .contact-sheet .con-member-name {
-  flex: 0 0 auto; font-size: 0.84em; color: var(--text);
-  cursor: pointer; min-width: 100px;
+  flex: 1; font-size: 0.84em; color: var(--text);
+  cursor: pointer; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .contact-sheet .con-member-name:hover { color: var(--gold); }
 .contact-sheet .con-former-comment { flex: 1; font-size: 0.8em !important; }

@@ -773,7 +773,7 @@ export async function rollSpellAttack(spellItem, actor) {
   if (!spell.no_wand_needed) {
     const hasWand = (actor.system.artifact_refs || []).some(uuid => {
       const art = fromUuidSync(uuid);
-      return art && art.system.artifact_type === "wand" && art.system.equipped === "equipped";
+      return art && art.system.artifact_type === "ring" && art.system.equipped === "equipped";
     });
     if (!hasWand) {
       ui.notifications.warn(`${spellItem.name}: требуется экипированная палочка-артефакт.`);
@@ -895,7 +895,7 @@ export async function rollSpellAttack(spellItem, actor) {
   if (!spell.no_wand_needed && skillItem) {
     for (const uuid of (actor.system.artifact_refs || [])) {
       const art = fromUuidSync(uuid);
-      if (!art || art.system.artifact_type !== "wand") continue;
+      if (!art || art.system.artifact_type !== "ring") continue;
       if (art.system.equipped !== "equipped") continue;
       if (!art.system.skill_uuid || !skillItem) continue;
       const wandSkill = fromUuidSync(art.system.skill_uuid);
@@ -905,7 +905,7 @@ export async function rollSpellAttack(spellItem, actor) {
       if (cond.blocked || !cond.buffActive) continue;
       const raw = art.system.attack_modifier || 0;
       const b   = actor._calcArtifactBonus(raw, cond.buffTier);
-      if (b !== 0) { wandBonus += b; wandReasons.push(`${art.name} (палочка): ${b > 0 ? "+" : ""}${b}`); }
+      if (b !== 0) { wandBonus += b; wandReasons.push(`${art.name} (кольцо): ${b > 0 ? "+" : ""}${b}`); }
     }
   }
 

@@ -1,23 +1,21 @@
-{{!-- Атрибуты v2.0 — строка кликабельна, иконка убрана --}}
+{{!-- Атрибуты v1.2 — SVG-кубик вместо псевдоэлемента ⬡, без эмоджи --}}
 <section class="attributes-section">
   <h3 class="section-title">{{localize "KK9.sheet.attributes"}}</h3>
   <div class="attributes-grid">
     {{#each system.attributes as |attr key|}}
-    <div class="attribute-row rollable-attribute" data-attribute="{{key}}" title="{{localize "KK9.sheet.roll"}}">
-      <label class="attr-label">{{lookup ../attributeLabels key}}</label>
-      <div class="attr-controls" onclick="event.stopPropagation()">
-        <select name="system.attributes.{{key}}.die" class="die-select">
-          <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
-          <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
-          <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
-          <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
-          <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
-          <option value="20" {{#if (eq attr.die 20)}}selected{{/if}}>d20</option>
-        </select>
-        <span class="wild-die-hint">+d6</span>
-        <span class="mod-label">{{localize "KK9.sheet.modifier"}}</span>
-        <input type="number" name="system.attributes.{{key}}.modifier" value="{{attr.modifier}}" class="mod-input" onclick="event.stopPropagation()" />
-      </div>
+    <div class="attribute-row">
+      <label class="attr-label rollable-attribute" data-attribute="{{key}}" title="{{localize "KK9.sheet.roll"}}" style="cursor:pointer">{{lookup ../attributeLabels key}}</label>
+      <select name="system.attributes.{{key}}.die" class="die-select">
+        <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
+        <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
+        <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
+        <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
+        <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
+        <option value="20" {{#if (eq attr.die 20)}}selected{{/if}}>d20</option>
+      </select>
+      <span class="wild-die-hint">+d6</span>
+      <span class="mod-label">{{localize "KK9.sheet.modifier"}}</span>
+      <input type="number" name="system.attributes.{{key}}.modifier" value="{{attr.modifier}}" class="mod-input" />
     </div>
     {{/each}}
   </div>
@@ -29,7 +27,7 @@
   <h3 class="section-title magic-title">{{localize "KK9.sheet.magicTalents"}}</h3>
   {{#each magicAbilities as |ab|}}
   <div class="magic-talent-row" data-item-id="{{ab.id}}">
-    <span class="magic-talent-name item-name-click">{{ab.name}}</span>
+    <span class="magic-talent-name rollable-ability" data-item-id="{{ab.id}}">{{ab.name}}</span>
     <select class="magic-level-select" data-item-id="{{ab.id}}">
       <option value="sparks"      {{#if (eq (lookup ../magicLevelMap ab.id) "sparks")}}selected{{/if}}>{{localize "KK9.magic.sparks"}}</option>
       <option value="normal"      {{#if (eq (lookup ../magicLevelMap ab.id) "normal")}}selected{{/if}}>{{localize "KK9.magic.normal"}}</option>

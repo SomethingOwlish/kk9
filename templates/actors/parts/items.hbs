@@ -72,7 +72,9 @@
         {{#if (eq this.system.artifact_type "utility")}}{{#if (eq this.system.equipped "equipped")}}{{#if this.system.active}}
         <button type="button" class="artifact-use-btn btn-ref-action" data-uuid="{{this.uuid}}" data-action="energy" title="Восстановить энергию"><i class="fa-solid fa-circle-plus"></i></button>
         {{/if}}{{/if}}{{/if}}
+        {{#unless (eq this.system.artifact_type "ring")}}
         <button type="button" class="artifact-toggle-btn btn-ref-icon" data-uuid="{{this.uuid}}" data-toggle="active" title="{{#if this.system.active}}Активен{{else}}Неактивен{{/if}}"><i class="fa-solid {{#if this.system.active}}fa-bolt{{else}}fa-bolt-slash{{/if}}"></i></button>
+        {{/unless}}
         <button type="button" class="artifact-toggle-btn btn-ref-icon" data-uuid="{{this.uuid}}" data-toggle="equipped" title="{{#if (eq this.system.equipped 'equipped')}}Экипирован{{else if (eq this.system.equipped 'carried')}}С собой{{else}}Дома{{/if}}"><i class="fa-solid {{#if (eq this.system.equipped 'equipped')}}fa-shield{{else if (eq this.system.equipped 'carried')}}fa-bag-shopping{{else}}fa-house{{/if}}"></i></button>
         <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="artifact">✕</button>
       </div>

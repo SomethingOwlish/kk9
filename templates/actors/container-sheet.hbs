@@ -1,0 +1,139 @@
+{{!-- КК9 | Контейнер v1.3 --}}
+<form class="kk9-sheet container-sheet" autocomplete="off">
+
+  <div class="container-header">
+    <div class="portrait-wrap" style="width:60px;height:60px;flex-shrink:0">
+      <img class="profile-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" style="width:60px;height:60px;object-fit:cover;border-radius:3px" />
+    </div>
+    <div class="container-title-block">
+      <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="Контейнер" />
+      <input type="text" name="system.description" value="{{system.description}}"
+             class="kk9-input container-desc" placeholder="Описание..." />
+    </div>
+  </div>
+
+  {{!-- Деньги --}}
+  <div class="container-money-block">
+    <span class="container-money-label">Деньги</span>
+    {{#if isGM}}
+    <input type="number" name="system.money" value="{{system.money}}"
+           class="kk9-input container-money-input" min="0" />
+    {{else}}
+    <span class="container-money-val">{{system.money}}</span>
+    {{/if}}
+    <span class="container-money-unit">₽</span>
+    {{#if canTakeMoney}}
+    <input type="number" class="kk9-input container-take-money-input"
+           min="1" max="{{system.money}}" value="1" style="width:60px;margin-left:auto" />
+    <button type="button" class="btn-take-money">Забрать</button>
+    {{/if}}
+  </div>
+
+  {{!-- Инициатива --}}
+  {{#if hasInitiativeItems}}
+  <div class="container-initiative-block">
+    <span class="section-title" style="margin:0;flex-shrink:0">Инициатива</span>
+    {{#if multipleInitiativeItems}}
+    <select class="kk9-select container-initiative-select" style="flex:1;min-width:0">
+      {{#each initiativeItems as |it|}}
+      <option value="{{it.uuid}}">{{it.name}}</option>
+      {{/each}}
+    </select>
+    {{/if}}
+    <button type="button" class="btn-container-initiative" style="flex-shrink:0;margin-left:auto">Бросить</button>
+  </div>
+  {{/if}}
+
+  {{!-- Содержимое --}}
+  <div class="container-items-section container-drop-zone">
+    <div class="container-section-header">
+      <span class="section-title">Содержимое</span>
+      <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи предмет сюда</span>
+    </div>
+
+    {{#if items.length}}
+    <div class="container-items-list">
+      {{#each items as |item|}}
+      <div class="container-item-row">
+
+        <img src="{{item.img}}" class="container-item-img" />
+
+        {{!-- Название — data-uuid для ref, data-item-id для embedded --}}
+        {{#if item.isRef}}
+        <span class="container-item-name item-name-click" data-uuid="{{item.uuid}}">{{item.name}}</span>
+        {{else}}
+        <span class="container-item-name item-name-click" data-item-id="{{item.id}}">{{item.name}}</span>
+        {{/if}}
+
+        {{#if (eq item.type "gear")}}
+        <span class="container-item-qty">×{{item.system.quantity}}</span>
+        {{/if}}
+
+        {{!-- Чекбокс заперто — только ГМ --}}
+        {{#if ../isGM}}
+        {{#if item.isRef}}
+        <label class="container-locked-label">
+          <input type="checkbox" class="container-item-lock"
+                 data-uuid="{{item.uuid}}"
+                 {{#if item.flags.kk9.locked}}checked{{/if}} />
+          <span class="container-locked-text">Заперто</span>
+        </label>
+        {{else}}
+        <label class="container-locked-label">
+          <input type="checkbox" class="container-item-lock"
+                 data-item-id="{{item.id}}"
+                 {{#if item.flags.kk9.locked}}checked{{/if}} />
+          <span class="container-locked-text">Заперто</span>
+        </label>
+        {{/if}}
+        {{/if}}
+
+        {{!-- Кнопка взять --}}
+        {{#unless item.flags.kk9.locked}}
+        {{#if ../canTakeItems}}
+        {{#if (eq item.type "gear")}}
+        <input type="number" class="kk9-input container-take-qty"
+               data-item-id="{{item.id}}"
+               min="1" max="{{item.system.quantity}}" value="1" />
+        {{/if}}
+        {{#if item.isRef}}
+        <button type="button" class="btn-take-item"
+                data-uuid="{{item.uuid}}"
+                data-ref-field="{{item.refField}}">Взять</button>
+        {{else}}
+        <button type="button" class="btn-take-item"
+                data-item-id="{{item.id}}">Взять</button>
+        {{/if}}
+        {{/if}}
+        {{/unless}}
+
+        {{!-- Удалить — только ГМ --}}
+        {{#if ../isGM}}
+        {{#if item.isRef}}
+        <button type="button" class="item-delete btn-delete-xs"
+                data-uuid="{{item.uuid}}"
+                data-ref-field="{{item.refField}}">✕</button>
+        {{else}}
+        <button type="button" class="item-delete btn-delete-xs"
+                data-item-id="{{item.id}}">✕</button>
+        {{/if}}
+        {{/if}}
+
+      </div>
+      {{/each}}
+    </div>
+    {{else}}
+    <div class="container-empty">Контейнер пуст</div>
+    {{/if}}
+  </div>
+
+  {{!-- Счётчик по типам --}}
+  {{#if itemCounts.length}}
+  <div class="container-counts">
+    {{#each itemCounts as |c|}}
+    <span class="container-count-badge">{{c.label}}: {{c.count}}</span>
+    {{/each}}
+  </div>
+  {{/if}}
+
+</form>

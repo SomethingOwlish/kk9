@@ -79,6 +79,26 @@
         <textarea name="system.biography" rows="6" class="npc-textarea-lg" placeholder="история персонажа...">{{system.biography}}</textarea>
         <div class="section-title" style="margin-top:10px">Заметки</div>
         <textarea name="system.notes" rows="4" class="npc-textarea-lg" placeholder="заметки мастера...">{{system.notes}}</textarea>
+        {{!-- KK9 связь --}}
+        <div class="kk9-linked-block" style="margin-top:10px;padding:8px;border:1px solid var(--border);border-radius:4px">
+          <label class="kk9-linked-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.82em;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em">
+            <input type="checkbox" name="system.kk9_linked" {{#if system.kk9_linked}}checked{{/if}} style="accent-color:var(--faculty-accent,var(--gold))" />
+            Связан с KK9
+          </label>
+          {{#if isGM}}{{#if system.kk9_linked}}
+          <div class="kk9-operative-block" style="margin-top:8px;padding:6px 8px;background:var(--bg2);border:1px dashed var(--border2);border-radius:3px" data-drop-zone="operative-faculty">
+            <div class="section-title" style="margin-bottom:4px">Класс оперативника <span style="font-size:0.8em;color:var(--text-dim);font-weight:400">(только ГМ)</span></div>
+            {{#if system.operative_class}}
+            <div class="operative-faculty-row" style="display:flex;align-items:center;gap:8px">
+              <span class="operative-faculty-name" style="color:var(--faculty-accent,var(--gold));font-size:0.9em;font-weight:500">{{system.operative_class}}</span>
+              <button type="button" class="btn-delete-xs clear-operative-faculty" title="Убрать">✕</button>
+            </div>
+            {{else}}
+            <p style="font-size:0.78em;color:var(--text-dim);font-style:italic;margin:0">Перетащи факультет сюда</p>
+            {{/if}}
+          </div>
+          {{/if}}{{/if}}
+        </div>
       </div>
 
       {{!-- КОНФЛИКТ --}}
