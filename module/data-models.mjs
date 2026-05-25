@@ -69,6 +69,8 @@ function npcCommonFields() {
       max:   new fields.NumberField({ required: true, initial: 10, integer: true })
     }),
     active_statuses: activeStatusesField(),
+    // Счётчик урона сверх обеих шкал (от заклинаний)
+    overflow_damage: new fields.NumberField({ initial: 0, min: 0, integer: true }),
     // Ссылочные типы (UUID — не embedded copies)
     artifact_refs:  new fields.ArrayField(new fields.StringField({ initial: "" })),
     daemon_refs:    new fields.ArrayField(new fields.StringField({ initial: "" })),
@@ -158,6 +160,8 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
         })
       ),
       active_statuses: activeStatusesField(),
+      // Счётчик урона сверх обеих шкал (от заклинаний)
+      overflow_damage: new fields.NumberField({ initial: 0, min: 0, integer: true }),
 
       // Ссылки на связанные документы (UUID — не embedded copies)
       artifact_refs:  new fields.ArrayField(new fields.StringField({ initial: "" })),
@@ -343,8 +347,10 @@ export class WeaponDataModel extends foundry.abstract.TypeDataModel {
       size:         new fields.StringField({ initial: "medium",  choices: ["pocket","finger","small","medium","large","huge","immovable"] }),
       ap:           new fields.NumberField({ initial: 0, integer: true }),
       rof:          new fields.NumberField({ initial: 1, integer: true }),
-      equipped:     new fields.BooleanField({ initial: false }),
+      equipped:     new fields.StringField({ initial: "home", choices: ["home","carried","equipped"] }),
       condition:    new fields.StringField({ initial: "good", choices: ["broken","worn","good","perfect"] }),
+      attack_modifier:  new fields.NumberField({ initial: 0, integer: true }),
+      condition_chance: new fields.NumberField({ initial: 0, min: 0, max: 100, integer: true }),
       has_status:   new fields.BooleanField({ initial: false }),
       status_uuid:  new fields.StringField({ initial: "" }),
       status_name:  new fields.StringField({ initial: "" }),
@@ -363,9 +369,19 @@ export class GearDataModel extends foundry.abstract.TypeDataModel {
       size:        new fields.StringField({ initial: "medium",  choices: ["pocket","finger","small","medium","large","huge","immovable"] }),
       condition:   new fields.StringField({ initial: "good", choices: ["broken","worn","good","perfect"] }),
       quantity:    new fields.NumberField({ initial: 1, min: 0, integer: true }),
-      equipped:    new fields.BooleanField({ initial: false }),
+      equipped:    new fields.StringField({ initial: "home", choices: ["home","carried","equipped"] }),
       // Восстановление энергии (для зелий и утилит)
       energy_restore: new fields.NumberField({ initial: 0, min: 0, integer: true }),
+      // ── Атакующие поля (только для gear_type === "attack") ──
+      damage_level:    new fields.StringField({ initial: "light", choices: ["light","heavy","lethal"] }),
+      damage_type:     new fields.StringField({ initial: "physical", choices: ["physical","mental"] }),
+      skill_uuid:      new fields.StringField({ initial: "" }),
+      skill_name:      new fields.StringField({ initial: "" }),
+      attack_modifier: new fields.NumberField({ initial: 0, integer: true }),
+      condition_chance: new fields.NumberField({ initial: 0, min: 0, max: 100, integer: true }),
+      has_status:      new fields.BooleanField({ initial: false }),
+      status_uuid:     new fields.StringField({ initial: "" }),
+      status_name:     new fields.StringField({ initial: "" }),
     };
   }
 }
@@ -439,8 +455,10 @@ export class ArtifactDataModel extends foundry.abstract.TypeDataModel {
         initial: "physical",
         choices: ["physical","mental"]
       }),
-      skill_uuid:  new fields.StringField({ initial: "" }),
-      skill_name:  new fields.StringField({ initial: "" }),
+      skill_uuid:       new fields.StringField({ initial: "" }),
+      skill_name:       new fields.StringField({ initial: "" }),
+      attack_modifier:  new fields.NumberField({ initial: 0, integer: true }),
+      condition_chance: new fields.NumberField({ initial: 0, min: 0, max: 100, integer: true }),
 
       // Статус при попадании (только для attack)
       has_status:  new fields.BooleanField({ initial: false }),
@@ -482,15 +500,20 @@ export class SpellDataModel extends foundry.abstract.TypeDataModel {
       // Можно применять без волшебной палочки
       no_wand_needed: new fields.BooleanField({ initial: false }),
 
+      // Площадное заклинание (иная таблица cost→damage, GM-диалог целей)
+      is_aoe: new fields.BooleanField({ initial: false }),
+
       // Навык-тип магии — drag-drop магического навыка/способности
       skill_uuid: new fields.StringField({ initial: "" }),
       skill_name: new fields.StringField({ initial: "" }),
 
       // ── АТАКУЮЩИЕ ПОЛЯ (spell_type === "attack") ──
+      // damage_level — только readonly-справка, реальный урон считается из cost
       damage_level: new fields.StringField({
         initial: "light",
         choices: ["light","heavy","lethal"]
       }),
+      // damage_type — для attack отображается всем, для остальных скрыт (только GM)
       damage_type: new fields.StringField({
         initial: "physical",
         choices: ["physical","mental"]
@@ -668,13 +691,13 @@ export class DeviceDataModel extends foundry.abstract.TypeDataModel {
 
       device_type:  new fields.StringField({
         initial: "gadget",
-        choices: ["gadget","drone","computer","medical","other"]
+        choices: ["gadget","weapon","drone","computer","medical","other"]
       }),
 
       creator:      new fields.StringField({ initial: "" }),
 
       condition:    new fields.StringField({
-        initial: "perfect",
+        initial: "good",
         choices: ["perfect","good","worn","broken"]
       }),
 
@@ -684,12 +707,24 @@ export class DeviceDataModel extends foundry.abstract.TypeDataModel {
       bonus_value:      new fields.NumberField({ initial: 0, integer: true }),
 
       charges:      new fields.NumberField({ initial: -1, integer: true }),
-      equipped:     new fields.BooleanField({ initial: false }),
+      equipped:     new fields.StringField({ initial: "home", choices: ["home","carried","equipped"] }),
 
       // Совместимость с мирами
       works_upper:  new fields.BooleanField({ initial: true }),
       works_lower:  new fields.BooleanField({ initial: true }),
-      notes:        new fields.StringField({ initial: "" })
+      notes:        new fields.StringField({ initial: "" }),
+
+      // ── Атакующие поля (только для device_type === "weapon") ──
+      damage_level:     new fields.StringField({ initial: "light", choices: ["light","heavy","lethal"] }),
+      damage_type:      new fields.StringField({ initial: "physical", choices: ["physical","mental"] }),
+      range:            new fields.NumberField({ initial: 0, integer: true }),
+      attack_skill_uuid: new fields.StringField({ initial: "" }),
+      attack_skill_name: new fields.StringField({ initial: "" }),
+      attack_modifier:  new fields.NumberField({ initial: 0, integer: true }),
+      condition_chance: new fields.NumberField({ initial: 0, min: 0, max: 100, integer: true }),
+      has_status:       new fields.BooleanField({ initial: false }),
+      status_uuid:      new fields.StringField({ initial: "" }),
+      status_name:      new fields.StringField({ initial: "" }),
     };
   }
 }

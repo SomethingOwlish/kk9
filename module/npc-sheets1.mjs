@@ -19,9 +19,6 @@ class KK9NpcBaseSheet extends ActorSheet {
   getData() {
     const c = super.getData();
     c.system = c.data.system;
-    c.isGM      = game.user.isGM;
-    c.isOwner   = this.actor.isOwner;
-    c.canConflict = game.user.isGM || this.actor.isOwner;
     c.attributeLabels  = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
     c.relationLabels   = { ally:"Союзник", enemy:"Враг", neutral:"Нейтрал", unknown:"Неизвестно" };
     c.npcItemTypeLabel = (type) => NPC_ITEM_TYPE_LABELS[type] || type;

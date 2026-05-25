@@ -11,8 +11,17 @@
     <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <span class="item-meta">{{this.system.damage}} · {{this.system.range}}</span>
-      <button type="button" class="item-delete btn-delete-xs">✕</button>
+      <div class="skill-controls" style="gap:10px">
+        {{#if (eq this.system.equipped "equipped")}}
+        <button type="button" class="item-attack-btn btn-ref-action" data-item-id="{{this.id}}" data-item-type="weapon"
+          title="Бросок атаки"><i class="fa-solid fa-crosshairs"></i></button>
+        {{/if}}
+        <button type="button" class="item-equip-btn btn-ref-icon" data-item-id="{{this.id}}" data-item-type="weapon"
+          title="{{#if (eq this.system.equipped 'equipped')}}Экипировано{{else if (eq this.system.equipped 'carried')}}С собой{{else}}Дома{{/if}}">
+          <i class="fa-solid {{#if (eq this.system.equipped 'equipped')}}fa-shield{{else if (eq this.system.equipped 'carried')}}fa-bag-shopping{{else}}fa-house{{/if}}"></i>
+        </button>
+        <button type="button" class="item-delete btn-delete-xs" data-item-id="{{this.id}}">✕</button>
+      </div>
     </div>
     {{else}}<p class="empty-hint">Нет оружия</p>{{/each}}
   </div>
@@ -27,8 +36,20 @@
     <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      {{#if (gt this.system.quantity 1)}}<span class="item-meta">×{{this.system.quantity}}</span>{{/if}}
-      <button type="button" class="item-delete btn-delete-xs">✕</button>
+      <div class="skill-controls" style="gap:10px">
+        {{#if (eq this.system.gear_type "attack")}}
+        {{#if (and (eq this.system.equipped "equipped") (gt this.system.quantity 0))}}
+        <button type="button" class="item-attack-btn btn-ref-action" data-item-id="{{this.id}}" data-item-type="gear"
+          title="Бросок атаки"><i class="fa-solid fa-crosshairs"></i></button>
+        {{/if}}
+        <span class="item-meta" title="Количество">×{{this.system.quantity}}</span>
+        {{/if}}
+        <button type="button" class="item-equip-btn btn-ref-icon" data-item-id="{{this.id}}" data-item-type="gear"
+          title="{{#if (eq this.system.equipped 'equipped')}}Экипировано{{else if (eq this.system.equipped 'carried')}}С собой{{else}}Дома{{/if}}">
+          <i class="fa-solid {{#if (eq this.system.equipped 'equipped')}}fa-shield{{else if (eq this.system.equipped 'carried')}}fa-bag-shopping{{else}}fa-house{{/if}}"></i>
+        </button>
+        <button type="button" class="item-delete btn-delete-xs" data-item-id="{{this.id}}">✕</button>
+      </div>
     </div>
     {{else}}<p class="empty-hint">Нет снаряжения</p>{{/each}}
   </div>
@@ -44,15 +65,17 @@
          title="Тип: {{this.system.artifact_type}} | Редкость: {{this.system.rarity}} | Состояние: {{this.system.condition}}">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      {{#if (eq this.system.artifact_type "attack")}}{{#if (eq this.system.equipped "equipped")}}{{#if this.system.active}}
-      <button type="button" class="artifact-use-btn btn-ref-action" data-uuid="{{this.uuid}}" data-action="attack" title="Бросок атаки"><i class="fa-solid fa-crosshairs"></i></button>
-      {{/if}}{{/if}}{{/if}}
-      {{#if (eq this.system.artifact_type "utility")}}{{#if (eq this.system.equipped "equipped")}}{{#if this.system.active}}
-      <button type="button" class="artifact-use-btn btn-ref-action" data-uuid="{{this.uuid}}" data-action="energy" title="Восстановить энергию"><i class="fa-solid fa-circle-plus"></i></button>
-      {{/if}}{{/if}}{{/if}}
-      <button type="button" class="artifact-toggle-btn btn-ref-icon" data-uuid="{{this.uuid}}" data-toggle="active" title="{{#if this.system.active}}Активен{{else}}Неактивен{{/if}}"><i class="fa-solid {{#if this.system.active}}fa-bolt{{else}}fa-bolt-slash{{/if}}"></i></button>
-      <button type="button" class="artifact-toggle-btn btn-ref-icon" data-uuid="{{this.uuid}}" data-toggle="equipped" title="{{#if (eq this.system.equipped 'equipped')}}Экипирован{{else if (eq this.system.equipped 'carried')}}С собой{{else}}Дома{{/if}}"><i class="fa-solid {{#if (eq this.system.equipped 'equipped')}}fa-shield{{else if (eq this.system.equipped 'carried')}}fa-bag-shopping{{else}}fa-house{{/if}}"></i></button>
-      <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="artifact">✕</button>
+      <div class="skill-controls" style="gap:10px">
+        {{#if (eq this.system.artifact_type "attack")}}{{#if (eq this.system.equipped "equipped")}}{{#if this.system.active}}
+        <button type="button" class="artifact-use-btn btn-ref-action" data-uuid="{{this.uuid}}" data-action="attack" title="Бросок атаки"><i class="fa-solid fa-crosshairs"></i></button>
+        {{/if}}{{/if}}{{/if}}
+        {{#if (eq this.system.artifact_type "utility")}}{{#if (eq this.system.equipped "equipped")}}{{#if this.system.active}}
+        <button type="button" class="artifact-use-btn btn-ref-action" data-uuid="{{this.uuid}}" data-action="energy" title="Восстановить энергию"><i class="fa-solid fa-circle-plus"></i></button>
+        {{/if}}{{/if}}{{/if}}
+        <button type="button" class="artifact-toggle-btn btn-ref-icon" data-uuid="{{this.uuid}}" data-toggle="active" title="{{#if this.system.active}}Активен{{else}}Неактивен{{/if}}"><i class="fa-solid {{#if this.system.active}}fa-bolt{{else}}fa-bolt-slash{{/if}}"></i></button>
+        <button type="button" class="artifact-toggle-btn btn-ref-icon" data-uuid="{{this.uuid}}" data-toggle="equipped" title="{{#if (eq this.system.equipped 'equipped')}}Экипирован{{else if (eq this.system.equipped 'carried')}}С собой{{else}}Дома{{/if}}"><i class="fa-solid {{#if (eq this.system.equipped 'equipped')}}fa-shield{{else if (eq this.system.equipped 'carried')}}fa-bag-shopping{{else}}fa-house{{/if}}"></i></button>
+        <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="artifact">✕</button>
+      </div>
     </div>
     {{else}}<p class="empty-hint">Нет артефактов</p>{{/each}}
   </div>
@@ -67,8 +90,14 @@
     <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <span class="item-meta">{{this.system.cost}} энергии</span>
-      <button type="button" class="item-delete btn-delete-xs">✕</button>
+      <div class="skill-controls" style="gap:10px">
+        {{#if (eq this.system.spell_type "attack")}}
+        <button type="button" class="item-attack-btn btn-ref-action" data-item-id="{{this.id}}" data-item-type="spell"
+          title="Применить заклинание"><i class="fa-solid fa-wand-sparkles"></i></button>
+        {{/if}}
+        <span class="item-meta" title="Стоимость энергии">{{this.system.cost}} э.</span>
+        <button type="button" class="item-delete btn-delete-xs" data-item-id="{{this.id}}">✕</button>
+      </div>
     </div>
     {{else}}<p class="empty-hint">Нет заклинаний</p>{{/each}}
   </div>
@@ -83,8 +112,10 @@
     <div class="item-row" data-uuid="{{this.uuid}}" data-ref-type="daemon">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      {{#if this.system.summoned}}<span class="item-badge badge-summoned">Призван</span>{{/if}}
-      <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="daemon">✕</button>
+      <div class="skill-controls" style="gap:10px">
+        {{#if this.system.summoned}}<span class="item-badge badge-summoned">Призван</span>{{/if}}
+        <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="daemon">✕</button>
+      </div>
     </div>
     {{else}}<p class="empty-hint">Нет даймонов</p>{{/each}}
   </div>
@@ -99,7 +130,20 @@
     <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <button type="button" class="item-delete btn-delete-xs">✕</button>
+      <div class="skill-controls" style="gap:10px">
+        {{#if (eq this.system.device_type "weapon")}}
+        {{#if (and (eq this.system.equipped "equipped") (or (eq this.system.charges -1) (gt this.system.charges 0)))}}
+        <button type="button" class="item-attack-btn btn-ref-action" data-item-id="{{this.id}}" data-item-type="device"
+          title="Бросок атаки"><i class="fa-solid fa-crosshairs"></i></button>
+        {{/if}}
+        <span class="item-meta" title="Заряды">{{#if (eq this.system.charges -1)}}∞{{else}}{{this.system.charges}}⚡{{/if}}</span>
+        {{/if}}
+        <button type="button" class="item-equip-btn btn-ref-icon" data-item-id="{{this.id}}" data-item-type="device"
+          title="{{#if (eq this.system.equipped 'equipped')}}Экипировано{{else if (eq this.system.equipped 'carried')}}С собой{{else}}Дома{{/if}}">
+          <i class="fa-solid {{#if (eq this.system.equipped 'equipped')}}fa-shield{{else if (eq this.system.equipped 'carried')}}fa-bag-shopping{{else}}fa-house{{/if}}"></i>
+        </button>
+        <button type="button" class="item-delete btn-delete-xs" data-item-id="{{this.id}}">✕</button>
+      </div>
     </div>
     {{else}}<p class="empty-hint">Нет устройств</p>{{/each}}
   </div>
@@ -114,7 +158,9 @@
     <div class="item-row" data-uuid="{{this.uuid}}" data-ref-type="companion">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="companion">✕</button>
+      <div class="skill-controls" style="gap:10px">
+        <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="companion">✕</button>
+      </div>
     </div>
     {{else}}<p class="empty-hint">Нет спутников</p>{{/each}}
   </div>
@@ -129,11 +175,12 @@
     <div class="item-row" data-item-id="{{this.id}}">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <button type="button" class="item-delete btn-delete-xs">✕</button>
+      <div class="skill-controls" style="gap:10px">
+        <button type="button" class="item-delete btn-delete-xs" data-item-id="{{this.id}}">✕</button>
+      </div>
     </div>
     {{else}}<p class="empty-hint">Нет транспорта</p>{{/each}}
   </div>
-
 
   {{!-- Контакты --}}
   <div class="item-group">
@@ -145,8 +192,10 @@
     <div class="item-row" data-uuid="{{this.uuid}}" data-ref-type="contact">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <span class="item-meta">Доступ: {{this.system.access_level}}</span>
-      <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="contact">✕</button>
+      <div class="skill-controls" style="gap:10px">
+        <span class="item-meta">Доступ: {{this.system.access_level}}</span>
+        <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="contact">✕</button>
+      </div>
     </div>
     {{else}}<p class="empty-hint">Нет контактов. Перетащи или создай.</p>{{/each}}
   </div>

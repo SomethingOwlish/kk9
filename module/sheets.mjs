@@ -200,7 +200,8 @@ export class KK9CharacterSheet extends ActorSheet {
           <strong style="color:${fData.color || '#c9a84c'}">${this.actor.name}</strong> зачислен на <strong>${item.name}</strong>.
           ${teacherName ? `<br><em style="opacity:0.7">Куратор ${teacherName} добавлен в связи.</em>` : ""}
         </div>`,
-        speaker: ChatMessage.getSpeaker({ actor: this.actor })
+        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+        flags: { kk9: { isRoll: true, actorId: this.actor.id } }
       });
       return;
     }
@@ -320,6 +321,52 @@ export class KK9CharacterSheet extends ActorSheet {
         ui.notifications.info(`${doc.name}: восстановлено ${newVal - cur} ед. энергии.`);
       }
     });
+    // ── Weapon/Gear/Device/Spell: кнопка атаки из строки снаряжения ──
+    html.find(".item-attack-btn").click(async e => {
+      e.stopPropagation();
+      const itemId   = e.currentTarget.dataset.itemId;
+      const itemType = e.currentTarget.dataset.itemType;
+      const item     = this.actor.items.get(itemId);
+      if (!item) return;
+
+      // Баг 6: проверяем экипировку (кроме спелла — там своя логика)
+      if (itemType !== "spell" && item.system.equipped !== "equipped") {
+        ui.notifications.warn(`${item.name}: не экипировано.`);
+        return;
+      }
+
+      // Баг 7: списываем quantity/charges перед броском
+      if (itemType === "gear") {
+        const qty = item.system.quantity ?? 0;
+        if (qty <= 0) { ui.notifications.warn(`${item.name}: закончилось.`); return; }
+        await item.update({ "system.quantity": qty - 1 });
+      } else if (itemType === "device") {
+        const charges = item.system.charges ?? -1;
+        if (charges === 0) { ui.notifications.warn(`${item.name}: заряды закончились.`); return; }
+        if (charges > 0) await item.update({ "system.charges": charges - 1 });
+      }
+
+      if (itemType === "spell") {
+        const { rollSpellAttack } = await import("./weapon-combat.mjs");
+        await rollSpellAttack(item, this.actor);
+      } else {
+        const { rollWeaponAttack } = await import("./weapon-combat.mjs");
+        await rollWeaponAttack(item, this.actor);
+      }
+    });
+
+    // ── Weapon/Gear/Device: переключатель экипировки из строки ──
+    html.find(".item-equip-btn").click(async e => {
+      e.stopPropagation();
+      const itemId = e.currentTarget.dataset.itemId;
+      const item   = this.actor.items.get(itemId);
+      if (!item) return;
+      const cycle  = { home: "carried", carried: "equipped", equipped: "home" };
+      const cur    = item.system.equipped || "home";
+      await item.update({ "system.equipped": cycle[cur] || "home" });
+      this.render();
+    });
+
     html.find(".item-delete").click(this._onItemDelete.bind(this));
     html.find(".btn-delete-skill").click(this._onItemDelete.bind(this));
 
@@ -596,6 +643,26 @@ export class KK9ItemSheet extends ItemSheet {
       context.daemonItems = this.item.system.skills ?? [];
     }
 
+    // Вычисляем справочный урон заклинания из cost для отображения в hbs
+    if (this.item.type === "spell") {
+      const cost  = this.item.system.cost || 0;
+      const isAoe = this.item.system.is_aoe || false;
+      let level, pips;
+      if (isAoe) {
+        if (cost <= 4)       { level = "light";  pips = 0; }
+        else if (cost <= 8)  { level = "heavy";  pips = 0; }
+        else if (cost <= 14) { level = "lethal"; pips = 0; }
+        else                 { level = "lethal"; pips = Math.floor((cost - 14) / 8); }
+      } else {
+        if (cost <= 2)       { level = "light";  pips = 0; }
+        else if (cost <= 6)  { level = "heavy";  pips = 0; }
+        else if (cost <= 12) { level = "lethal"; pips = 0; }
+        else                 { level = "lethal"; pips = Math.floor((cost - 12) / 6); }
+      }
+      const labels = { light: "Лёгкий (1 ур.)", heavy: "Тяжёлый (2 ур.)", lethal: "Летальный (3 ур.)" };
+      context.spellDamageLabel = labels[level] + (pips ? ` +${pips} пип` : "");
+    }
+
     if (this.item.type === "faculty") {
       const abilities = context.system.abilities || [];
       context.facultyAbilities = abilities;
@@ -827,6 +894,13 @@ export class KK9ItemSheet extends ItemSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
+    // ── Переключатель экипировки в карточке предмета (weapon/gear/device) ──
+    html.find(".kk9-equip-toggle").click(async e => {
+      e.preventDefault();
+      const val = e.currentTarget.dataset.value;
+      await this.item.update({ "system.equipped": val });
+    });
+
     html.find(".roll-damage").click(() => this.item.rollDamage());
 
     // ── Оружие ──
@@ -844,11 +918,52 @@ export class KK9ItemSheet extends ItemSheet {
       });
     }
 
-    // ── Gear: восстановление энергии ──
+    // ── Gear: атака и восстановление энергии ──
     if (this.item.type === "gear") {
+      // Атака (только для gear_type === "attack")
+      html.find(".gear-attack-roll").click(async () => {
+        if (!this.item.actor) { ui.notifications.warn("Снаряжение должно быть на карточке персонажа."); return; }
+        if (this.item.system.equipped !== "equipped") { ui.notifications.warn("Снаряжение не экипировано."); return; }
+        const qty = this.item.system.quantity ?? 1;
+        if (qty <= 0) { ui.notifications.warn(`${this.item.name}: закончилось — атака невозможна.`); return; }
+        await this.item.update({ "system.quantity": qty - 1 });
+        const { rollWeaponAttack } = await import("./weapon-combat.mjs");
+        await rollWeaponAttack(this.item, this.item.actor);
+      });
+      html.find(".gear-clear-skill").click(async () => {
+        await this.item.update({ "system.skill_uuid": "", "system.skill_name": "" });
+      });
+      html.find(".gear-clear-status").click(async () => {
+        await this.item.update({ "system.status_uuid": "", "system.status_name": "" });
+      });
+      // Drag & drop навыка на gear-skill-drop
+      html.find(".gear-skill-drop").on("dragover", e => e.preventDefault());
+      html.find(".gear-skill-drop").on("drop", async e => {
+        e.preventDefault();
+        const data = JSON.parse(e.originalEvent.dataTransfer.getData("text/plain") || "{}");
+        if (!data.uuid) return;
+        const dropped = await fromUuid(data.uuid);
+        if (!dropped || ![ "skill","ability" ].includes(dropped.type)) {
+          ui.notifications.warn("Перетащи навык или способность."); return;
+        }
+        await this.item.update({ "system.skill_uuid": dropped.uuid, "system.skill_name": dropped.name });
+      });
+      // Drag & drop статуса на gear-status-drop
+      html.find(".gear-status-drop").on("dragover", e => e.preventDefault());
+      html.find(".gear-status-drop").on("drop", async e => {
+        e.preventDefault();
+        const data = JSON.parse(e.originalEvent.dataTransfer.getData("text/plain") || "{}");
+        if (!data.uuid) return;
+        const dropped = await fromUuid(data.uuid);
+        if (!dropped || dropped.type !== "status") {
+          ui.notifications.warn("Перетащи статус-эффект."); return;
+        }
+        await this.item.update({ "system.status_uuid": dropped.uuid, "system.status_name": dropped.name });
+      });
+
       html.find(".gear-use-energy-restore").click(async () => {
         const item  = this.item;
-        if (!item.system.equipped) { ui.notifications.warn("Нельзя применить — снаряжение не экипировано."); return; }
+        if (item.system.equipped !== "equipped") { ui.notifications.warn("Нельзя применить — снаряжение не экипировано."); return; }
         const actor = await this._pickActorForItem();
         if (!actor) return;
         const base    = item.system.energy_restore || 0;
@@ -915,10 +1030,11 @@ export class KK9ItemSheet extends ItemSheet {
 
     // ── Заклинание ──
     if (this.item.type === "spell") {
-      html.find(".spell-attack-roll").click(async () => {
+      // Кнопка каста (только для spell_type === "attack")
+      html.find(".spell-cast-roll").click(async () => {
         if (!this.item.actor) { ui.notifications.warn("Заклинание должно быть на карточке персонажа."); return; }
-        const { rollWeaponAttack } = await import("./weapon-combat.mjs");
-        await rollWeaponAttack(this.item, this.item.actor);
+        const { rollSpellAttack } = await import("./weapon-combat.mjs");
+        await rollSpellAttack(this.item, this.item.actor);
       });
       html.find(".sp-clear-skill").click(async () => {
         await this.item.update({ "system.skill_uuid": "", "system.skill_name": "" });
@@ -931,12 +1047,77 @@ export class KK9ItemSheet extends ItemSheet {
         const bonuses = (this.item.system.skill_bonuses || []).filter(b => b.item_uuid !== uuid);
         await this.item.update({ "system.skill_bonuses": bonuses });
       });
+      // Палочка-чекбокс — только GM может менять
+      if (!game.user.isGM) {
+        html.find(".sp-wand-checkbox").prop("disabled", true);
+      }
+      // GM-поле типа урона — показываем только GM
+      if (game.user.isGM) {
+        html.find(".sp-gm-damage-type").show();
+      }
     }
 
     // ── Устройство ──
     if (this.item.type === "device") {
       html.find(".device-clear-skill").click(async () => {
         await this.item.update({ "system.bonus_skill_uuid": "", "system.bonus_skill_name": "" });
+      });
+
+      // ── Атака (только для device_type === "weapon") ──
+      html.find(".device-attack-roll").click(async () => {
+        if (!this.item.actor) { ui.notifications.warn("Устройство должно быть на карточке персонажа."); return; }
+        if (this.item.system.equipped !== "equipped") { ui.notifications.warn("Устройство не экипировано."); return; }
+        // Проверяем заряды (-1 = бесконечно)
+        const charges = this.item.system.charges ?? -1;
+        if (charges === 0) { ui.notifications.warn(`${this.item.name}: заряды закончились — атака невозможна.`); return; }
+        if (charges > 0) await this.item.update({ "system.charges": charges - 1 });
+        // Нормализуем поля: device использует attack_skill_uuid/name, rollWeaponAttack ждёт skill_uuid/name
+        const proxy = new Proxy(this.item, {
+          get(target, prop) {
+            if (prop === "system") {
+              return new Proxy(target.system, {
+                get(sys, key) {
+                  if (key === "skill_uuid") return sys.attack_skill_uuid;
+                  if (key === "skill_name") return sys.attack_skill_name;
+                  return sys[key];
+                }
+              });
+            }
+            return target[prop];
+          }
+        });
+        const { rollWeaponAttack } = await import("./weapon-combat.mjs");
+        await rollWeaponAttack(proxy, this.item.actor);
+      });
+      html.find(".device-clear-attack-skill").click(async () => {
+        await this.item.update({ "system.attack_skill_uuid": "", "system.attack_skill_name": "" });
+      });
+      html.find(".device-clear-status").click(async () => {
+        await this.item.update({ "system.status_uuid": "", "system.status_name": "" });
+      });
+      // Drag & drop навыка атаки
+      html.find(".device-attack-skill-drop").on("dragover", e => e.preventDefault());
+      html.find(".device-attack-skill-drop").on("drop", async e => {
+        e.preventDefault();
+        const data = JSON.parse(e.originalEvent.dataTransfer.getData("text/plain") || "{}");
+        if (!data.uuid) return;
+        const dropped = await fromUuid(data.uuid);
+        if (!dropped || !["skill","ability"].includes(dropped.type)) {
+          ui.notifications.warn("Перетащи навык или способность."); return;
+        }
+        await this.item.update({ "system.attack_skill_uuid": dropped.uuid, "system.attack_skill_name": dropped.name });
+      });
+      // Drag & drop статуса
+      html.find(".device-status-drop").on("dragover", e => e.preventDefault());
+      html.find(".device-status-drop").on("drop", async e => {
+        e.preventDefault();
+        const data = JSON.parse(e.originalEvent.dataTransfer.getData("text/plain") || "{}");
+        if (!data.uuid) return;
+        const dropped = await fromUuid(data.uuid);
+        if (!dropped || dropped.type !== "status") {
+          ui.notifications.warn("Перетащи статус-эффект."); return;
+        }
+        await this.item.update({ "system.status_uuid": dropped.uuid, "system.status_name": dropped.name });
       });
     }
 

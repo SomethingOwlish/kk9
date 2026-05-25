@@ -162,21 +162,28 @@ Hooks.once("ready", async function() {
 
 
 
-Hooks.on("renderChatMessage", (message, html, data) => {
-  const el = html[0] ?? html;
+Hooks.on("renderChatMessageHTML", (message, el, data) => {
 
   el.classList.add("kk9-chat-message");
 
-  if (message.flags?.kk9?.isRoll) {
+  if (message.flags?.kk9?.isRoll || message.flags?.kk9?.isCombatMsg) {
     el.classList.add("kk9-roll-message");
 
     const header = el.querySelector(".message-header");
-    if (header) header.style.display = "none";
+    if (header) {
+      header.style.setProperty("display", "none", "important");
+      header.style.setProperty("height", "0", "important");
+      header.style.setProperty("overflow", "hidden", "important");
+      header.style.setProperty("padding", "0", "important");
+      header.style.setProperty("margin", "0", "important");
+    }
 
     el.querySelectorAll(".dice-roll, .dice-tooltip, .dice-formula, .dice-total").forEach(e => {
       e.style.display = "none";
     });
   }
+
+
 
   // Красим .message-sender по факультету
   const actorId = message.flags?.kk9?.actorId ?? message.speaker?.actor;

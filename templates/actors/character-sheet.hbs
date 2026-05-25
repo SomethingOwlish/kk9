@@ -123,6 +123,13 @@
       <div class="tab gm-notes-tab" data-group="primary" data-tab="gmnotes">
         <div class="gm-notes-block">
           <div class="section-title">Мастерские заметки</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px">
+            <span style="font-size:0.8em;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em">Урон сверх шкал</span>
+            <input type="number" name="system.overflow_damage" value="{{system.overflow_damage}}"
+                   class="kk9-input" min="0" style="width:60px;text-align:center"
+                   title="Накопленный урон сверх обеих шкал (от заклинаний)" />
+            <span style="font-size:0.75em;color:var(--text-dim)">пипов</span>
+          </div>
           <textarea name="system.gm_notes" rows="20" placeholder="Только для мастера...">{{system.gm_notes}}</textarea>
         </div>
       </div>

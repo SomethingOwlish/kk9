@@ -169,7 +169,7 @@ export class KK9Actor extends Actor {
     if (item.type === "artifact") {
       const cond = item.system.condition ?? "good";
       if (cond === "broken") return { blocked: true,  buffActive: false, buffTier: "broken" };
-      if (!item.system.equipped || !item.system.active)
+      if (item.system.equipped !== "equipped" || !item.system.active)
         return { blocked: false, buffActive: false, buffTier: "inactive" };
       // Активен + экипирован — condition определяет модификатор бонусов
       if (cond === "perfect") return { blocked: false, buffActive: true, buffTier: "perfect" };
@@ -408,7 +408,7 @@ export class KK9Actor extends Actor {
   // ----------------------------------------------------------
   // Общий метод броска
   // ----------------------------------------------------------
-  async _doRoll(baseFormula, label, { attrKey=null, extraMod=0, isToughness=false, reasons=[] } = {}) {
+  async _doRoll(baseFormula, label, { attrKey=null, extraMod=0, isToughness=false, reasons=[], skillItem=null } = {}) {
     let healthMod  = 0;
     let halfResult = false;
     const allReasons = [...reasons];
@@ -449,14 +449,15 @@ export class KK9Actor extends Actor {
 
   // ----------------------------------------------------------
   // Применить бонус артефакта с учётом состояния
-  // perfect: бонус полный + знак(бонус)*1 (т.е. +1 для положительных, -1 для отрицательных)
-  // worn:    бонус делится пополам, округление к нулю (trunc)
+  // perfect: бонус × 1.5, округление вниз (floor) — +4→+6, -4→-6
+  // normal:  бонус × 1.0
+  // worn:    бонус × 0.5, округление вниз (floor) — +3→+1, -3→-2
   // inactive/broken: 0
   // ----------------------------------------------------------
   _calcArtifactBonus(rawBonus, buffTier) {
     if (!rawBonus || !buffTier || buffTier === "broken" || buffTier === "inactive" || buffTier === "none") return 0;
-    if (buffTier === "worn")    return Math.trunc(rawBonus / 2); // к нулю (-3→-1, +3→+1)
-    if (buffTier === "perfect") return rawBonus + Math.sign(rawBonus); // +2→+3, -2→-3
+    if (buffTier === "worn")    return Math.floor(rawBonus * 0.5);
+    if (buffTier === "perfect") return Math.floor(rawBonus * 1.5);
     return rawBonus; // normal (good condition)
   }
 
@@ -568,7 +569,7 @@ export class KK9Actor extends Actor {
       ...this.items.filter(i => i.type === "device")
     ];
     for (const eq of allEquipForSkill) {
-      if (!eq.system?.equipped) continue;
+      if (eq.system?.equipped !== "equipped") continue;
       const cond = this._getItemConditionMod(eq);
       if (cond.blocked) continue;
 
@@ -816,7 +817,8 @@ export class KK9Actor extends Actor {
         <strong style="color:${fData.color || '#c9a84c'}">${this.name}</strong> зачислен на <strong>${facultyItem.name}</strong>.
         ${teacherName ? `<br><em style="opacity:0.7">Куратор ${teacherName} добавлен в связи.</em>` : ""}
       </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: this })
+      speaker: ChatMessage.getSpeaker({ actor: this }),
+      flags: { kk9: { isRoll: true, actorId: this.id } }
     });
   }
 

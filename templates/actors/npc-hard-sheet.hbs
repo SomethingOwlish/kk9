@@ -49,7 +49,7 @@
   <div class="npc-main">
     <nav class="sheet-tabs" data-group="primary">
       <a class="item" data-tab="main">Основное</a>
-      <a class="item" data-tab="conflict">Конфликт</a>
+      {{#if canConflict}}<a class="item" data-tab="conflict">Конфликт</a>{{/if}}
     </nav>
 
     <div class="sheet-body">
@@ -82,6 +82,7 @@
       </div>
 
       {{!-- КОНФЛИКТ --}}
+      {{#if canConflict}}
       <div class="tab" data-group="primary" data-tab="conflict">
 
         <div class="section-title">Характеристики</div>
@@ -201,6 +202,40 @@
             <span class="skill-name item-name-click" data-item-id="{{id}}">{{name}}</span>
             <div class="skill-controls">
               <span class="skill-attr-hint">{{npcItemTypeLabel type}}</span>
+              {{!-- Кнопка атаки — только если экипировано --}}
+              {{#if (and (eq type "weapon") (eq system.equipped "equipped"))}}
+              <button type="button" class="item-attack-btn btn-ref-action" data-item-id="{{id}}" data-item-type="weapon"
+                title="Бросок атаки"><i class="fa-solid fa-crosshairs"></i></button>
+              {{/if}}
+              {{#if (and (eq type "gear") (eq system.gear_type "attack") (eq system.equipped "equipped") (gt system.quantity 0))}}
+              <button type="button" class="item-attack-btn btn-ref-action" data-item-id="{{id}}" data-item-type="gear"
+                title="Бросок атаки"><i class="fa-solid fa-crosshairs"></i></button>
+              {{/if}}
+              {{#if (and (eq type "device") (eq system.device_type "weapon") (eq system.equipped "equipped") (or (eq system.charges -1) (gt system.charges 0)))}}
+              <button type="button" class="item-attack-btn btn-ref-action" data-item-id="{{id}}" data-item-type="device"
+                title="Бросок атаки"><i class="fa-solid fa-crosshairs"></i></button>
+              {{/if}}
+              {{#if (and (eq type "spell") (eq system.spell_type "attack"))}}
+              <button type="button" class="item-attack-btn btn-ref-action" data-item-id="{{id}}" data-item-type="spell"
+                title="Применить заклинание"><i class="fa-solid fa-wand-sparkles"></i></button>
+              {{/if}}
+              {{!-- Мета-инфо: количество / заряды / энергия --}}
+              {{#if (and (eq type "gear") (eq system.gear_type "attack"))}}
+              <span class="skill-attr-hint">×{{system.quantity}}</span>
+              {{/if}}
+              {{#if (and (eq type "device") (eq system.device_type "weapon"))}}
+              <span class="skill-attr-hint">{{#if (eq system.charges -1)}}∞{{else}}{{system.charges}}⚡{{/if}}</span>
+              {{/if}}
+              {{#if (eq type "spell")}}
+              <span class="skill-attr-hint">{{system.cost}} э.</span>
+              {{/if}}
+              {{!-- Переключатель экипировки (кроме спеллов) --}}
+              {{#unless (eq type "spell")}}
+              <button type="button" class="item-equip-btn btn-ref-icon" data-item-id="{{id}}" data-item-type="{{type}}"
+                title="{{#if (eq system.equipped 'equipped')}}Экипировано{{else if (eq system.equipped 'carried')}}С собой{{else}}Дома{{/if}}">
+                <i class="fa-solid {{#if (eq system.equipped 'equipped')}}fa-shield{{else if (eq system.equipped 'carried')}}fa-bag-shopping{{else}}fa-house{{/if}}"></i>
+              </button>
+              {{/unless}}
               <button type="button" class="btn-delete-xs npc-item-del" data-item-id="{{id}}">✕</button>
             </div>
           </div>
@@ -234,7 +269,17 @@
           {{/each}}
         </div>
 
+        <div class="section-title" style="margin-top:12px">Критический урон</div>
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px">
+          <span style="font-size:0.8em;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em">Урон сверх шкал</span>
+          <input type="number" name="system.overflow_damage" value="{{system.overflow_damage}}"
+                 class="kk9-input" min="0" style="width:60px;text-align:center"
+                 title="Накопленный урон сверх обеих шкал (от заклинаний)" />
+          <span style="font-size:0.75em;color:var(--text-dim)">пипов</span>
+        </div>
+
       </div>
+      {{/if}}
     </div>
   </div>
 </form>

@@ -106,9 +106,10 @@
       </div>
       <div class="sp-param-block sp-wand-block">
         <span class="sp-param-label">Применение</span>
-        <label class="sp-toggle {{#if system.no_wand_needed}}sp-toggle-on{{/if}}">
+        <label class="sp-toggle {{#if system.no_wand_needed}}sp-toggle-on{{/if}} sp-wand-toggle">
           <input type="checkbox" name="system.no_wand_needed"
-                 {{#if system.no_wand_needed}}checked{{/if}} />
+                 {{#if system.no_wand_needed}}checked{{/if}}
+                 class="sp-wand-checkbox" />
           {{#if system.no_wand_needed}}Можно без палочки{{else}}Нужна палочка{{/if}}
         </label>
         {{#unless system.no_wand_needed}}
@@ -123,13 +124,13 @@
       <div class="sp-section-title">Параметры атаки</div>
 
       <div class="sp-params-grid sp-params-grid--2">
+        {{!-- damage_level — readonly справка, реальный урон вычисляется из cost в getData --}}
         <div class="sp-param-block">
-          <span class="sp-param-label">Уровень урона</span>
-          <select name="system.damage_level" class="kk9-select">
-            <option value="light"  {{#if (eq system.damage_level "light")}}selected{{/if}}>Лёгкий (1 ур.)</option>
-            <option value="heavy"  {{#if (eq system.damage_level "heavy")}}selected{{/if}}>Тяжёлый (2 ур.)</option>
-            <option value="lethal" {{#if (eq system.damage_level "lethal")}}selected{{/if}}>Летальный (3 ур.)</option>
-          </select>
+          <span class="sp-param-label">Урон (из стоимости)</span>
+          <div style="padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:0.85em;color:var(--text-dim)">
+            {{spellDamageLabel}}
+            <span style="font-size:0.8em;opacity:0.6"> · стоимость {{system.cost}}</span>
+          </div>
         </div>
         <div class="sp-param-block">
           <span class="sp-param-label">Тип урона</span>
@@ -139,6 +140,13 @@
           </select>
         </div>
       </div>
+
+      {{!-- Площадное заклинание --}}
+      <label class="sp-toggle-row">
+        <input type="checkbox" name="system.is_aoe"
+               {{#if system.is_aoe}}checked{{/if}} />
+        <span class="sp-param-label">Площадное заклинание</span>
+      </label>
 
       <div class="sp-status-section">
         <label class="sp-toggle-row">
@@ -169,6 +177,17 @@
       {{/if}}
     </div>
     {{/if}}
+
+    {{!-- ── GM-поле: тип урона для не-атакующих спеллов (только GM видит) ── --}}
+    {{#unless (eq system.spell_type "attack")}}
+    <div class="sp-gm-damage-type" style="display:none">
+      <span class="sp-param-label">Тип урона (GM)</span>
+      <select name="system.damage_type" class="kk9-select" style="width:140px">
+        <option value="physical" {{#if (eq system.damage_type "physical")}}selected{{/if}}>Физический</option>
+        <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
+      </select>
+    </div>
+    {{/unless}}
 
     {{!-- ── БАФФ ПОЛЯ ── --}}
     {{#if (eq system.spell_type "buff")}}

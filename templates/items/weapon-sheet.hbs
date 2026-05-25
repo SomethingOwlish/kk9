@@ -47,18 +47,26 @@
     {{!-- Навык для броска атаки --}}
     <div>
       <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Навык атаки</label>
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
-           class="weapon-skill-drop">
-        {{#if system.skill_name}}
-          <span style="flex:1;font-size:0.84em">{{system.skill_name}}</span>
-          <button type="button" class="btn-delete-xs wp-clear-skill">✕</button>
-          <input type="hidden" name="system.skill_uuid" value="{{system.skill_uuid}}" />
-          <input type="hidden" name="system.skill_name" value="{{system.skill_name}}" />
-        {{else}}
-          <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи навык или способность</span>
-          <input type="hidden" name="system.skill_uuid" value="" />
-          <input type="hidden" name="system.skill_name" value="" />
-        {{/if}}
+      <div style="display:flex;align-items:flex-end;gap:6px">
+        <div style="flex:1;display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
+             class="weapon-skill-drop">
+          {{#if system.skill_name}}
+            <span style="flex:1;font-size:0.84em">{{system.skill_name}}</span>
+            <button type="button" class="btn-delete-xs wp-clear-skill">✕</button>
+            <input type="hidden" name="system.skill_uuid" value="{{system.skill_uuid}}" />
+            <input type="hidden" name="system.skill_name" value="{{system.skill_name}}" />
+          {{else}}
+            <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи навык или способность</span>
+            <input type="hidden" name="system.skill_uuid" value="" />
+            <input type="hidden" name="system.skill_name" value="" />
+          {{/if}}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;min-height:44px">
+          <label style="font-size:0.68em;color:var(--text-dim);white-space:nowrap;line-height:1">мод.</label>
+          <input type="number" name="system.attack_modifier" value="{{system.attack_modifier}}"
+                 class="kk9-input" style="width:48px;text-align:center;flex:1;margin-top:2px"
+                 title="Применяется если у персонажа нет навыка" />
+        </div>
       </div>
     </div>
 
@@ -81,14 +89,40 @@
     </div>
 
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <label style="font-size:0.75em;color:var(--text-dim)">Экипировано</label>
-      <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
-      {{#if system.skill_name}}
-        <button type="button" class="weapon-attack-roll" style="margin-left:auto;padding:4px 12px;background:var(--gold);color:#000;border:none;border-radius:3px;cursor:pointer;font-size:0.85em">
-          ⚔ Бросок атаки
-        </button>
-      {{/if}}
+      <label style="font-size:0.75em;color:var(--text-dim)">Экипировка</label>
+      <div style="display:flex;gap:4px">
+        <button type="button" class="kk9-equip-toggle {{#if (eq system.equipped 'home')}}active{{/if}}"
+          style="padding:3px 8px;font-size:0.78em;border-radius:3px;cursor:pointer;
+            background:{{#if (eq system.equipped 'home')}}var(--gold){{else}}var(--bg2){{/if}};
+            color:{{#if (eq system.equipped 'home')}}#000{{else}}var(--text-dim){{/if}};
+            border:1px solid {{#if (eq system.equipped 'home')}}var(--gold){{else}}var(--border){{/if}};"
+          data-value="home">Дома</button>
+        <button type="button" class="kk9-equip-toggle {{#if (eq system.equipped 'carried')}}active{{/if}}"
+          style="padding:3px 8px;font-size:0.78em;border-radius:3px;cursor:pointer;
+            background:{{#if (eq system.equipped 'carried')}}var(--gold){{else}}var(--bg2){{/if}};
+            color:{{#if (eq system.equipped 'carried')}}#000{{else}}var(--text-dim){{/if}};
+            border:1px solid {{#if (eq system.equipped 'carried')}}var(--gold){{else}}var(--border){{/if}};"
+          data-value="carried">С собой</button>
+        <button type="button" class="kk9-equip-toggle {{#if (eq system.equipped 'equipped')}}active{{/if}}"
+          style="padding:3px 8px;font-size:0.78em;border-radius:3px;cursor:pointer;
+            background:{{#if (eq system.equipped 'equipped')}}var(--gold){{else}}var(--bg2){{/if}};
+            color:{{#if (eq system.equipped 'equipped')}}#000{{else}}var(--text-dim){{/if}};
+            border:1px solid {{#if (eq system.equipped 'equipped')}}var(--gold){{else}}var(--border){{/if}};"
+          data-value="equipped">Экипирован</button>
+        <input type="hidden" name="system.equipped" value="{{system.equipped}}" class="kk9-equip-hidden" />
+      </div>
+      <button type="button" class="weapon-attack-roll" style="margin-left:auto;padding:4px 12px;background:var(--gold);color:#000;border:none;border-radius:3px;cursor:pointer;font-size:0.85em;width:100%">
+        ⚔ Бросок атаки
+      </button>
     </div>
+    {{#if (or (eq system.condition "perfect") (eq system.condition "worn"))}}
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:0.75em;color:var(--text-dim);white-space:nowrap">% эффекта состояния</label>
+      <input type="number" name="system.condition_chance" value="{{system.condition_chance}}"
+             class="kk9-input" min="0" max="100" style="width:60px;text-align:center"
+             title="Идеальный: шанс +1 урон. Плохой: шанс нет урона." />
+    </div>
+    {{/if}}
 
     <div>
       <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Описание</label>

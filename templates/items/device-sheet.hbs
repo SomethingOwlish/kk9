@@ -45,31 +45,65 @@
       <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Дальность (м)</label>
         <input type="number" name="system.range" value="{{system.range}}" class="kk9-input" /></div>
     </div>
-    {{!-- Навык атаки и кнопка для weapon-девайса --}}
+    {{!-- Навык атаки + модификатор --}}
     <div>
       <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Навык атаки</label>
+      <div style="display:flex;align-items:flex-end;gap:6px">
+        <div style="flex:1;display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
+             class="device-attack-skill-drop">
+          {{#if system.attack_skill_name}}
+            <span style="flex:1;font-size:0.84em">{{system.attack_skill_name}}</span>
+            <button type="button" class="btn-delete-xs device-clear-attack-skill">✕</button>
+            <input type="hidden" name="system.attack_skill_uuid" value="{{system.attack_skill_uuid}}" />
+            <input type="hidden" name="system.attack_skill_name" value="{{system.attack_skill_name}}" />
+          {{else}}
+            <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи навык или способность</span>
+            <input type="hidden" name="system.attack_skill_uuid" value="" />
+            <input type="hidden" name="system.attack_skill_name" value="" />
+          {{/if}}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;min-height:44px">
+          <label style="font-size:0.68em;color:var(--text-dim);white-space:nowrap;line-height:1">мод.</label>
+          <input type="number" name="system.attack_modifier" value="{{system.attack_modifier}}"
+                 class="kk9-input" style="width:48px;text-align:center;flex:1;margin-top:2px"
+                 title="Применяется если у персонажа нет навыка" />
+        </div>
+      </div>
+    </div>
+    {{!-- Статус при попадании --}}
+    <div>
+      <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Статус при попадании</label>
       <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
-           class="device-attack-skill-drop">
-        {{#if system.attack_skill_name}}
-          <span style="flex:1;font-size:0.84em">{{system.attack_skill_name}}</span>
-          <button type="button" class="btn-delete-xs device-clear-attack-skill">✕</button>
-          <input type="hidden" name="system.attack_skill_uuid" value="{{system.attack_skill_uuid}}" />
-          <input type="hidden" name="system.attack_skill_name" value="{{system.attack_skill_name}}" />
+           class="device-status-drop">
+        {{#if system.status_name}}
+          <span style="flex:1;font-size:0.84em">{{system.status_name}}</span>
+          <button type="button" class="btn-delete-xs device-clear-status">✕</button>
+          <input type="hidden" name="system.status_uuid" value="{{system.status_uuid}}" />
+          <input type="hidden" name="system.status_name" value="{{system.status_name}}" />
         {{else}}
-          <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи навык или способность</span>
-          <input type="hidden" name="system.attack_skill_uuid" value="" />
-          <input type="hidden" name="system.attack_skill_name" value="" />
+          <span style="font-size:0.72em;color:var(--text-dim);font-style:italic">Перетащи статус-эффект</span>
+          <input type="hidden" name="system.status_uuid" value="" />
+          <input type="hidden" name="system.status_name" value="" />
         {{/if}}
       </div>
     </div>
-    {{#if system.attack_skill_name}}
-    <button type="button" class="device-attack-roll" style="padding:4px 12px;background:var(--gold);color:#000;border:none;border-radius:3px;cursor:pointer;font-size:0.85em;align-self:flex-start">
+    {{!-- Кнопка броска — всегда видна --}}
+    <button type="button" class="device-attack-roll" style="padding:4px 12px;background:var(--gold);color:#000;border:none;border-radius:3px;cursor:pointer;font-size:0.85em;width:100%">
       ⚔ Бросок атаки
     </button>
+    {{!-- % эффекта состояния — только для perfect/worn --}}
+    {{#if (or (eq system.condition "perfect") (eq system.condition "worn"))}}
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:0.75em;color:var(--text-dim);white-space:nowrap">% эффекта состояния</label>
+      <input type="number" name="system.condition_chance" value="{{system.condition_chance}}"
+             class="kk9-input" min="0" max="100" style="width:60px;text-align:center"
+             title="Идеальный: шанс +1 урон. Плохой: шанс нет урона." />
+    </div>
     {{/if}}
     {{/if}}
 
-    {{!-- Бонус к навыку --}}
+    {{!-- Бонус к навыку — скрыт для типа weapon (там есть навык атаки) --}}
+    {{#unless (eq system.device_type "weapon")}}
     <div>
       <label style="font-size:0.75em;color:var(--text-dim);display:block;margin-bottom:4px">Бонус к навыку</label>
       <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;min-height:32px"
@@ -87,6 +121,7 @@
         {{/if}}
       </div>
     </div>
+    {{/unless}}
 
     <div><label style="font-size:0.75em;color:var(--text-dim);display:block">Создатель</label>
       <input type="text" name="system.creator" value="{{system.creator}}" class="kk9-input" placeholder="Кто создал" /></div>
@@ -101,8 +136,28 @@
         Нижний мир
       </label>
       <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-        <label style="font-size:0.75em;color:var(--text-dim)">Экипировано</label>
-        <input type="checkbox" name="system.equipped" {{#if system.equipped}}checked{{/if}} />
+        <label style="font-size:0.75em;color:var(--text-dim)">Экипировка</label>
+        <div style="display:flex;gap:4px">
+          <button type="button" class="kk9-equip-toggle"
+            style="padding:3px 8px;font-size:0.78em;border-radius:3px;cursor:pointer;
+              background:{{#if (eq system.equipped 'home')}}var(--gold){{else}}var(--bg2){{/if}};
+              color:{{#if (eq system.equipped 'home')}}#000{{else}}var(--text-dim){{/if}};
+              border:1px solid {{#if (eq system.equipped 'home')}}var(--gold){{else}}var(--border){{/if}};"
+            data-value="home">Дома</button>
+          <button type="button" class="kk9-equip-toggle"
+            style="padding:3px 8px;font-size:0.78em;border-radius:3px;cursor:pointer;
+              background:{{#if (eq system.equipped 'carried')}}var(--gold){{else}}var(--bg2){{/if}};
+              color:{{#if (eq system.equipped 'carried')}}#000{{else}}var(--text-dim){{/if}};
+              border:1px solid {{#if (eq system.equipped 'carried')}}var(--gold){{else}}var(--border){{/if}};"
+            data-value="carried">С собой</button>
+          <button type="button" class="kk9-equip-toggle"
+            style="padding:3px 8px;font-size:0.78em;border-radius:3px;cursor:pointer;
+              background:{{#if (eq system.equipped 'equipped')}}var(--gold){{else}}var(--bg2){{/if}};
+              color:{{#if (eq system.equipped 'equipped')}}#000{{else}}var(--text-dim){{/if}};
+              border:1px solid {{#if (eq system.equipped 'equipped')}}var(--gold){{else}}var(--border){{/if}};"
+            data-value="equipped">Экипирован</button>
+          <input type="hidden" name="system.equipped" value="{{system.equipped}}" class="kk9-equip-hidden" />
+        </div>
       </div>
     </div>
 
