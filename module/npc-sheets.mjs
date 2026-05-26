@@ -70,6 +70,14 @@ class KK9NpcBaseSheet extends ActorSheet {
       }
     }
 
+    // Удалить язык
+    html.find(".btn-delete-language").click(async e => {
+      const idx  = parseInt(e.currentTarget.dataset.index);
+      const list = [...(this.actor.system.languages || [])];
+      list.splice(idx, 1);
+      await this.actor.update({ "system.languages": list });
+    });
+
     // Очистить класс оперативника
     html.find(".clear-operative-faculty").click(async () => {
       await this.actor.update({
@@ -304,6 +312,18 @@ class KK9NpcBaseSheet extends ActorSheet {
     });
   }
 
+  // Блокируем изменение энергии через форму для не-ГМ + cap на max
+  _getSubmitData(updateData = {}) {
+    const data = super._getSubmitData(updateData);
+    if (!game.user.isGM) {
+      delete data["system.energy.value"];
+    } else if ("system.energy.value" in data) {
+      const max = this.actor.system.energy?.max ?? 0;
+      data["system.energy.value"] = Math.min(Math.max(0, data["system.energy.value"]), max);
+    }
+    return data;
+  }
+
   async _onDrop(event) {
     event.preventDefault();
     // Foundry v13: используем TextDropData через super для получения data
@@ -345,8 +365,16 @@ class KK9NpcBaseSheet extends ActorSheet {
       return;
     }
 
-    // ── Language — игнорируем ──
-    if (item.type === "language") return;
+    // ── Language → system.languages ──
+    if (item.type === "language") {
+      const langs = [...(this.actor.system.languages || [])];
+      if (langs.find(l => l.name === item.name)) {
+        ui.notifications.warn(`«${item.name}» уже есть в списке языков.`); return;
+      }
+      langs.push({ name: item.name, itemId: item.id });
+      await this.actor.update({ "system.languages": langs });
+      return;
+    }
 
     // ── Ability → embedded ──
     if (item.type === "ability") {
@@ -683,46 +711,9 @@ export class KK9ContainerSheet extends ActorSheet {
       }
       if (!initItems.length) return;
 
-      let item;
-      if (initItems.length === 1) {
-        item = initItems[0];
-      } else {
-        const selId = html.find(".container-initiative-select").val();
-        item = initItems.find(i => i.uuid === selId) || initItems[0];
-      }
-
-      const attrs  = item.system.attributes;
-      const agDie  = attrs.agility?.die  || 6;
-      const smDie  = attrs.smarts?.die   || 6;
-      const mod    = (attrs.agility?.modifier || 0) + (attrs.smarts?.modifier || 0);
-      const modStr = mod ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-      const roll   = new Roll(`1d${agDie}x + 1d${smDie}x${modStr}`);
-      await roll.evaluate();
-      const total = roll.total;
-
-      const portrait = item.img || "icons/svg/mystery-man.svg";
-      let diceRows = "";
-      for (const term of roll.terms) {
-        if (typeof term.faces !== "number") continue;
-        const vals = (term.results ?? []).map(rv => `<span class="kk9-rv dk">${rv.result}</span>`).join("");
-        const sum  = (term.results ?? []).reduce((a, v) => a + v.result, 0);
-        diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
-      }
-      if (mod) diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">мод.: ${modStr}</span></div>`;
-      diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div>`;
-
-      const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${item.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${item.name}</span><span class="kk9-chat-label">Инициатива</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${total}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`;
-
-      const combat = game?.combat;
-      if (combat) {
-        const combatant = combat.combatants.find(cb => cb.actorId === this.actor.id);
-        if (combatant) await combatant.update({ initiative: total });
-      }
-      await ChatMessage.create({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        content,
-        flags: { kk9: { isRoll: true, actorId: this.actor.id } }
-      });
+      const selId = html.find(".container-initiative-select").val();
+      const item  = (selId && initItems.find(i => i.uuid === selId)) || initItems[0];
+      await this.actor.rollContainerInitiativeForItem(item);
     });
   }
 

@@ -269,6 +269,12 @@ export class KK9CharacterSheet extends ActorSheet {
     html.find(".roll-initiative").click(() => this.actor.rollInitiative());
     html.find(".roll-toughness").click(() => this.actor.rollToughness());
 
+    // ── Создание персонажа ──
+    html.find(".chargen-start-btn").click(() => _startChargen(this.actor));
+    html.find(".chargen-skip-btn").click(async () => {
+      await this.actor.update({ "system.character_created": true });
+    });
+
     html.find(".health-pip[data-track='physical']").click(this._onPhysicalPipClick.bind(this));
     html.find(".health-pip[data-track='mental']").click(this._onMentalPipClick.bind(this));
 
@@ -359,6 +365,24 @@ export class KK9CharacterSheet extends ActorSheet {
       if (itemType === "spell") {
         const { rollSpellAttack } = await import("./weapon-combat.mjs");
         await rollSpellAttack(item, this.actor);
+      } else if (itemType === "device") {
+        // Нормализуем поля: device использует attack_skill_uuid, rollWeaponAttack ждёт skill_uuid
+        const proxy = new Proxy(item, {
+          get(target, prop) {
+            if (prop === "system") {
+              return new Proxy(target.system, {
+                get(sys, key) {
+                  if (key === "skill_uuid") return sys.attack_skill_uuid;
+                  if (key === "skill_name") return sys.attack_skill_name;
+                  return sys[key];
+                }
+              });
+            }
+            return target[prop];
+          }
+        });
+        const { rollWeaponAttack } = await import("./weapon-combat.mjs");
+        await rollWeaponAttack(proxy, this.actor);
       } else {
         const { rollWeaponAttack } = await import("./weapon-combat.mjs");
         await rollWeaponAttack(item, this.actor);
@@ -587,6 +611,18 @@ export class KK9CharacterSheet extends ActorSheet {
     const list = [...(this.actor.system.languages || [])];
     list.splice(idx, 1);
     await this.actor.update({ "system.languages": list });
+  }
+
+  // Блокируем изменение энергии через форму для не-ГМ + cap на max
+  _getSubmitData(updateData = {}) {
+    const data = super._getSubmitData(updateData);
+    if (!game.user.isGM) {
+      delete data["system.energy.value"];
+    } else if ("system.energy.value" in data) {
+      const max = this.actor.system.energy?.max ?? 0;
+      data["system.energy.value"] = Math.min(Math.max(0, data["system.energy.value"]), max);
+    }
+    return data;
   }
 }
 
@@ -1295,9 +1331,50 @@ export class KK9ItemSheet extends ItemSheet {
         const attrs  = this.item.system.attributes || {};
         const spDie  = attrs.spirit?.die || 6;
         const spMod  = attrs.spirit?.modifier || 0;
-        const modStr = spMod ? (spMod>0?`+${spMod}`:`${spMod}`) : "";
-        const toughReasons = spMod ? [`мод.: ${modStr}`] : [];
-        await _dmRoll(`1d${spDie}x${modStr}`, "Стойкость", false, toughReasons);
+
+        // Навыки сопротивления — те же имена что у персонажа
+        const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выжидание"];
+        const available   = (this.item.system.skills || []).filter(sk => resistNames.includes(sk.name));
+        const options     = available.map((sk, i) =>
+          `<option value="${i}">${sk.name} (d${sk.die || 6})</option>`
+        ).join("");
+
+        let chosen = null;
+        try {
+          chosen = await Dialog.prompt({
+            title: "Бросок Стойкости",
+            content: `<div style="padding:8px">
+              <p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>
+              ${available.length
+                ? `<select id="resist-skill" style="width:100%">
+                     <option value="">— только Дух —</option>${options}
+                   </select>`
+                : "<em>Нет доступных навыков сопротивления</em>"}
+            </div>`,
+            label: "Бросить",
+            callback: html => html.find("#resist-skill").val() || null
+          });
+        } catch(e) { return; }
+
+        let formula, labelExtra = "", toughReasons = [];
+
+        if (chosen !== null && chosen !== "") {
+          const sk       = available[parseInt(chosen)];
+          const skillDie = sk.die || 6;
+          const skillMod = sk.modifier || 0;
+          labelExtra     = ` + ${sk.name}`;
+          const totalMod = spMod + skillMod;
+          const spModStr = spMod !== 0 ? (spMod > 0 ? `+${spMod}` : `${spMod}`) : "";
+          const skModStr = skillMod !== 0 ? (skillMod > 0 ? `+${skillMod}` : `${skillMod}`) : "";
+          formula = `1d${spDie}x${spModStr} + 1d${skillDie}x${skModStr}`;
+          if (totalMod) toughReasons.push(`мод. итого: ${totalMod > 0 ? "+" + totalMod : totalMod}`);
+        } else {
+          const modStr = spMod !== 0 ? (spMod > 0 ? `+${spMod}` : `${spMod}`) : "";
+          formula = `1d${spDie}x${modStr}`;
+          if (spMod) toughReasons.push(`мод.: ${modStr}`);
+        }
+
+        await _dmRoll(formula, `Стойкость${labelExtra}`, false, toughReasons);
       });
     }
 
@@ -1464,4 +1541,444 @@ export class KK9ItemSheet extends ItemSheet {
       await this.item.update({ "system.events": (this.item.system.events || []).filter(ev => ev.uuid !== uuid) });
     });
   }
+}
+
+// ============================================================
+
+// ============================================================
+// СОЗДАНИЕ ПЕРСОНАЖА
+// ============================================================
+
+
+// ============================================================
+// СОЗДАНИЕ ПЕРСОНАЖА — ChargenApp
+// ============================================================
+const ATTR_KEYS   = ["agility","smarts","spirit","endurance","magic"];
+const ATTR_LABELS = {agility:"Ловкость",smarts:"Смекалка",spirit:"Дух",endurance:"Выносливость",magic:"Магия"};
+const DIE_STEPS   = [4,6,8,10,12];
+function _cgGet(key)  { return game.settings.get("kk9",key); }
+function _dieIndex(d) { return DIE_STEPS.indexOf(d); }
+function _dieLabel(d) { return `d${d}`; }
+function _getBgDefs() {
+  try { return JSON.parse(game.settings.get("kk9","chargen.backgrounds")); } catch {}
+  return [
+    {key:"ally",     label:"Союзник из прошлого", cost:2, desc:"НПС который встретит вас после События и будет доброжелателен."},
+    {key:"artifact", label:"Артефакт",             cost:3, desc:"У вас есть артефакт — вы пока не знаете как он работает."},
+    {key:"memory",   label:"Память о КК9",         cost:2, desc:"В детстве вы видели проявления КК9. Память стёрта — но вы вспомните."},
+  ];
+}
+
+const CG_CSS = `
+<style id="kk9-cg-style">
+:root { --cg-bg:#1c1c1c; --cg-bg2:#232323; --cg-bg3:#2a2a2a;
+        --cg-border:#3a3a3a; --cg-border2:#4a4a4a;
+        --cg-text:#b8b0a4; --cg-dim:#6a6560; --cg-head:#d8d0c8;
+        --cg-gold:#c4a44a; --cg-gold-d:#7a6430;
+        --cg-accent:#c0392b; }
+#kk9-chargen .window-header {
+  background:var(--cg-bg) !important;
+  border-bottom:1px solid var(--cg-border) !important;
+  color:var(--cg-head) !important; }
+#kk9-chargen .window-header .header-button {
+  color:var(--cg-dim) !important; border:none !important; background:transparent !important; }
+#kk9-chargen .window-header .header-button:hover { color:var(--cg-gold) !important; }
+#kk9-chargen.app { border:1px solid var(--cg-border) !important;
+  box-shadow:0 8px 32px rgba(0,0,0,.75) !important;
+  background:var(--cg-bg2) !important; }
+#kk9-chargen .window-content {
+  background:var(--cg-bg2) !important; padding:0 !important;
+  display:flex; flex-direction:column; overflow:hidden !important; }
+.cg-body { flex:1; overflow-y:auto; overflow-x:hidden; padding:14px;
+  scrollbar-width:thin; scrollbar-color:var(--cg-border) transparent; }
+.cg-body::-webkit-scrollbar { width:4px; }
+.cg-body::-webkit-scrollbar-thumb { background:var(--cg-border); border-radius:2px; }
+.cg-footer { flex-shrink:0; display:flex; gap:8px; padding:10px 14px;
+  background:var(--cg-bg) !important; border-top:1px solid var(--cg-border); }
+.cg-btn { flex:1; padding:6px 10px; background:transparent;
+  border:1px solid var(--cg-border2); border-radius:3px;
+  color:var(--cg-text); cursor:pointer; font-family:'Jost',sans-serif;
+  font-size:0.84em; transition:all .12s; }
+.cg-btn:hover { border-color:var(--cg-gold-d); color:var(--cg-gold); }
+.cg-btn.primary { border-color:var(--cg-gold-d); color:var(--cg-gold); }
+.cg-btn.primary:hover { background:rgba(196,164,74,.1); }
+.cg-step { font-size:.72em; color:var(--cg-gold-d); text-transform:uppercase;
+  letter-spacing:.1em; border-bottom:1px solid var(--cg-border);
+  padding-bottom:6px; margin-bottom:12px; }
+.cg-pts { display:flex; align-items:center; justify-content:space-between;
+  padding:6px 10px; background:var(--cg-bg3); border:1px solid var(--cg-border);
+  border-radius:3px; margin-bottom:10px; font-size:.82em; color:var(--cg-text); }
+.cg-pts-val { color:var(--cg-gold); font-size:1.1em; font-weight:600; }
+.cg-field { display:flex; flex-direction:column; gap:3px; margin-bottom:8px; }
+.cg-lbl { font-size:.72em; color:var(--cg-gold-d); text-transform:uppercase; letter-spacing:.08em; }
+.cg-inp { background:var(--cg-bg3); border:1px solid var(--cg-border); border-radius:3px;
+  color:var(--cg-head); padding:5px 8px; font-family:'Jost',sans-serif;
+  font-size:.88em; width:100%; box-sizing:border-box; }
+.cg-inp:focus { outline:none; border-color:var(--cg-gold-d); }
+.cg-hint { font-size:.72em; color:var(--cg-dim); font-style:italic; margin-top:4px; }
+.cg-arow { display:flex; align-items:center; gap:8px; padding:5px 8px;
+  background:var(--cg-bg3); border:1px solid var(--cg-border);
+  border-radius:3px; margin-bottom:4px; box-sizing:border-box; }
+.cg-albl { flex:1; font-size:.84em; color:var(--cg-text); }
+.cg-aval { width:36px; text-align:center; font-weight:600;
+  color:var(--cg-gold); font-size:.9em; flex-shrink:0; }
+.cg-pm { width:22px; height:22px; flex-shrink:0; background:transparent;
+  border:1px solid var(--cg-border2); border-radius:3px;
+  color:var(--cg-dim); cursor:pointer; font-size:.9em;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .12s; padding:0; }
+.cg-pm:hover:not([disabled]) { border-color:var(--cg-gold-d); color:var(--cg-gold); }
+.cg-pm[disabled] { opacity:.25; cursor:not-allowed; }
+.cg-save-block { margin-top:10px; padding:8px 10px; background:var(--cg-bg);
+  border:1px dashed var(--cg-border2); border-radius:3px;
+  display:flex; align-items:center; gap:8px; font-size:.8em; color:var(--cg-dim); }
+.cg-act { padding:3px 12px; background:transparent;
+  border:1px solid var(--cg-border2); border-radius:3px; color:var(--cg-dim);
+  cursor:pointer; font-family:'Jost',sans-serif; font-size:.8em; transition:all .12s; }
+.cg-act:hover:not([disabled]) { border-color:var(--cg-gold-d); color:var(--cg-gold); }
+.cg-act[disabled] { opacity:.25; cursor:not-allowed; }
+.cg-act.on { border-color:var(--cg-gold); color:var(--cg-gold); background:rgba(196,164,74,.08); }
+.cg-sklist { display:flex; flex-direction:column; gap:3px; }
+.cg-skrow { display:flex; align-items:center; gap:6px; padding:4px 8px;
+  background:var(--cg-bg3); border:1px solid var(--cg-border);
+  border-radius:3px; box-sizing:border-box; }
+.cg-sknm { flex:1; font-size:.82em; color:var(--cg-text); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.cg-skattr { font-size:.72em; color:var(--cg-dim); flex-shrink:0; }
+.cg-skval { width:62px; text-align:center; font-size:.8em;
+  color:var(--cg-gold); flex-shrink:0; }
+.cg-spec-row { display:flex; align-items:center; gap:8px; font-size:.8em; }
+.cg-spec-n { color:var(--cg-gold); font-weight:600; }
+.cg-bgrow { padding:8px 10px; background:var(--cg-bg3);
+  border:1px solid var(--cg-border); border-radius:3px;
+  margin-bottom:6px; box-sizing:border-box; }
+.cg-bgrow.sel { border-color:var(--cg-gold-d); background:rgba(196,164,74,.06); }
+.cg-bgrow.off { opacity:.4; }
+.cg-bghead { display:flex; align-items:center; gap:8px; cursor:pointer; }
+.cg-bgnm { flex:1; font-size:.86em; color:var(--cg-head); }
+.cg-bgcost { font-size:.76em; color:var(--cg-dim); flex-shrink:0; }
+.cg-bgdesc { font-size:.76em; color:var(--cg-dim); font-style:italic;
+  margin:4px 0 0 24px; }
+.cg-bgnote { width:100%; margin-top:6px; background:var(--cg-bg);
+  border:1px solid var(--cg-border2); border-radius:3px; color:var(--cg-text);
+  font-size:.8em; padding:4px 6px; font-family:'Jost',sans-serif;
+  resize:none; box-sizing:border-box; }
+</style>`;
+
+class ChargenApp extends Application {
+  constructor(actor, baseSkills) {
+    super({ id:"kk9-chargen", title:"Создание персонажа", width:440, height:580, resizable:false });
+    this.cgActor     = actor;
+    this.cgSkills    = baseSkills;
+    this.cgStep      = 1;
+    this.cgState     = {};
+    this._resolve    = null;
+  }
+
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      id:"kk9-chargen", title:"Создание персонажа",
+      width:440, height:580, resizable:false,
+      classes:["app","window-app","kk9-cg-win"]
+    });
+  }
+
+  // Инжектируем CSS один раз
+  _injectCss() {
+    if (!document.getElementById("kk9-cg-style"))
+      document.head.insertAdjacentHTML("beforeend", CG_CSS);
+  }
+
+  async _renderInner() {
+    this._injectCss();
+    const body = this._buildStep(this.cgStep);
+    const nav  = this._buildNav(this.cgStep);
+    const el   = $(`<div style="display:flex;flex-direction:column;height:100%;">
+      <div class="cg-body">${body}</div>
+      <div class="cg-footer">${nav}</div>
+    </div>`);
+    this._bindEvents(el);
+    return el;
+  }
+
+  // ── Билдеры шагов ──────────────────────────────────────────
+
+  _buildStep(step) {
+    if (step===1) return this._buildStep1();
+    if (step===2) return this._buildStep2();
+    if (step===3) return this._buildStep3();
+    if (step===4) return this._buildStep4();
+    return "";
+  }
+
+  _buildStep1() {
+    const s=this.cgState, a=this.cgActor;
+    return `<div class="cg-step">Шаг 1 / 4 — О себе</div>
+      <div class="cg-field"><span class="cg-lbl">Имя</span>
+        <input class="cg-inp" id="cg-name" type="text" value="${s.name||a.name}"/></div>
+      <div class="cg-field"><span class="cg-lbl">Возраст</span>
+        <input class="cg-inp" id="cg-age" type="number" min="1" value="${s.age||a.system.age||18}" style="width:90px"/></div>
+      <div class="cg-field"><span class="cg-lbl">Гендер</span>
+        <input class="cg-inp" id="cg-gender" type="text" value="${s.gender||a.system.gender||""}" placeholder="—"/></div>
+      <div class="cg-field"><span class="cg-lbl">Место происхождения / проживания</span>
+        <input class="cg-inp" id="cg-birthplace" type="text" value="${s.birthplace||a.system.birthplace||""}" placeholder="—"/></div>
+      <p class="cg-hint">Данные можно изменить позже в карточке.</p>`;
+  }
+
+  _buildStep2() {
+    const s=this.cgState, total=_cgGet("chargen.points.attributes");
+    const maxDie=_cgGet("chargen.attr.max_die"), maxIdx=_dieIndex(maxDie);
+    const conv=_cgGet("chargen.convert.attr_to_skill");
+    if (!s.attrs) { s.attrs={}; s.attrSave=0; ATTR_KEYS.forEach(k=>s.attrs[k]=4); }
+    const spent=ATTR_KEYS.reduce((n,k)=>n+_dieIndex(s.attrs[k]),0);
+    const rem=total-spent-s.attrSave;
+    const rows=ATTR_KEYS.map(k=>{
+      const idx=_dieIndex(s.attrs[k]);
+      return `<div class="cg-arow">
+        <span class="cg-albl">${ATTR_LABELS[k]}</span>
+        <button class="cg-pm" data-act="attr" data-key="${k}" data-dir="-1" ${idx===0?"disabled":""}>−</button>
+        <span class="cg-aval">${_dieLabel(s.attrs[k])}</span>
+        <button class="cg-pm" data-act="attr" data-key="${k}" data-dir="1" ${(rem<=0||idx>=maxIdx)?"disabled":""}>+</button>
+      </div>`;
+    }).join("");
+    return `<div class="cg-step">Шаг 2 / 4 — Атрибуты (макс. ${_dieLabel(maxDie)})</div>
+      <div class="cg-pts"><span>Очков атрибутов</span><span class="cg-pts-val">${rem} / ${total}</span></div>
+      ${rows}
+      <div class="cg-save-block">
+        <span>Засолить 1 очко → ${conv} оч. навыков</span>
+        <button class="cg-act${s.attrSave?" on":""}" data-act="save-toggle"
+          ${!s.attrSave&&rem<=0?"disabled":""}>${s.attrSave?"✓ Засолено":"Засолить"}</button>
+      </div>`;
+  }
+
+  _buildStep3() {
+    const s=this.cgState, bsk=this.cgSkills;
+    const conv=_cgGet("chargen.convert.attr_to_skill");
+    const base=_cgGet("chargen.points.skills");
+    const specCost=_cgGet("chargen.special.cost"), specMax=_cgGet("chargen.special.max");
+    const start=base+(s.attrSave||0)*conv;
+    if (!s.skills) {
+      s.skills={}; s.specCount=0;
+      bsk.forEach(sk=>{ s.skills[sk.id]={die:sk.system.die||4, modifier:sk.system.modifier??-2}; });
+    }
+    const spent=()=>{
+      let n=s.specCount*specCost;
+      bsk.forEach(sk=>{
+        const oM=sk.system.modifier??-2, oD=sk.system.die||4, c=s.skills[sk.id];
+        if (oM<0&&c.modifier>=0) n+=1;
+        const oi=_dieIndex(oD),ci=_dieIndex(c.die);
+        for(let i=oi;i<ci;i++) n+=DIE_STEPS[i]===4?1:2;
+      });
+      return n;
+    };
+    const rem=start-spent();
+    const canUp=(sk,c)=>{
+      const cost=c.modifier<0?1:(_dieIndex(c.die)===0?1:2);
+      if(rem<cost)return false;
+      if(c.modifier<0)return true;
+      return c.die<(s.attrs[sk.system.linkedAttribute]??4);
+    };
+    const canDown=(sk,c)=>c.die>(sk.system.die||4)||c.modifier>(sk.system.modifier??-2);
+    const rows=bsk.map(sk=>{
+      const c=s.skills[sk.id], aD=s.attrs[sk.system.linkedAttribute]??4;
+      const mStr=c.modifier<0?" −2":"";
+      return `<div class="cg-skrow">
+        <span class="cg-sknm">${sk.name}</span>
+        <span class="cg-skattr">[${_dieLabel(aD)}]</span>
+        <button class="cg-pm" data-act="sk" data-id="${sk.id}" data-dir="-1" ${!canDown(sk,c)?"disabled":""}>−</button>
+        <span class="cg-skval">${_dieLabel(c.die)}${mStr}</span>
+        <button class="cg-pm" data-act="sk" data-id="${sk.id}" data-dir="1" ${!canUp(sk,c)?"disabled":""}>+</button>
+      </div>`;
+    }).join("");
+    const specLeft=specMax-s.specCount;
+    return `<div class="cg-step">Шаг 3 / 4 — Навыки</div>
+      <div class="cg-pts"><span>Очков навыков</span><span class="cg-pts-val">${rem} / ${start}</span></div>
+      <div class="cg-sklist">${rows}</div>
+      <div class="cg-save-block">
+        <div class="cg-spec-row">
+          <span>Спецспособность (−${specCost} оч.)</span>
+          <button class="cg-act" data-act="spec-buy"
+            ${(rem<specCost||specLeft<=0)?"disabled":""}>+ Запросить</button>
+          ${s.specCount>0?`<span class="cg-spec-n">${s.specCount}/${specMax} запрошено</span>`:""}
+        </div>
+      </div>`;
+  }
+
+  _buildStep4() {
+    const s=this.cgState, bgs=_getBgDefs();
+    if (!s.bgs)     s.bgs={};
+    if (!s.bgNotes) s.bgNotes={};
+    const spent=bgs.filter(b=>s.bgs[b.key]).reduce((n,b)=>n+b.cost,0);
+    const startPts=s.skillSave||0, rem=startPts-spent;
+    const rows=bgs.map(b=>{
+      const checked=!!s.bgs[b.key], canBuy=!checked&&rem>=b.cost;
+      return `<div class="cg-bgrow${checked?" sel":""}${!canBuy&&!checked?" off":""}">
+        <label class="cg-bghead">
+          <input type="checkbox" data-act="bg" data-key="${b.key}"
+            ${checked?"checked":""}${!canBuy&&!checked?" disabled":""}/>
+          <span class="cg-bgnm">${b.label}</span>
+          <span class="cg-bgcost">${b.cost} оч.</span>
+        </label>
+        <div class="cg-bgdesc">${b.desc}</div>
+        ${checked?`<textarea class="cg-bgnote" data-key="${b.key}" rows="2"
+          placeholder="Пожелания мастеру...">${s.bgNotes[b.key]||""}</textarea>`:""}
+      </div>`;
+    }).join("");
+    return `<div class="cg-step">Шаг 4 / 4 — Бэкграунды</div>
+      <div class="cg-pts"><span>Очков бэкграундов</span><span class="cg-pts-val">${rem} / ${startPts}</span></div>
+      ${rows}`;
+  }
+
+  _buildNav(step) {
+    const back   = step>1  ? `<button class="cg-btn" data-act="back">← Назад</button>` : "";
+    const cancel = `<button class="cg-btn" data-act="cancel">Отмена</button>`;
+    const fwd    = step<4
+      ? `<button class="cg-btn primary" data-act="next">Далее →</button>`
+      : `<button class="cg-btn primary" data-act="finish">Завершить ✓</button>`;
+    return back + cancel + fwd;
+  }
+
+  // ── События ────────────────────────────────────────────────
+
+  _bindEvents(el) {
+    el.find("[data-act]").on("click change", async (ev) => {
+      const t=ev.currentTarget, act=t.dataset.act;
+      if (act==="cancel") { this.close(); this._resolve?.("cancel"); return; }
+      if (act==="next")   { this._saveStep(el); this.cgStep++; await this.render(false); return; }
+      if (act==="back")   { this.cgStep--; await this.render(false); return; }
+      if (act==="finish") { this._saveStep(el); this._resolve?.("finish"); this.close(); return; }
+
+      if (act==="attr") {
+        const k=t.dataset.key, dir=parseInt(t.dataset.dir);
+        const s=this.cgState, total=_cgGet("chargen.points.attributes");
+        const maxIdx=_dieIndex(_cgGet("chargen.attr.max_die"));
+        const sp=ATTR_KEYS.reduce((n,k2)=>n+_dieIndex(s.attrs[k2]),0);
+        const rem=total-sp-s.attrSave;
+        const idx=_dieIndex(s.attrs[k]);
+        if(dir===1&&rem>0&&idx<maxIdx) s.attrs[k]=DIE_STEPS[idx+1];
+        if(dir===-1&&idx>0) s.attrs[k]=DIE_STEPS[idx-1];
+        await this.render(false); return;
+      }
+      if (act==="save-toggle") {
+        this.cgState.attrSave=this.cgState.attrSave?0:1;
+        await this.render(false); return;
+      }
+      if (act==="sk") {
+        const id=t.dataset.id, dir=parseInt(t.dataset.dir);
+        const c=this.cgState.skills[id];
+        const sk=this.cgSkills.find(s=>s.id===id);
+        const oD=sk?.system?.die||4, oM=sk?.system?.modifier??-2;
+        if(dir===1){if(c.modifier<0)c.modifier=0;else{const i=_dieIndex(c.die);if(i<2)c.die=DIE_STEPS[i+1];}}
+        else{if(c.die>oD)c.die=DIE_STEPS[_dieIndex(c.die)-1];else if(c.modifier>oM)c.modifier=oM;}
+        await this.render(false); return;
+      }
+      if (act==="spec-buy") {
+        const specMax=_cgGet("chargen.special.max");
+        if(this.cgState.specCount<specMax) this.cgState.specCount++;
+        await this.render(false); return;
+      }
+      if (act==="bg") {
+        // Сохраняем заметки перед перерисовкой
+        el.find(".cg-bgnote").each((_,ta)=>{ this.cgState.bgNotes[ta.dataset.key]=ta.value; });
+        this.cgState.bgs[t.dataset.key]=t.checked;
+        await this.render(false); return;
+      }
+    });
+  }
+
+  _saveStep(el) {
+    const s=this.cgState, a=this.cgActor;
+    if (this.cgStep===1) {
+      s.name       = el.find("#cg-name").val().trim()||a.name;
+      s.age        = parseInt(el.find("#cg-age").val())||18;
+      s.gender     = el.find("#cg-gender").val().trim();
+      s.birthplace = el.find("#cg-birthplace").val().trim();
+    }
+    if (this.cgStep===3) {
+      const maxSave=_cgGet("chargen.skills.max_save");
+      const conv=_cgGet("chargen.convert.attr_to_skill");
+      const base=_cgGet("chargen.points.skills");
+      const start=base+(s.attrSave||0)*conv;
+      const spent=(()=>{
+        let n=s.specCount*_cgGet("chargen.special.cost");
+        this.cgSkills.forEach(sk=>{
+          const oM=sk.system.modifier??-2,oD=sk.system.die||4,c=s.skills[sk.id];
+          if(oM<0&&c.modifier>=0)n+=1;
+          const oi=_dieIndex(oD),ci=_dieIndex(c.die);
+          for(let i=oi;i<ci;i++)n+=DIE_STEPS[i]===4?1:2;
+        });
+        return n;
+      })();
+      s.skillSave=Math.min(start-spent, maxSave);
+    }
+    if (this.cgStep===4) {
+      el.find(".cg-bgnote").each((_,ta)=>{ s.bgNotes[ta.dataset.key]=ta.value; });
+    }
+  }
+
+  // Сохраняем скролл между рендерами
+  async render(force) {
+    const scrollTop = this.element?.find(".cg-body")[0]?.scrollTop ?? 0;
+    await super.render(force);
+    setTimeout(()=>{ this.element?.find(".cg-body")[0] && (this.element.find(".cg-body")[0].scrollTop=scrollTop); },0);
+    return this;
+  }
+}
+
+// ── Применить результат ───────────────────────────────────────
+async function _applyChargen(actor, state, baseSkills) {
+  await actor.update({
+    name:state.name, "system.age":state.age,
+    "system.gender":state.gender||"",
+    "system.birthplace":state.birthplace||"",
+    "system.character_created":true,
+    ...Object.fromEntries(ATTR_KEYS.map(k=>[`system.attributes.${k}.die`,state.attrs[k]]))
+  });
+  for (const sk of baseSkills) {
+    const cur=state.skills?.[sk.id], item=actor.items.get(sk.id);
+    if (item&&cur) await item.update({"system.die":cur.die,"system.modifier":cur.modifier});
+  }
+  await _writeToMasterJournal(actor,state);
+  ui.notifications.info(`${actor.name}: создание персонажа завершено!`);
+}
+
+async function _writeToMasterJournal(actor, state) {
+  const journal=game.journal.find(j=>j.getFlag("kk9","isMasterJournal"));
+  if (!journal) { console.warn("КК9 | Журнал «Мастерские дела» не найден."); return; }
+  const bgDefs=_getBgDefs(), chosen=bgDefs.filter(b=>state.bgs?.[b.key]);
+  let content="";
+  if ((state.specCount||0)>0)
+    content+=`<p><strong>Запрос спецспособностей:</strong> ${state.specCount} шт.</p>`;
+  if (chosen.length)
+    content+="<ul>"+chosen.map(b=>`<li><strong>${b.label}</strong>${state.bgNotes?.[b.key]?`: ${state.bgNotes[b.key]}`:""}</li>`).join("")+"</ul>";
+  if (!content) content="<p>Нет запросов.</p>";
+  const existing=journal.pages.find(p=>p.getFlag("kk9","actorId")===actor.id);
+  if (existing) await existing.update({"text.content":content});
+  else await journal.createEmbeddedDocuments("JournalEntryPage",[{
+    name:actor.name,type:"text","text.content":content,"text.format":1,
+    flags:{kk9:{actorId:actor.id}}
+  }]);
+}
+
+// ── Старт ─────────────────────────────────────────────────────
+async function _startChargen(actor) {
+  let baseSkills=actor.items.filter(i=>i.type==="ability"&&i.system.isBase);
+  if (!baseSkills.length) {
+    const pack=game.packs.get("kk9.kk9-skills");
+    if (pack) {
+      await pack.getIndex();
+      const all=await Promise.all(Array.from(pack.index).map(i=>pack.getDocument(i._id)));
+      baseSkills=all.filter(d=>d?.system?.isBase);
+    }
+  }
+  if (!baseSkills.length) {
+    ui.notifications.warn("Нет базовых навыков. Попроси мастера заполнить компендиум."); return;
+  }
+  return new Promise(resolve => {
+    const app=new ChargenApp(actor, baseSkills);
+    app._resolve = async (result) => {
+      if (result==="finish") await _applyChargen(actor, app.cgState, baseSkills);
+      resolve(result);
+    };
+    app.render(true);
+  });
 }

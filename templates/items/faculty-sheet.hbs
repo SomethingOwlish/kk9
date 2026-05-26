@@ -260,6 +260,8 @@
         {{#if system.dropouts.length}}
           {{#each system.dropouts as |dr|}}
           <div class="fac-dropout-row">
+            <input type="hidden" name="system.dropouts.{{@index}}.actorUuid"   value="{{dr.actorUuid}}" />
+            <input type="hidden" name="system.dropouts.{{@index}}.studentName" value="{{dr.studentName}}" />
             <span class="fac-dropout-name fac-open-actor"
                   data-uuid="{{dr.actorUuid}}">{{dr.studentName}}</span>
             <textarea class="kk9-textarea fac-dropout-ta"

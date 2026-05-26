@@ -1,4 +1,36 @@
 {{!-- КК9 | Карточка персонажа v0.4 --}}
+<style>
+.chargen-overlay {
+  position: absolute; inset: 0; z-index: 100;
+  background: var(--bg1, #1a1a1a);
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+}
+.chargen-overlay-inner {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 14px; padding: 32px 40px; max-width: 320px; text-align: center;
+}
+.chargen-overlay-title {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 1.2em; color: var(--gold, #c4a44a); letter-spacing: 0.06em;
+}
+.chargen-overlay-hint {
+  font-size: 0.84em; color: var(--text-dim, #888); margin: 0;
+}
+.chargen-overlay-btn {
+  width: 200px; padding: 10px 0; border-radius: 4px; cursor: pointer;
+  font-family: 'Jost', sans-serif; font-size: 0.9em; letter-spacing: 0.04em;
+  border: 1px solid var(--gold, #c4a44a);
+  background: rgba(196,164,74,0.15); color: var(--gold, #c4a44a);
+  transition: background 0.15s;
+}
+.chargen-overlay-btn:hover { background: rgba(196,164,74,0.28); }
+.chargen-overlay-btn--secondary {
+  background: transparent; border-color: var(--border, #3a3a3a);
+  color: var(--text-dim, #888); font-size: 0.8em; padding: 7px 0;
+}
+.chargen-overlay-btn--secondary:hover { background: rgba(255,255,255,0.05); }
+</style>
 <form class="kk9-sheet character-sheet {{system.faculty}}" autocomplete="off">
 
   {{!-- ЛЕВАЯ КОЛОНКА --}}
@@ -68,7 +100,7 @@
       </div>
       <div class="derived-energy">
         <span class="derived-lbl">Энергия</span>
-        <input type="number" name="system.energy.value" value="{{system.energy.value}}" class="energy-cur" min="0" />
+        <input type="number" name="system.energy.value" value="{{system.energy.value}}" class="energy-cur" min="0" {{#unless isGM}}readonly title="Только ГМ может изменять энергию вручную"{{/unless}} />
         <span class="energy-sep">/</span>
         <span class="energy-max">{{system.energy.max}}</span>
       </div>
@@ -80,6 +112,24 @@
 
     {{!-- ШКАЛЫ ЗДОРОВЬЯ --}}
     {{> "systems/kk9/templates/actors/parts/health.hbs"}}
+
+    {{!-- ОВЕРЛЕЙ СОЗДАНИЯ ПЕРСОНАЖА --}}
+    {{#unless system.character_created}}
+    <div class="chargen-overlay">
+      <div class="chargen-overlay-inner">
+        <div class="chargen-overlay-title">Персонаж не создан</div>
+        <p class="chargen-overlay-hint">Нажми кнопку чтобы начать создание персонажа</p>
+        <button type="button" class="chargen-start-btn chargen-overlay-btn">
+          Создать персонажа
+        </button>
+        {{#if isGM}}
+        <button type="button" class="chargen-skip-btn chargen-overlay-btn chargen-overlay-btn--secondary">
+          Открыть карточку (ГМ)
+        </button>
+        {{/if}}
+      </div>
+    </div>
+    {{/unless}}
 
     {{!-- ВКЛАДКИ --}}
     <nav class="sheet-tabs" data-group="primary">

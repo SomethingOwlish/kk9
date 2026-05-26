@@ -75,6 +75,23 @@
           <textarea name="system.motives" rows="3" placeholder="что движет изнутри...">{{system.motives}}</textarea></div>
         <div class="npc-field" style="margin-bottom:8px"><label>Внешние особенности</label>
           <textarea name="system.appearance" rows="2" placeholder="внешность, особые приметы...">{{system.appearance}}</textarea></div>
+        {{!-- Языки --}}
+        <div class="bio-languages-block npc-languages-drop" data-drop-zone="languages" style="margin-bottom:10px">
+          <div class="section-header-row">
+            <div class="section-title" style="margin:0">Языки</div>
+            <span class="drop-hint-sm">Перетащи из Items</span>
+          </div>
+          <div class="languages-list">
+            {{#each system.languages as |lang|}}
+            <div class="language-tag">
+              <span>{{lang.name}}</span>
+              <button type="button" class="btn-delete-language btn-delete-xs" data-index="{{@index}}">✕</button>
+            </div>
+            {{else}}
+            <p class="empty-hint">Нет языков</p>
+            {{/each}}
+          </div>
+        </div>
         <div class="section-title">Биография</div>
         <textarea name="system.biography" rows="6" class="npc-textarea-lg" placeholder="история персонажа...">{{system.biography}}</textarea>
         <div class="section-title" style="margin-top:10px">Заметки</div>
@@ -133,7 +150,7 @@
           </div>
           <div class="derived-energy">
             <span class="derived-lbl">Энергия</span>
-            <input type="number" name="system.energy.value" value="{{system.energy.value}}" class="energy-cur" min="0" />
+            <input type="number" name="system.energy.value" value="{{system.energy.value}}" class="energy-cur" min="0" {{#unless isGM}}readonly title="Только ГМ может изменять энергию вручную"{{/unless}} />
             <span class="energy-sep">/</span>
             <span class="energy-max">{{system.energy.max}}</span>
           </div>

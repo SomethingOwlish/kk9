@@ -174,7 +174,6 @@
       {{#if daemonItems.length}}
         {{#each daemonItems as |sk idx|}}
         <div class="dm-skill-row">
-          <span class="dm-skill-type" style="font-size:0.68em;color:var(--text-dim);min-width:28px">{{#if (eq sk.type "ability")}}Сп.{{else}}Нв.{{/if}}</span>
           <span class="dm-skill-name dm-rollable" data-index="{{@index}}">{{sk.name}}</span>
           <div class="skill-controls">
             <select class="die-select-sm dm-skill-die" data-index="{{@index}}" onclick="event.stopPropagation()">

@@ -642,10 +642,27 @@ export class KK9Actor extends Actor {
   // ----------------------------------------------------------
   // ИНИЦИАТИВА
   // ----------------------------------------------------------
-  async rollInitiative() {
+  // ----------------------------------------------------------
+  // ИНИЦИАТИВА — главный диспатчер (вызывается из combat tracker и листа)
+  // ----------------------------------------------------------
+  async rollInitiative(options = {}) {
+    switch (this.type) {
+      case "character":
+        return this.rollCharacterInitiative();
+      case "npc-light":
+      case "npc-hard":
+      case "npc-boss":
+        return this.rollNpcInitiative();
+      case "container":
+        return this.rollContainerInitiative();
+      default:
+        return super.rollInitiative(options);
+    }
+  }
+
+  async rollCharacterInitiative() {
     const ag   = this.system.attributes.agility;
     const sm   = this.system.attributes.smarts;
-    const isWC = this.type === "character";
 
     const hAg = this._getHealthModForAttr("agility");
     const hSm = this._getHealthModForAttr("smarts");
@@ -658,11 +675,8 @@ export class KK9Actor extends Actor {
     const mTotal = mAg + mSm;
     const sMod   = mTotal !== 0 ? (mTotal > 0 ? `+${mTotal}` : `${mTotal}`) : "";
 
-    // Один wild die на весь бросок: берём два лучших из трёх кубиков
-    const formula = isWC
-      ? `{1d${ag.die}x, 1d${sm.die}x, 1d6x}kh2${sMod}`
-      : `1d${ag.die}x + 1d${sm.die}x${sMod}`;
-
+    // Wild Card: берём два лучших из трёх кубиков
+    const formula = `{1d${ag.die}x, 1d${sm.die}x, 1d6x}kh2${sMod}`;
     const reasons = [...hAg.reasons, ...hSm.reasons];
 
     const roll = new Roll(formula);
@@ -671,7 +685,6 @@ export class KK9Actor extends Actor {
     const diceHtml = this._buildDiceHtml(roll, reasons);
     const content  = this._buildInitiativeMessage("Инициатива", total, diceHtml);
 
-    // Записываем в combat tracker если персонаж участвует в бою
     const combat = game?.combat;
     if (combat) {
       const combatant = combat.combatants.find(c => c.actorId === this.id);
@@ -686,8 +699,93 @@ export class KK9Actor extends Actor {
     return { roll, total };
   }
 
-  // ----------------------------------------------------------
-  // СТОЙКОСТЬ — всегда доступна даже на пипе 5
+  // Инициатива контейнера — берёт первого доступного даймона/спутника
+  async rollContainerInitiative() {
+    const refs = [...(this.system.daemon_refs || []), ...(this.system.companion_refs || [])];
+    const items = [];
+    for (const uuid of refs) {
+      const doc = await fromUuid(uuid);
+      if (doc?.system?.attributes) { items.push(doc); break; }
+    }
+    if (!items.length) {
+      ui.notifications.warn(`${this.name}: нет доступных даймонов или спутников для инициативы.`);
+      return;
+    }
+
+    const item   = items[0];
+    const attrs  = item.system.attributes;
+    const agDie  = attrs.agility?.die      || 6;
+    const smDie  = attrs.smarts?.die       || 6;
+    const mod    = (attrs.agility?.modifier || 0) + (attrs.smarts?.modifier || 0);
+    const modStr = mod ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
+
+    const roll = new Roll(`1d${agDie}x + 1d${smDie}x${modStr}`);
+    await roll.evaluate();
+    const total = roll.total;
+
+    const portrait = item.img || "icons/svg/mystery-man.svg";
+    let diceRows = "";
+    for (const term of roll.terms) {
+      if (typeof term.faces !== "number") continue;
+      const vals = (term.results ?? []).map(rv => `<span class="kk9-rv dk">${rv.result}</span>`).join("");
+      const sum  = (term.results ?? []).reduce((a, v) => a + v.result, 0);
+      diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
+    }
+    if (mod) diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">мод.: ${modStr}</span></div>`;
+    diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div>`;
+
+    const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${item.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${item.name}</span><span class="kk9-chat-label">Инициатива</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${total}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`;
+
+    const combat = game?.combat;
+    if (combat) {
+      const combatant = combat.combatants.find(cb => cb.actorId === this.id);
+      if (combatant) await combatant.update({ initiative: total });
+    }
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: this }),
+      content,
+      flags: { kk9: { isRoll: true, actorId: this.id } }
+    });
+    return { roll, total };
+  }
+
+  // Инициатива контейнера с конкретным item (вызывается из листа с select)
+  async rollContainerInitiativeForItem(item) {
+    const attrs  = item.system.attributes;
+    const agDie  = attrs.agility?.die      || 6;
+    const smDie  = attrs.smarts?.die       || 6;
+    const mod    = (attrs.agility?.modifier || 0) + (attrs.smarts?.modifier || 0);
+    const modStr = mod ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
+
+    const roll = new Roll(`1d${agDie}x + 1d${smDie}x${modStr}`);
+    await roll.evaluate();
+    const total = roll.total;
+
+    const portrait = item.img || "icons/svg/mystery-man.svg";
+    let diceRows = "";
+    for (const term of roll.terms) {
+      if (typeof term.faces !== "number") continue;
+      const vals = (term.results ?? []).map(rv => `<span class="kk9-rv dk">${rv.result}</span>`).join("");
+      const sum  = (term.results ?? []).reduce((a, v) => a + v.result, 0);
+      diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
+    }
+    if (mod) diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">мод.: ${modStr}</span></div>`;
+    diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div>`;
+
+    const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${item.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${item.name}</span><span class="kk9-chat-label">Инициатива</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${total}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`;
+
+    const combat = game?.combat;
+    if (combat) {
+      const combatant = combat.combatants.find(cb => cb.actorId === this.id);
+      if (combatant) await combatant.update({ initiative: total });
+    }
+    await ChatMessage.create({
+      speaker: ChatMessage.getSpeaker({ actor: this }),
+      content,
+      flags: { kk9: { isRoll: true, actorId: this.id } }
+    });
+    return { roll, total };
+  }
   // ----------------------------------------------------------
   async rollToughness() {
     const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выжидание"];

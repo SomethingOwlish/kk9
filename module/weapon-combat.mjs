@@ -456,10 +456,9 @@ export async function rollWeaponAttack(weaponItem, actor) {
   const total   = roll.total;
   const success = total >= 6;
 
-  // Список акторов для выбора цели (все кроме атакующего)
-  const targetOptions = game.actors
-    .filter(a => a.id !== actor?.id && ["character","npc-light","npc-hard","npc-boss"].includes(a.type))
-    .map(a => `<option value="${a.id}">${a.name}</option>`)
+  // Список акторов для выбора цели: combat → сцена → мир (кроме атакующего)
+  const targetOptions = _getTargetCandidates(actor?.id)
+    .map(c => `<option value="${c.id}">${c.name}</option>`)
     .join("");
 
   // Статус-инфо для кнопки
@@ -545,21 +544,49 @@ async function _getTargetActor(btn) {
 }
 
 // ── Диалог мультиселекта целей для gear/площадного заклинания ──
-async function _showGearTargetDialog(damageLevel, damageType, extraPip, hasStatus, statusUuid, isSpell = false) {
-  let candidates = [];
-  const scene = game.scenes?.active;
-  if (scene && scene.tokens.size > 0) {
+// ── Список кандидатов для выбора цели: combat → сцена → мир ──
+function _getTargetCandidates(excludeActorId = null) {
+  const NPC_TYPES = ["character","npc-light","npc-hard","npc-boss","container"];
+
+  // 1. Участники активного боя
+  if (game.combat?.combatants?.size) {
     const seen = new Set();
-    candidates = scene.tokens
-      .filter(t => t.actor)
-      .map(t => ({ id: t.actor.id, name: `${t.name} (сцена)` }))
-      .filter(c => seen.has(c.id) ? false : seen.add(c.id));
+    const list = [];
+    for (const cb of game.combat.combatants) {
+      if (!cb.actor) continue;
+      if (cb.actor.id === excludeActorId) continue;
+      if (!NPC_TYPES.includes(cb.actor.type)) continue;
+      if (seen.has(cb.actor.id)) continue;
+      seen.add(cb.actor.id);
+      list.push({ id: cb.actor.id, name: `${cb.name} (бой)` });
+    }
+    if (list.length) return list;
   }
-  if (candidates.length === 0) {
-    candidates = game.actors
-      .filter(a => ["character","npc-light","npc-hard","npc-boss"].includes(a.type))
-      .map(a => ({ id: a.id, name: a.name }));
+
+  // 2. Токены на активной сцене
+  const scene = game.scenes?.active;
+  if (scene?.tokens?.size) {
+    const seen = new Set();
+    const list = [];
+    for (const t of scene.tokens) {
+      if (!t.actor) continue;
+      if (t.actor.id === excludeActorId) continue;
+      if (!NPC_TYPES.includes(t.actor.type)) continue;
+      if (seen.has(t.actor.id)) continue;
+      seen.add(t.actor.id);
+      list.push({ id: t.actor.id, name: `${t.name} (сцена)` });
+    }
+    if (list.length) return list;
   }
+
+  // 3. Все акторы мира
+  return game.actors
+    .filter(a => a.id !== excludeActorId && NPC_TYPES.includes(a.type))
+    .map(a => ({ id: a.id, name: a.name }));
+}
+
+async function _showGearTargetDialog(damageLevel, damageType, extraPip, hasStatus, statusUuid, isSpell = false) {
+  const candidates = _getTargetCandidates();
 
   const rows = candidates.map(c => `
     <div class="kk9-gear-target-row" data-id="${c.id}" style="
@@ -604,6 +631,13 @@ async function _showGearTargetDialog(damageLevel, damageType, extraPip, hasStatu
             for (const actorId of selected) {
               const target = game.actors.get(actorId);
               if (!target) continue;
+
+              // Контейнер — урон внутрь через _applyDamageToContainer (без btn)
+              if (target.type === "container") {
+                await _applyDamageToContainer(target, damageLevel, damageType, parseInt(extraPip) || 0, isSpell, hasStatus, statusUuid, null);
+                continue;
+              }
+
               let resultMsg = "";
               if (isSpell) {
                 const { newPhys, newMent, overflow } = await applySpellDamageToActor(target, damageLevel, damageType, parseInt(extraPip) || 0);
@@ -647,6 +681,80 @@ async function _showGearTargetDialog(damageLevel, damageType, extraPip, hasStatu
   });
 }
 
+async function _applyDamageToContainer(container, damageLevel, damageType, extraPip, isSpell, hasStatus, statusUuid, btn) {
+  // Собираем доступных: даймоны (не в шарике) + спутники
+  const candidates = [];
+  for (const uuid of (container.system.daemon_refs || [])) {
+    const doc = await fromUuid(uuid);
+    if (doc && !doc.system.is_orb) candidates.push({ doc, type: "daemon", label: `${doc.name} (Даймон)` });
+  }
+  for (const uuid of (container.system.companion_refs || [])) {
+    const doc = await fromUuid(uuid);
+    if (doc) candidates.push({ doc, type: "companion", label: `${doc.name} (Спутник)` });
+  }
+
+  if (!candidates.length) {
+    ui.notifications.warn(`${container.name}: нет доступных целей внутри контейнера.`);
+    return;
+  }
+
+  // Выбор цели
+  let chosen;
+  if (candidates.length === 1) {
+    chosen = candidates[0];
+  } else {
+    const options = candidates.map((c, i) => `<option value="${i}">${c.label}</option>`).join("");
+    let idx = null;
+    try {
+      idx = await Dialog.prompt({
+        title: "Выбери цель внутри контейнера",
+        content: `<div style="padding:8px">
+          <p style="margin-bottom:8px">Кто получает урон?</p>
+          <select id="container-target-sel" style="width:100%">${options}</select>
+        </div>`,
+        label: "Применить",
+        callback: html => html.find("#container-target-sel").val()
+      });
+    } catch(e) { return; }
+    if (idx === null) return;
+    chosen = candidates[parseInt(idx)];
+  }
+
+  // Применяем урон или оглушение
+  if (chosen.type === "daemon") {
+    // Даймон — урон в шкалы здоровья Item'а (совместим с applyDamageToActor)
+    let resultMsg = "";
+    if (isSpell) {
+      const { newPhys, newMent, overflow } = await applySpellDamageToActor(chosen.doc, damageLevel, damageType, extraPip);
+      resultMsg = `Физ: ${newPhys}/5 · Мент: ${newMent}/5${overflow ? ` · Overflow: +${overflow}` : ""}`;
+    } else {
+      const { newVal } = await applyDamageToActor(chosen.doc, damageLevel, damageType, extraPip);
+      resultMsg = `${damageType === "mental" ? "Ментальное" : "Физическое"} состояние: ${newVal}/5`;
+    }
+    if (hasStatus && statusUuid) {
+      const statusItem = await fromUuid(statusUuid);
+      if (statusItem) await applyStatusToActor(chosen.doc, statusItem);
+    }
+    const dmgText = `${chosen.doc.name} (даймон) получает урон${isSpell ? " (заклинание)" : ""}.`
+      + `<br><span style="font-size:0.85em;color:rgba(255,255,255,0.45)">${resultMsg}</span>`;
+    ChatMessage.create({
+      content: _sysMsg(container, dmgText, "", isSpell ? "#a855f7" : "#c0392b"),
+      flags: { kk9: { isCombatMsg: true } }
+    });
+
+  } else {
+    // Спутник — оглушение контейнера + сообщение
+    await container.toggleStatusEffect("stun", { active: true });
+    const stunText = `${chosen.doc.name} (спутник) оглушён и пропускает следующий ход.`;
+    ChatMessage.create({
+      content: _sysMsg(container, stunText, "", "#f59e0b"),
+      flags: { kk9: { isCombatMsg: true } }
+    });
+  }
+
+  if (btn) btn.closest(".kk9-chat-roll-bar, div").find("button, select").prop("disabled", true).css("opacity", "0.4");
+}
+
 async function _handleApplyDamage(btn) {
   const isGear  = btn.data("is-gear")  === "1" || btn.data("is-gear")  === 1;
   const isSpell = btn.data("is-spell") === "1" || btn.data("is-spell") === 1;
@@ -667,6 +775,12 @@ async function _handleApplyDamage(btn) {
   // Обычная атака — одна цель
   const target = await _getTargetActor(btn);
   if (!target) return;
+
+  // Контейнер — урон внутрь
+  if (target.type === "container") {
+    await _applyDamageToContainer(target, damageLevel, damageType, extraPip, isSpell, hasStatus, statusUuid, btn);
+    return;
+  }
 
   let resultMsg = "";
   if (isSpell) {
@@ -936,9 +1050,8 @@ export async function rollSpellAttack(spellItem, actor) {
   const typeLabel = damageType === "mental" ? "🧠 Ментальный" : "⚔ Физический";
   const aoeLabel  = isAoe ? " · <span style='color:#c084fc'>Площадное</span>" : "";
 
-  const targetOptions = game.actors
-    .filter(a => a.id !== actor.id && ["character","npc-light","npc-hard","npc-boss"].includes(a.type))
-    .map(a => `<option value="${a.id}">${a.name}</option>`)
+  const targetOptions = _getTargetCandidates(actor.id)
+    .map(c => `<option value="${c.id}">${c.name}</option>`)
     .join("");
 
   const reasons = [...wandReasons];

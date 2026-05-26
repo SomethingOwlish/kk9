@@ -25,6 +25,22 @@ import {
 import { registerCombatHooks, registerChatListeners } from "./module/weapon-combat.mjs";
 
 // ============================================================
+// KK9Combat — переопределяем rollInitiative чтобы трекер
+// вызывал нашу логику вместо стандартной формулы Foundry
+// ============================================================
+class KK9Combat extends Combat {
+  async rollInitiative(ids, options = {}) {
+    const combatantIds = typeof ids === "string" ? [ids] : ids;
+    for (const id of combatantIds) {
+      const combatant = this.combatants.get(id);
+      if (!combatant?.actor) continue;
+      await combatant.actor.rollInitiative();
+    }
+    return this;
+  }
+}
+
+// ============================================================
 // Дефолтные изображения
 // ============================================================
 const KK9_DEFAULTS = {
@@ -37,6 +53,119 @@ const KK9_DEFAULTS = {
 const SKILL_TYPES = new Set(["ability","faculty","language"]);
 
 // ============================================================
+// BackgroundsConfig — редактор бэкграундов создания персонажа
+// ============================================================
+class BackgroundsConfig extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      title: "КК9 | Редактор бэкграундов",
+      id:    "kk9-backgrounds-config",
+      width: 500, height: 560,
+      resizable: false,
+      template: null // рендерим через _renderInner
+    });
+  }
+
+  _getHeaderButtons() {
+    return [{ label:"Закрыть", class:"close", icon:"fas fa-times", onclick:()=>this.close() }];
+  }
+
+  async _renderInner(data) {
+    const bgs = this._getBgs();
+    const rows = bgs.map((b,i)=>`
+      <div class="bg-cfg-row" data-idx="${i}">
+        <div class="bg-cfg-fields">
+          <input class="bg-cfg-label" type="text" placeholder="Название" value="${b.label}" data-field="label"/>
+          <input class="bg-cfg-cost"  type="number" min="0" value="${b.cost}" data-field="cost" style="width:54px"/>
+          <button type="button" class="bg-cfg-del btn-delete-xs">✕</button>
+        </div>
+        <textarea class="bg-cfg-desc" placeholder="Описание..." rows="2" data-field="desc">${b.desc||""}</textarea>
+      </div>`).join("");
+
+    const html = $(`<form class="kk9-bg-cfg-form">
+      <style>
+        .kk9-bg-cfg-form { --bg:#1c1c1c; --bg2:#232323; --bg3:#2a2a2a;
+          --border:#3a3a3a; --border2:#4a4a4a; --text:#b8b0a4;
+          --text-dim:#6a6560; --gold:#c4a44a; --gold-dim:#7a6430; --accent2:#c0392b;
+          background:var(--bg2); color:var(--text); font-family:'Jost',sans-serif;
+          padding:12px; display:flex; flex-direction:column; gap:8px; height:100%; box-sizing:border-box; }
+        .bg-cfg-hint { font-size:0.76em; color:var(--text-dim); margin-bottom:4px; }
+        .bg-cfg-scroll { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;
+                         scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+        .bg-cfg-row { background:var(--bg3); border:1px solid var(--border); border-radius:3px; padding:8px; }
+        .bg-cfg-fields { display:flex; gap:6px; align-items:center; margin-bottom:6px; }
+        .bg-cfg-label { flex:1; background:var(--bg2); border:1px solid var(--border); border-radius:3px;
+                         color:var(--text); padding:4px 7px; font-family:'Jost',sans-serif; font-size:0.84em; }
+        .bg-cfg-cost  { background:var(--bg2); border:1px solid var(--border); border-radius:3px;
+                         color:var(--gold); padding:4px 6px; font-family:'Jost',sans-serif;
+                         font-size:0.84em; text-align:center; }
+        .bg-cfg-del   { background:transparent; border:none; color:var(--border2);
+                         cursor:pointer; font-size:0.9em; flex-shrink:0; transition:color 0.12s; }
+        .bg-cfg-del:hover { color:var(--accent2); }
+        .bg-cfg-desc  { width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:3px;
+                         color:var(--text-dim); padding:4px 7px; font-family:'Jost',sans-serif;
+                         font-size:0.78em; resize:none; box-sizing:border-box; }
+        .bg-cfg-add   { background:transparent; border:1px solid var(--border2); border-radius:3px;
+                         color:var(--text-dim); padding:5px 12px; cursor:pointer;
+                         font-family:'Jost',sans-serif; font-size:0.82em; transition:all 0.12s; }
+        .bg-cfg-add:hover { border-color:var(--gold-dim); color:var(--gold); }
+        .bg-cfg-save  { background:rgba(196,164,74,0.1); border:1px solid var(--gold-dim); border-radius:3px;
+                         color:var(--gold); padding:6px 16px; cursor:pointer; font-family:'Jost',sans-serif;
+                         font-size:0.84em; font-weight:500; transition:all 0.12s; }
+        .bg-cfg-save:hover { background:rgba(196,164,74,0.2); }
+        .bg-cfg-footer { display:flex; justify-content:space-between; align-items:center;
+                          padding-top:8px; border-top:1px solid var(--border); flex-shrink:0; }
+      </style>
+      <p class="bg-cfg-hint">Название · Цена (оч.) · Описание. Порядок — как будет показан игроку.</p>
+      <div class="bg-cfg-scroll">${rows}</div>
+      <div class="bg-cfg-footer">
+        <button type="button" class="bg-cfg-add">+ Добавить бэкграунд</button>
+        <button type="button" class="bg-cfg-save">Сохранить</button>
+      </div>
+    </form>`);
+
+    html.find(".bg-cfg-del").on("click", function() {
+      $(this).closest(".bg-cfg-row").remove();
+    });
+    html.find(".bg-cfg-add").on("click", () => {
+      const newRow = $(`<div class="bg-cfg-row" data-idx="new">
+        <div class="bg-cfg-fields">
+          <input class="bg-cfg-label" type="text" placeholder="Название" value="" data-field="label"/>
+          <input class="bg-cfg-cost" type="number" min="0" value="2" data-field="cost" style="width:54px"/>
+          <button type="button" class="bg-cfg-del btn-delete-xs">✕</button>
+        </div>
+        <textarea class="bg-cfg-desc" placeholder="Описание..." rows="2" data-field="desc"></textarea>
+      </div>`);
+      newRow.find(".bg-cfg-del").on("click", function() { $(this).closest(".bg-cfg-row").remove(); });
+      html.find(".bg-cfg-scroll").append(newRow);
+    });
+    html.find(".bg-cfg-save").on("click", async () => {
+      const result = [];
+      html.find(".bg-cfg-row").each(function(i) {
+        const label = $(this).find("[data-field='label']").val().trim();
+        if (!label) return;
+        result.push({
+          key:   `bg_${i}_${Date.now()}`,
+          label, cost:  parseInt($(this).find("[data-field='cost']").val()) || 0,
+          desc:  $(this).find("[data-field='desc']").val().trim()
+        });
+      });
+      await game.settings.set("kk9", "chargen.backgrounds", JSON.stringify(result));
+      ui.notifications.info("КК9 | Бэкграунды сохранены.");
+      this.close();
+    });
+    return html;
+  }
+
+  _getBgs() {
+    try { return JSON.parse(game.settings.get("kk9", "chargen.backgrounds")); }
+    catch { return []; }
+  }
+
+  async _updateObject() {}
+}
+
+// ============================================================
 // INIT
 // ============================================================
 Hooks.once("init", function () {
@@ -45,6 +174,7 @@ Hooks.once("init", function () {
   CONFIG.Actor.documentClass = KK9Actor;
   CONFIG.Item.documentClass  = KK9Item;
   CONFIG.Actor.defaultToken  = KK9_DEFAULTS.actor;
+  CONFIG.Combat.documentClass = KK9Combat;
 
   CONFIG.Actor.dataModels = {
     "character": CharacterDataModel,
@@ -82,6 +212,42 @@ Hooks.once("init", function () {
 
   // Боевые хуки (статусы по ходам)
   registerCombatHooks();
+
+  // ── Настройки создания персонажа ──
+  const chargenSettings = [
+    { key: "chargen.points.attributes",    name: "КК9 | Очки атрибутов",          hint: "Стартовые очки для распределения атрибутов",      default: 6, type: Number },
+    { key: "chargen.points.skills",        name: "КК9 | Базовые очки навыков",     hint: "Стартовые очки навыков (сверх конвертации)",       default: 8, type: Number },
+    { key: "chargen.convert.attr_to_skill",name: "КК9 | Конвертация атр→навык",    hint: "Сколько очков навыков даёт 1 очко атрибута",       default: 5, type: Number },
+    { key: "chargen.attr.max_die",         name: "КК9 | Макс. кубик атрибута",     hint: "Максимальный кубик атрибута при создании",         default: 8, type: Number },
+    { key: "chargen.skills.max_save",      name: "КК9 | Макс. сохранение навыков", hint: "Максимум очков навыков переносимых на бэкграунды", default: 5, type: Number },
+    { key: "chargen.special.cost",         name: "КК9 | Цена спецспособности",     hint: "Очков навыков за одну спецспособность",            default: 3, type: Number },
+    { key: "chargen.special.max",          name: "КК9 | Макс. спецспособностей",   hint: "Максимум спецспособностей при создании",           default: 2, type: Number },
+  ];
+  for (const s of chargenSettings) {
+    game.settings.register("kk9", s.key, {
+      name: s.name, hint: s.hint, scope: "world",
+      config: true, default: s.default, type: s.type
+    });
+  }
+
+  // Бэкграунды — хранятся как JSON, редактируются через отдельное окно
+  const BG_DEFAULTS = JSON.stringify([
+    { key:"ally",     label:"Союзник из прошлого", cost:2, desc:"НПС который встретит вас после События и будет доброжелателен." },
+    { key:"artifact", label:"Артефакт",             cost:3, desc:"У вас есть артефакт — вы пока не знаете как он работает." },
+    { key:"memory",   label:"Память о КК9",         cost:2, desc:"В детстве вы видели проявления КК9. Память стёрта — но вы вспомните." },
+  ]);
+  game.settings.register("kk9", "chargen.backgrounds", {
+    name:"КК9 | Бэкграунды (JSON)", scope:"world", config:false,
+    default:BG_DEFAULTS, type:String
+  });
+  game.settings.registerMenu("kk9", "chargen.backgroundsMenu", {
+    name:"КК9 | Редактор бэкграундов",
+    label:"Открыть редактор",
+    hint:"Добавляй, удаляй и настраивай бэкграунды персонажа",
+    icon:"fas fa-scroll",
+    type: BackgroundsConfig,
+    restricted:true
+  });
 
   _registerHelpers();
   _preloadTemplates();
@@ -126,6 +292,12 @@ Hooks.on("createActor", async (actor, options, userId) => {
     await actor.update({ img: KK9_DEFAULTS.actor, "prototypeToken.texture.src": KK9_DEFAULTS.actor });
   }
 
+  // Энергия на старте = максимум (для всех типов у которых есть energy)
+  const energyMax = actor.system.energy?.max ?? 0;
+  if (energyMax > 0) {
+    await actor.update({ "system.energy.value": energyMax });
+  }
+
   if (actor.type !== "character") return;
 
   // Базовые способности из компендиума kk9-abilities с флагом isBase
@@ -143,6 +315,51 @@ Hooks.on("createActor", async (actor, options, userId) => {
 });
 
 // ============================================================
+// Хук updateActor — синхронизация energy.value при росте max
+// ============================================================
+Hooks.on("updateActor", async (actor, changes, options, userId) => {
+  if (game.userId !== userId) return;
+
+  // Проверяем изменились ли поля влияющие на energy.max
+  const sys = changes.system;
+  if (!sys) return;
+
+  const affectsMax =
+    "age" in sys ||
+    sys.attributes?.spirit?.die !== undefined;
+
+  if (!affectsMax) return;
+
+  // Вычисляем старый max вручную из данных ДО изменения
+  // changes содержит новые значения — берём старые из _source
+  const src = actor._source?.system ?? {};
+  const oldAge      = "age" in sys
+    ? (typeof src.age === "number" ? src.age : parseInt(src.age) || 0)
+    : (typeof actor.system.age === "number" ? actor.system.age : parseInt(actor.system.age) || 0);
+  const oldSpiritDie = sys.attributes?.spirit?.die !== undefined
+    ? (src.attributes?.spirit?.die ?? 6)
+    : (actor.system.attributes?.spirit?.die ?? 6);
+
+  const newMax = actor.system.energy?.max ?? 0;
+  const oldMax = oldAge + oldSpiritDie;
+  const delta  = newMax - oldMax;
+
+  if (delta <= 0) {
+    // Если max уменьшился — обрезаем value если оно вышло за max
+    const curVal2 = actor.system.energy?.value ?? 0;
+    const newMax2 = actor.system.energy?.max ?? 0;
+    if (curVal2 > newMax2) await actor.update({ "system.energy.value": newMax2 });
+    return;
+  }
+
+  const curVal = actor.system.energy?.value ?? 0;
+  const newVal = Math.min(curVal + delta, newMax);
+  if (newVal !== curVal) {
+    await actor.update({ "system.energy.value": newVal });
+  }
+});
+
+// ============================================================
 // READY
 // ============================================================
 Hooks.once("ready", async function() {
@@ -154,6 +371,8 @@ Hooks.once("ready", async function() {
   if (!game.user.isGM) return;
   await _ensureCompendiums();
   await _ensureStartScene();
+  await _ensureMasterJournal();
+  await _patchBaseAbilitiesForTest();
 
 
 });
@@ -340,21 +559,31 @@ Hooks.on("renderSidebarTab", (app, html) => {
 // Компендиумы
 // ============================================================
 async function _ensureCompendiums() {
-  const skillPack = game.packs.get("kk9.kk9-skills");
-  if (!skillPack) { console.warn("КК9 | Компендиум навыков не найден"); return; }
-  await skillPack.getIndex();
-  if (skillPack.index.size > 0) return;
-
-  console.log("КК9 | Наполняем компендиумы...");
-
-  const packNames = ["kk9-faculties","kk9-abilities","kk9-languages",
+  const packNames = ["kk9-faculties","kk9-abilities","kk9-languages","kk9-skills",
     "kk9-weapons","kk9-gear","kk9-artifacts","kk9-spells","kk9-daemons",
     "kk9-companions","kk9-vehicles","kk9-devices","kk9-contacts","kk9-statuses",
     "kk9-npc-light","kk9-npc-hard","kk9-npc-boss"];
+
+  // Всегда разлочиваем перед работой
   for (const name of packNames) {
     const p = game.packs.get(`kk9.${name}`);
-    if (p) await p.configure({ locked: false });
+    if (p?.locked) await p.configure({ locked: false });
   }
+
+  const skillPack = game.packs.get("kk9.kk9-skills");
+  if (!skillPack) { console.warn("КК9 | Компендиум навыков не найден"); return; }
+  await skillPack.getIndex();
+  if (skillPack.index.size > 0) {
+    // Компендиум уже заполнен — проверяем и проставляем isBase если нет
+    const allSkills = await Promise.all(Array.from(skillPack.index).map(i => skillPack.getDocument(i._id)));
+    for (const sk of allSkills) {
+      if (sk && !sk.system.isBase) await sk.update({ "system.isBase": true });
+    }
+    console.log("КК9 | isBase проставлен для всех базовых навыков.");
+    return;
+  }
+
+  console.log("КК9 | Наполняем компендиумы...");
 
   const SKILLS_DATA = [
     {name:"Атлетика",                    attr:"agility" },
@@ -451,4 +680,42 @@ async function _ensureStartScene() {
 
   if (scene) await scene.activate();
   ui.notifications.info("КК9 | Стартовая сцена создана.");
+}
+
+// ── Получить настройку создания персонажа ──
+export function _getChargenSetting(key) {
+  return game.settings.get("kk9", key);
+}
+
+// ── Журнал "Мастерские дела" ──
+async function _ensureMasterJournal() {
+  const existing = game.journal.find(j => j.getFlag("kk9", "isMasterJournal"));
+  if (existing) return existing;
+
+  console.log("КК9 | Создаём журнал «Мастерские дела»...");
+  const journal = await JournalEntry.create({
+    name: "Мастерские дела",
+    ownership: { default: 0 }
+  });
+  if (journal) {
+    await journal.setFlag("kk9", "isMasterJournal", true);
+    ui.notifications.info("КК9 | Журнал «Мастерские дела» создан.");
+  }
+  return journal;
+}
+
+// Временная функция для тестов — проставляет isBase двум первым способностям компендиума
+async function _patchBaseAbilitiesForTest() {
+  const pack = game.packs.get("kk9.kk9-abilities");
+  if (!pack) return;
+  await pack.getIndex();
+  const allDocs = await Promise.all(
+    Array.from(pack.index).slice(0, 2).map(i => pack.getDocument(i._id))
+  );
+  for (const doc of allDocs) {
+    if (doc && !doc.system.isBase) {
+      await doc.update({ "system.isBase": true });
+      console.log(`КК9 | isBase = true → ${doc.name}`);
+    }
+  }
 }

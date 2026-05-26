@@ -72,6 +72,13 @@
                value="{{system.modifier}}" class="kk9-input ab-mod-input" />
       </div>
 
+      <div class="ab-param-block ab-param-block--sm">
+        <span class="ab-param-label">Базовая</span>
+        <input type="checkbox" name="system.isBase"
+               {{#if system.isBase}}checked{{/if}}
+               class="kk9-checkbox" style="width:20px;height:20px;margin-top:6px;cursor:pointer;" />
+      </div>
+
     </div>
 
     {{!-- Итоговая формула --}}

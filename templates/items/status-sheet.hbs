@@ -9,11 +9,11 @@
         <input class="st-name-input" type="text" name="name"
                value="{{item.name}}" placeholder="Название статуса" />
         <span class="st-type-badge">
-          {{#if (eq system.status_type "poison")}}☠ Яд
+          {{#if (eq system.status_type "poison")}}Яд
           {{else if (eq system.status_type "shock")}}Шок
           {{else if (eq system.status_type "magic")}}Магия
           {{else if (eq system.status_type "bleed")}}Кровотечение
-          {{else if (eq system.status_type "acid")}}⚗ Кислота
+          {{else if (eq system.status_type "acid")}}Кислота
           {{/if}}
         </span>
       </div>
@@ -24,16 +24,16 @@
   <div class="st-body">
 
     {{!-- Основные параметры --}}
-    <div class="st-params-grid">
+    <div class="st-params-grid st-params-grid--2col">
 
       <div class="st-param-block">
         <span class="st-param-label">Тип статуса</span>
         <select name="system.status_type" class="kk9-select">
-          <option value="poison" {{#if (eq system.status_type "poison")}}selected{{/if}}>☠ Яд</option>
+          <option value="poison" {{#if (eq system.status_type "poison")}}selected{{/if}}>Яд</option>
           <option value="shock"  {{#if (eq system.status_type "shock")}}selected{{/if}}>Шок</option>
           <option value="magic"  {{#if (eq system.status_type "magic")}}selected{{/if}}>Магия</option>
           <option value="bleed"  {{#if (eq system.status_type "bleed")}}selected{{/if}}>Кровотечение</option>
-          <option value="acid"   {{#if (eq system.status_type "acid")}}selected{{/if}}>⚗ Кислота</option>
+          <option value="acid"   {{#if (eq system.status_type "acid")}}selected{{/if}}>Кислота</option>
         </select>
       </div>
 
@@ -48,18 +48,10 @@
         </select>
       </div>
 
-      <div class="st-param-block">
-        <span class="st-param-label">Применений</span>
-        <input type="number" name="system.uses" value="{{system.uses}}"
-               class="kk9-input st-uses-input"
-               title="-1 = бесконечно" />
-        <span class="st-uses-hint">−1 = ∞</span>
-      </div>
-
     </div>
 
     {{!-- Урон --}}
-    <div class="st-params-grid">
+    <div class="st-params-grid st-params-grid--3col">
 
       <div class="st-param-block">
         <span class="st-param-label">Урон при срабатывании</span>
@@ -77,6 +69,12 @@
           <option value="physical" {{#if (eq system.damage_type "physical")}}selected{{/if}}>Физический</option>
           <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
         </select>
+      </div>
+
+      <div class="st-param-block">
+        <span class="st-param-label">Применений <span class="st-uses-hint">−1 = ∞</span></span>
+        <input type="number" name="system.uses" value="{{system.uses}}"
+               class="kk9-input st-uses-input" />
       </div>
 
     </div>
@@ -143,7 +141,10 @@
   flex: 1; padding: 12px 14px;
   display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
 }
-.status-sheet .st-params-grid {
+.status-sheet .st-params-grid--2col {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;
+}
+.status-sheet .st-params-grid--3col {
   display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: end;
 }
 .status-sheet .st-param-block { display: flex; flex-direction: column; gap: 3px; }

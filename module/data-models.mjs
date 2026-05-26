@@ -80,6 +80,12 @@ function npcCommonFields() {
     kk9_linked:             new fields.BooleanField({ initial: false }),
     operative_class:        new fields.StringField({ initial: "" }),
     operative_faculty_color: new fields.StringField({ initial: "" }),
+    languages: new fields.ArrayField(
+      new fields.SchemaField({
+        name:   new fields.StringField({ required: true, initial: "" }),
+        itemId: new fields.StringField({ initial: "" })
+      })
+    ),
   };
 }
 
@@ -172,12 +178,14 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
       daemon_refs:    new fields.ArrayField(new fields.StringField({ initial: "" })),
       companion_refs: new fields.ArrayField(new fields.StringField({ initial: "" })),
       contact_refs:   new fields.ArrayField(new fields.StringField({ initial: "" })),
+      // Флаг завершения создания персонажа
+      character_created: new fields.BooleanField({ initial: false }),
     };
   }
 
   prepareDerivedData() {
     this.health.physical.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
-    this.energy.max = this.age + this.attributes.magic.die;
+    this.energy.max = this.age + this.attributes.spirit.die;
   }
 }
 
