@@ -53,6 +53,50 @@ const KK9_DEFAULTS = {
 const SKILL_TYPES = new Set(["ability","faculty","language"]);
 
 // ============================================================
+// ResetCompendiumsConfig — кнопка пересоздания компендиумов
+// ============================================================
+class ResetCompendiumsConfig extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      title:"КК9 | Пересоздать компендиумы", width:400, height:"auto"
+    });
+  }
+  async _renderInner() {
+    const el = $(`<form style="font-family:'Jost',sans-serif;padding:12px;background:#232323;color:#b8b0a4;">
+      <p style="margin-bottom:12px;font-size:0.86em;color:#6a6560;">
+        Это действие <strong style="color:#c4a44a;">полностью очистит</strong> компендиумы
+        <em>kk9-abilities</em>, <em>kk9-faculties</em>, <em>kk9-languages</em>
+        и заполнит их заново из встроенных данных.
+      </p>
+      <p style="font-size:0.82em;color:#6a6560;margin-bottom:16px;">
+        Все ручные изменения в этих компендиумах будут потеряны.<br>
+        Персонажи и их предметы не затрагиваются.
+      </p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" id="cmp-cancel"
+          style="padding:5px 14px;background:transparent;border:1px solid #3a3a3a;
+                 border-radius:3px;color:#b8b0a4;cursor:pointer;font-family:'Jost',sans-serif;">
+          Отмена
+        </button>
+        <button type="button" id="cmp-confirm"
+          style="padding:5px 14px;background:rgba(196,164,74,.1);border:1px solid #7a6430;
+                 border-radius:3px;color:#c4a44a;cursor:pointer;font-family:'Jost',sans-serif;font-weight:500;">
+          Пересоздать
+        </button>
+      </div>
+    </form>`);
+    el.find("#cmp-cancel").on("click", () => this.close());
+    el.find("#cmp-confirm").on("click", async () => {
+      this.close();
+      ui.notifications.info("КК9 | Пересоздаём компендиумы...");
+      await _resetAndRefillCompendiums();
+    });
+    return el;
+  }
+  async _updateObject() {}
+}
+
+// ============================================================
 // BackgroundsConfig — редактор бэкграундов создания персонажа
 // ============================================================
 class BackgroundsConfig extends FormApplication {
@@ -169,7 +213,7 @@ class BackgroundsConfig extends FormApplication {
 // INIT
 // ============================================================
 Hooks.once("init", function () {
-  console.log("КК9 | Инициализация v0.9.9");
+  console.log("КК9 | Инициализация v0.9.10");
 
   CONFIG.Actor.documentClass = KK9Actor;
   CONFIG.Item.documentClass  = KK9Item;
@@ -216,7 +260,7 @@ Hooks.once("init", function () {
   // ── Настройки создания персонажа ──
   const chargenSettings = [
     { key: "chargen.points.attributes",    name: "КК9 | Очки атрибутов",          hint: "Стартовые очки для распределения атрибутов",      default: 6, type: Number },
-    { key: "chargen.points.skills",        name: "КК9 | Базовые очки навыков",     hint: "Стартовые очки навыков (сверх конвертации)",       default: 8, type: Number },
+    { key: "chargen.points.skills",        name: "КК9 | Базовые очки навыков",     hint: "Стартовые очки навыков",       default: 8, type: Number },
     { key: "chargen.convert.attr_to_skill",name: "КК9 | Конвертация атр→навык",    hint: "Сколько очков навыков даёт 1 очко атрибута",       default: 5, type: Number },
     { key: "chargen.attr.max_die",         name: "КК9 | Макс. кубик атрибута",     hint: "Максимальный кубик атрибута при создании",         default: 8, type: Number },
     { key: "chargen.skills.max_save",      name: "КК9 | Макс. сохранение навыков", hint: "Максимум очков навыков переносимых на бэкграунды", default: 5, type: Number },
@@ -246,6 +290,15 @@ Hooks.once("init", function () {
     hint:"Добавляй, удаляй и настраивай бэкграунды персонажа",
     icon:"fas fa-scroll",
     type: BackgroundsConfig,
+    restricted:true
+  });
+
+  game.settings.registerMenu("kk9", "resetCompendiumsMenu", {
+    name:"КК9 | Пересоздать компендиумы",
+    label:"Пересоздать",
+    hint:"Очищает и заново заполняет базовые компендиумы (навыки, факультеты, языки). Используй если данные сломаны или устарели.",
+    icon:"fas fa-sync",
+    type: ResetCompendiumsConfig,
     restricted:true
   });
 
@@ -356,6 +409,77 @@ Hooks.on("updateActor", async (actor, changes, options, userId) => {
   const newVal = Math.min(curVal + delta, newMax);
   if (newVal !== curVal) {
     await actor.update({ "system.energy.value": newVal });
+  }
+});
+
+// ============================================================
+// Хук Observer прав на новые ref-итемы
+// ============================================================
+const _prevRefs = new Map(); // actorId → { field → Set<uuid> }
+
+Hooks.on("preUpdateActor", (actor, changes) => {
+  const sys = changes.system;
+  if (!sys) return;
+  const REF_FIELDS = ["artifact_refs","daemon_refs","companion_refs","contact_refs"];
+  if (!REF_FIELDS.some(f => Array.isArray(sys[f]))) return;
+
+  // Сохраняем текущие (старые) значения перед обновлением
+  const prev = {};
+  for (const f of REF_FIELDS) {
+    if (Array.isArray(sys[f])) {
+      prev[f] = new Set(actor.system[f] || []);
+    }
+  }
+  _prevRefs.set(actor.id, prev);
+});
+
+Hooks.on("updateActor", async (actor, changes, options, userId) => {
+  // Только GM выставляет права
+  if (!game.user.isGM) return;
+
+  const sys = changes.system;
+  if (!sys) return;
+  if (!_prevRefs.has(actor.id)) return;
+
+  const prev = _prevRefs.get(actor.id);
+  _prevRefs.delete(actor.id);
+
+  const REF_FIELDS = ["artifact_refs","daemon_refs","companion_refs","contact_refs"];
+
+  // Находим владельцев актора (не GM, уровень Owner)
+  const ownerIds = Object.entries(actor.ownership)
+    .filter(([uid, lvl]) =>
+      lvl === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER &&
+      uid !== "default" &&
+      uid !== game.user.id
+    )
+    .map(([uid]) => uid);
+
+  if (!ownerIds.length) { _prevRefs.delete(actor.id); return; }
+
+  for (const field of REF_FIELDS) {
+    if (!Array.isArray(sys[field])) continue;
+    const oldSet = prev[field] ?? new Set();
+    const addedUuids = sys[field].filter(uuid => !oldSet.has(uuid));
+
+    for (const uuid of addedUuids) {
+      const doc = await fromUuid(uuid);
+      if (!doc || doc.pack) continue; // пропускаем компендиумные
+
+      const newOwnership = { ...doc.ownership };
+      let changed = false;
+      for (const uid of ownerIds) {
+        const cur = newOwnership[uid] ?? CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE;
+        if (cur < CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER) {
+          newOwnership[uid] = CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await doc.update({ ownership: newOwnership });
+        console.log(`КК9 | Observer: ${doc.name} → ${ownerIds.join(", ")}`);
+      }
+    }
   }
 });
 
@@ -556,10 +680,39 @@ Hooks.on("renderSidebarTab", (app, html) => {
 });
 
 // ============================================================
+// Принудительный сброс и пересоздание компендиумов
+// ============================================================
+async function _resetAndRefillCompendiums() {
+  const packNames = ["kk9-faculties","kk9-abilities","kk9-languages",
+    "kk9-weapons","kk9-gear","kk9-artifacts","kk9-spells","kk9-daemons",
+    "kk9-companions","kk9-vehicles","kk9-devices","kk9-contacts","kk9-statuses",
+    "kk9-npc-light","kk9-npc-hard","kk9-npc-boss"];
+  for (const name of packNames) {
+    const p = game.packs.get(`kk9.${name}`);
+    if (p?.locked) await p.configure({ locked: false });
+  }
+  // Очистка
+  const packsToClear = ["kk9-abilities","kk9-faculties","kk9-languages"];
+  for (const name of packsToClear) {
+    const p = game.packs.get(`kk9.${name}`);
+    if (!p) continue;
+    const docs = await p.getDocuments();
+    if (docs.length) await Promise.all(docs.map(d => d.delete()));
+    console.log(`КК9 | Очищен: ${name} (${docs.length} записей)`);
+  }
+  // Заполняем заново — через _ensureCompendiums но без guard
+  // Временно сбрасываем индекс чтобы guard не сработал
+  const abPack = game.packs.get("kk9.kk9-abilities");
+  if (abPack) abPack._index = new Collection();
+  await _ensureCompendiums();
+  ui.notifications.info("КК9 | Компендиумы пересозданы!");
+}
+
+// ============================================================
 // Компендиумы
 // ============================================================
 async function _ensureCompendiums() {
-  const packNames = ["kk9-faculties","kk9-abilities","kk9-languages","kk9-skills",
+  const packNames = ["kk9-faculties","kk9-abilities","kk9-languages",
     "kk9-weapons","kk9-gear","kk9-artifacts","kk9-spells","kk9-daemons",
     "kk9-companions","kk9-vehicles","kk9-devices","kk9-contacts","kk9-statuses",
     "kk9-npc-light","kk9-npc-hard","kk9-npc-boss"];
@@ -570,82 +723,368 @@ async function _ensureCompendiums() {
     if (p?.locked) await p.configure({ locked: false });
   }
 
-  const skillPack = game.packs.get("kk9.kk9-skills");
-  if (!skillPack) { console.warn("КК9 | Компендиум навыков не найден"); return; }
+  const skillPack = game.packs.get("kk9.kk9-abilities");
+  if (!skillPack) { console.warn("КК9 | Компендиум способностей не найден"); return; }
   await skillPack.getIndex();
   if (skillPack.index.size > 0) {
-    // Компендиум уже заполнен — проверяем и проставляем isBase если нет
-    const allSkills = await Promise.all(Array.from(skillPack.index).map(i => skillPack.getDocument(i._id)));
-    for (const sk of allSkills) {
-      if (sk && !sk.system.isBase) await sk.update({ "system.isBase": true });
-    }
-    console.log("КК9 | isBase проставлен для всех базовых навыков.");
+    // Уже заполнен — только разлочиваем
+    console.log("КК9 | Компендиумы уже заполнены, пропускаем.");
     return;
   }
 
-  console.log("КК9 | Наполняем компендиумы...");
+  console.log("КК9 | Очищаем и наполняем компендиумы...");
+
+  // ── Очистка перед заполнением ──
+  const packsToClear = ["kk9-abilities","kk9-faculties","kk9-languages"];
+  for (const name of packsToClear) {
+    const p = game.packs.get(`kk9.${name}`);
+    if (!p) continue;
+    await p.getIndex();
+    const ids = Array.from(p.index).map(i => i._id);
+    if (ids.length) await p.getDocuments().then(docs => Promise.all(docs.map(d => d.delete())));
+  }
+
+  // ── Данные ниже, создание в конце функции ──
 
   const SKILLS_DATA = [
-    {name:"Атлетика",                    attr:"agility" },
-    {name:"Внимание",                    attr:"smarts"  },
-    {name:"Скрытность",                  attr:"agility" },
-    {name:"Убеждение",                   attr:"spirit"  },
-    {name:"Рукопашный бой",              attr:"agility" },
-    {name:"Обман",                       attr:"smarts"  },
-    {name:"Ориентирование на местности", attr:"smarts"  },
-    {name:"Память",                      attr:"smarts"  },
-    {name:"Знания",                      attr:"smarts"  },
-    {name:"Запугивание",                 attr:"spirit"  },
-    {name:"Выживание",                   attr:"smarts"  },
-    {name:"Вождение",                    attr:"agility" },
+  {name:"Плавание", attr:"endurance", base:true, categ:"learned"},
+  {name:"Атлетика", attr:"endurance", base:true, categ:"common"},
+  {name:"Общая эрудиция", attr:"smarts", base:true, categ:"common"},
+  {name:"Техника", attr:"smarts", base:true, categ:"learned"},
+  {name:"Электроника", attr:"smarts", base:true, categ:"common"},
+  {name:"Ориентирование", attr:"smarts", base:true, categ:"learned"},
+  {name:"Наблюдательность", attr:"smarts", base:true, categ:"common"},
+  {name:"Языки", attr:"smarts", base:true, categ:"common"},
+  {name:"Анализ", attr:"smarts", base:true, categ:"common"},
+  {name:"Знание Нижнего Мира", attr:"smarts", base:true, categ:"common"},
+  {name:"Эмпатия", attr:"spirit", base:true, categ:"common"},
+  {name:"Самоконтроль", attr:"spirit", base:true, categ:"learned"},
+  {name:"Убеждение", attr:"spirit", base:true, categ:"common"},
+  {name:"Обман", attr:"spirit", base:true, categ:"learned"},
+  {name:"Запугивание", attr:"spirit", base:true, categ:"common"},
+  {name:"Исполнение", attr:"spirit", base:true, categ:"common"},
+  {name:"Медитация", attr:"spirit", base:false, categ:"learned"},
+  {name:"Интуиция", attr:"magic", base:true, categ:"common"},
+  {name:"Рукопашный бой", attr:"agility", base:true, categ:"common"},
+  {name:"Кулинария", attr:"agility", base:true, categ:"learned"},
+  {name:"Скрытность", attr:"agility", base:true, categ:"common"},
+  {name:"Координация", attr:"agility", base:true, categ:"common"},
+  {name:"Тактика", attr:"smarts", base:false, categ:"learned"},
+  {name:"Логические игры", attr:"smarts", base:false, categ:"learned"},
+  {name:"Этикет", attr:"smarts", base:false, categ:"learned"},
+  {name:"Знание Верхнего Мира", attr:"smarts", base:false, categ:"learned"},
+  {name:"Манипуляция", attr:"smarts", base:false, categ:"learned"},
+  {name:"Детект менджик", attr:"smarts", base:false, categ:"learned"},
+  {name:"Системы безопасности", attr:"smarts", base:false, categ:"learned"},
+  {name:"Токсикология", attr:"smarts", base:false, categ:"learned"},
+  {name:"Медицина", attr:"smarts", base:false, categ:"learned"},
+  {name:"Расследование", attr:"smarts", base:false, categ:"common"},
+  {name:"Big Data", attr:"smarts", base:false, categ:"learned"},
+  {name:"Программирование", attr:"smarts", base:false, categ:"learned"},
+  {name:"Информационная безопасность", attr:"smarts", base:false, categ:"learned"},
+  {name:"Хакинг", attr:"smarts", base:false, categ:"learned"},
+  {name:"Криптография", attr:"smarts", base:false, categ:"learned"},
+  {name:"Профайлинг", attr:"smarts", base:false, categ:"learned"},
+  {name:"Актерское мастерство", attr:"spirit", base:false, categ:"learned"},
+  {name:"Политология", attr:"smarts", base:false, categ:"learned"},
+  {name:"Риторика", attr:"smarts", base:false, categ:"learned"},
+  {name:"Инженерия", attr:"smarts", base:false, categ:"learned"},
+  {name:"Военные технологии", attr:"smarts", base:false, categ:"learned"},
+  {name:"Юриспруденция", attr:"smarts", base:false, categ:"learned"},
+  {name:"Владение клинковым оружием", attr:"agility", base:false, categ:"learned"},
+  {name:"Владение древковым оружием", attr:"agility", base:false, categ:"learned"},
+  {name:"Владение метательным/стрелковым оружием", attr:"agility", base:false, categ:"learned"},
+  {name:"Владение огнестрельным оружием", attr:"agility", base:false, categ:"learned"},
+  {name:"Артиллерия", attr:"agility", base:false, categ:"learned"},
+  {name:"Дроны", attr:"agility", base:false, categ:"learned"},
+  {name:"Вождение летательных средств", attr:"agility", base:false, categ:"learned"},
+  {name:"Воровство", attr:"agility", base:false, categ:"learned"},
+  {name:"Танец", attr:"agility", base:false, categ:"learned"},
+  {name:"Восточное искусство", attr:"agility", base:false, categ:"learned"},
+  {name:"Боевые искусства", attr:"agility", base:false, categ:"learned"},
+  {name:"Секс", attr:"agility", base:false, categ:"common"},
+  {name:"Маскировка", attr:"agility", base:false, categ:"learned"},
+  {name:"Вождение авто/мото техники", attr:"agility", base:false, categ:"learned"},
+  {name:"Вождение специальных средств", attr:"agility", base:false, categ:"learned"},
+  {name:"Массаж", attr:"agility", base:false, categ:"learned"},
+  {name:"Первая помощь", attr:"agility", base:false, categ:"learned"},
+  {name:"Сопротивление боли", attr:"endurance", base:false, categ:"learned"},
+  {name:"Сопротивление магии", attr:"endurance", base:false, categ:"learned"},
+  {name:"Выживание", attr:"endurance", base:false, categ:"learned"},
+  {name:"Сопротивление ментальному давлению", attr:"spirit", base:false, categ:"learned"},
+  {name:"Ведение допросов", attr:"spirit", base:false, categ:"learned"},
+  {name:"Пытки и казни", attr:"spirit", base:false, categ:"learned"},
+  {name:"Лидерство", attr:"spirit", base:false, categ:"learned"},
+  {name:"Соблазнение", attr:"spirit", base:false, categ:"learned"},
+  {name:"Хладнокровие", attr:"spirit", base:false, categ:"learned"},
+  {name:"Внешний вид", attr:"spirit", base:false, categ:"learned"},
+  {name:"Концентрация", attr:"spirit", base:false, categ:"learned"},
+  {name:"Дрессировка", attr:"spirit", base:false, categ:"learned"},
+  {name:"Артефактология", attr:"magic", base:false, categ:"learned"},
+  {name:"Определение Магии", attr:"magic", base:false, categ:"learned"},
+  {name:"Ритуалистика", attr:"magic", base:false, categ:"learned"},
+  {name:"Владение магическими проводниками", attr:"magic", base:false, categ:"learned"},
+  {name:"Прорицание", attr:"magic", base:false, categ:"magic"},
+  {name:"Целительство", attr:"magic", base:false, categ:"magic"},
+  {name:"Алхимия", attr:"magic", base:false, categ:"magic"},
+  {name:"Магозоология", attr:"magic", base:false, categ:"magic"},
+  {name:"Теория магии", attr:"magic", base:false, categ:"learned"},
+  {name:"Матрицалогия - теория", attr:"magic", base:false, categ:"learned"},
+  {name:"Техномантия", attr:"magic", base:false, categ:"magic"},
+  {name:"Ментальная магия", attr:"magic", base:false, categ:"magic"},
+  {name:"Даймонология", attr:"magic", base:false, categ:"magic"},
+  {name:"Инфильтрация", attr:"smarts", base:false, categ:"learned"},
+  {name:"Агентурная сеть", attr:"smarts", base:false, categ:"learned"},
+  {name:"Яды и противоядия", attr:"smarts", base:false, categ:"learned"},
+  {name:"Викка", attr:"smarts", base:false, categ:"magic"},
+  {name:"Некромантия", attr:"magic", base:false, categ:"magic"},
+  {name:"Вампиризм", attr:"agility", base:false, categ:"magic"},
+  {name:"Оборотничество", attr:"endurance", base:false, categ:"magic"},
+  {name:"Пиромантия", attr:"magic", base:false, categ:"magic"},
+  {name:"Эмпирей", attr:"magic", base:false, categ:"magic"},
+  {name:"Матрицалогия", attr:"magic", base:false, categ:"magic"},
+  {name:"Зеркало вампира", attr:"endurance", base:false, categ:"magic"},
+  {name:"Псионика", attr:"spirit", base:false, categ:"magic"},
+  {name:"Жречество", attr:"magic", base:false, categ:"magic"},
+  {name:"Гламур", attr:"magic", base:false, categ:"magic"},
   ];
 
   const FACULTIES_DATA = [
     {name:"Белый факультет",      color:"#e8e8e8", teacher:"Белый",
-     abilities:[{name:"Пытки",cat:"learned"},{name:"Тактика",cat:"learned"},{name:"Стрельба",cat:"learned"}]},
+     abilities:[ {name:"Атлетика"},
+  {name:"Самоконтроль"},
+  {name:"Убеждение"},
+  {name:"Медитация"},
+  {name:"Координация"},
+  {name:"Тактика"},
+  {name:"Логические игры"},
+  {name:"Этикет"},
+  {name:"Знание Верхнего Мира"},
+  {name:"Манипуляция"},
+  {name:"Риторика"},
+  {name:"Владение клинковым оружием"},
+  {name:"Восточное искусство"},
+  {name:"Боевые искусства"},
+  {name:"Первая помощь"},
+  {name:"Сопротивление боли"},
+  {name:"Сопротивление магии"},
+  {name:"Сопротивление ментальному давлению"},
+  {name:"Ведение допросов"},
+  {name:"Лидерство"},
+  {name:"Хладнокровие"},
+  {name:"Владение магическими проводниками"}]},
     {name:"Чёрный факультет",     color:"#1a1a1a", teacher:"Чёрный",
-     abilities:[{name:"Тени",cat:"magic"},{name:"Ложь",cat:"learned"}]},
+     abilities:[ {name:"Плавание"},
+  {name:"Атлетика"},
+  {name:"Ориентирование"},
+  {name:"Наблюдательность"},
+  {name:"Самоконтроль"},
+  {name:"Запугивание"},
+  {name:"Интуиция"},
+  {name:"Рукопашный бой"},
+  {name:"Скрытность"},
+  {name:"Координация"},
+  {name:"Знание Верхнего Мира"},
+  {name:"Детект менджик"},
+  {name:"Системы безопасности"},
+  {name:"Токсикология"},
+  {name:"Расследование"},
+  {name:"Информационная безопасность"},
+  {name:"Владение клинковым оружием"},
+  {name:"Владение древковым оружием"},
+  {name:"Владение метательным/стрелковым оружием"},
+  {name:"Владение огнестрельным оружием"},
+  {name:"Воровство"},
+  {name:"Боевые искусства"},
+  {name:"Маскировка"},
+  {name:"Вождение авто/мото техники"},
+  {name:"Первая помощь"},
+  {name:"Сопротивление боли"},
+  {name:"Сопротивление магии"},
+  {name:"Выживание"},
+  {name:"Сопротивление ментальному давлению"},
+  {name:"Ведение допросов"},
+  {name:"Пытки и казни"},
+  {name:"Хладнокровие"},
+  {name:"Определение Магии"},
+  {name:"Владение магическими проводниками"}]},
     {name:"Синий факультет",      color:"#3b82f6", teacher:"Синий",
-     abilities:[{name:"Анализ",cat:"learned"},{name:"Техника",cat:"learned"}]},
+   abilities:[  {name:"Общая эрудиция"},
+  {name:"Наблюдательность"},
+  {name:"Языки"},
+  {name:"Эмпатия"},
+  {name:"Самоконтроль"},
+  {name:"Убеждение"},
+  {name:"Обман"},
+  {name:"Исполнение"},
+  {name:"Интуиция"},
+  {name:"Кулинария"},
+  {name:"Координация"},
+  {name:"Знание Верхнего Мира"},
+  {name:"Манипуляция"},
+  {name:"Этикет"},
+  {name:"Актерское мастерство"},
+  {name:"Политология"},
+  {name:"Риторика"},
+  {name:"Танец"},
+  {name:"Секс"},
+  {name:"Массаж"},
+  {name:"Сопротивление магии"},
+  {name:"Сопротивление ментальному давлению"},
+  {name:"Соблазнение"},
+  {name:"Хладнокровие"},
+  {name:"Актерское мастерство"},
+  {name:"Внешний вид"},
+  {name:"Владение магическими проводниками"},
+  {name:"Ментальная магия"},
+  {name:"Инфильтрация"},
+  {name:"Агентурная сеть"}]},
     {name:"Зелёный факультет",    color:"#22c55e", teacher:"Зелёный",
-     abilities:[{name:"Природа",cat:"magic"},{name:"Выживание",cat:"learned"}]},
+  abilities:[ {name:"Анализ"},
+  {name:"Самоконтроль"},
+  {name:"Кулинария"},
+  {name:"Координация"},
+  {name:"Знание Верхнего Мира"},
+  {name:"Медицина"},
+  {name:"Токсикология"},
+  {name:"Первая помощь"},
+  {name:"Сопротивление магии"},
+  {name:"Выживание"},
+  {name:"Хладнокровие"},
+  {name:"Концентрация"},
+  {name:"Дрессировка"},
+  {name:"Целительство"},
+  {name:"Алхимия"},
+  {name:"Магозоология"},
+  {name:"Яды и противоядия"},
+  {name:"Викка"},
+  {name:"Владение магическими проводниками"}]},
     {name:"Фиолетовый факультет", color:"#a855f7", teacher:"Фиолетовый",
-     abilities:[{name:"Иллюзии",cat:"magic"},{name:"Чтение",cat:"magic"}]},
+  abilities:[{name:"Исполнение"},
+  {name:"Медитация"},
+  {name:"Координация"},
+  {name:"Детект менджик"},
+  {name:"Криптография"},
+  {name:"Риторика"},
+  {name:"Юриспруденция"},
+  {name:"Концентрация"},
+  {name:"Определение Магии"},
+  {name:"Ритуалистика"},
+  {name:"Владение магическими проводниками"},
+  {name:"Теория магии"},
+  {name:"Даймонология"}]},
     {name:"Красный факультет",    color:"#ef4444", teacher:"Красный",
-     abilities:[{name:"Агрессия",cat:"personal"},{name:"Управление дроном",cat:"learned"}]},
+   abilities:[{name:"Общая эрудиция"},
+  {name:"Электроника"},
+  {name:"Наблюдательность"},
+  {name:"Анализ"},
+  {name:"Медитация"},
+  {name:"Интуиция"},
+  {name:"Знание Верхнего Мира"},
+  {name:"Детект менджик"},
+  {name:"Системы безопасности"},
+  {name:"Big Data"},
+  {name:"Программирование"},
+  {name:"Информационная безопасность"},
+  {name:"Хакинг"},
+  {name:"Профайлинг"},
+  {name:"Логические игры"},
+  {name:"Криптография"},
+  {name:"Дроны"},
+  {name:"Вождение авто/мото техники"},
+  {name:"Сопротивление боли"},
+  {name:"Сопротивление магии"},
+  {name:"Сопротивление ментальному давлению"},
+  {name:"Концентрация"},
+  {name:"Определение Магии"},
+  {name:"Владение магическими проводниками"},
+  {name:"Прорицание"}]},
+        {name:"Бурый факультет",    color:"#ba6c2c", teacher:"Бурый",
+   abilities:[{name:"Плавание"},
+  {name:"Атлетика"},
+  {name:"Ориентирование"},
+  {name:"Запугивание"},
+  {name:"Рукопашный бой"},
+  {name:"Координация"},
+  {name:"Тактика"},
+  {name:"Инженерия"},
+  {name:"Военные технологии"},
+  {name:"Владение клинковым оружием"},
+  {name:"Владение древковым оружием"},
+  {name:"Владение метательным/стрелковым оружием"},
+  {name:"Владение огнестрельным оружием"},
+  {name:"Артиллерия"},
+  {name:"Дроны"},
+  {name:"Вождение летательных средств"},
+  {name:"Боевые искусства"},
+  {name:"Вождение авто/мото техники"},
+  {name:"Вождение специальных средств"},
+  {name:"Первая помощь"},
+  {name:"Сопротивление магии"},
+  {name:"Выживание"},
+  {name:"Владение магическими проводниками"}]},
+        {name:"Ртутный факультет",    color:"#b0b0b0", teacher:"Ртутный",
+   abilities:[  {name:"Общая эрудиция"},
+  {name:"Техника"},
+  {name:"Электроника"},
+  {name:"Анализ"},
+  {name:"Самоконтроль"},
+  {name:"Знание Верхнего Мира"},
+  {name:"Детект менджик"},
+  {name:"Системы безопасности"},
+  {name:"Big Data"},
+  {name:"Программирование"},
+  {name:"Информационная безопасность"},
+  {name:"Инженерия"},
+  {name:"Сопротивление боли"},
+  {name:"Сопротивление магии"},
+  {name:"Сопротивление ментальному давлению"},
+  {name:"Концентрация"},
+  {name:"Артефактология"},
+  {name:"Определение Магии"},
+  {name:"Владение магическими проводниками"},
+  {name:"Теория магии"},
+  {name:"Матрицалогия"},
+  {name:"Техномантия"}]},
     {name:"Незримый факультет",   color:"#6b7280", teacher:"Незримый",
-     abilities:[{name:"Бытие бесполезным мудаком",cat:"personal"}]},
+   abilities:[]},
   ];
 
-  const LANGUAGES = ["Русский","Английский","Немецкий","Французский","Испанский",
-    "Латынь","Древний","Магический","Демонический","Технический","Жестовый","Азбука морзе"];
 
+  const LANGUAGES = ["Русский","Английский","Немецкий","Французский","Испанский",
+    "Латынь","ДревнеГреческий","Ангельский","Демонический","Японский","Жестовый","Азбука морзе"];
+
+
+
+  // ── Создаём навыки/способности ──
   await Item.createDocuments(
     SKILLS_DATA.map(sk => ({
       name: sk.name, type: "ability", img: KK9_DEFAULTS.skillAbility,
-      system: { description:"", linkedAttribute:sk.attr, die:4, modifier:-2, isBase:true }
+      system: { description:"", linkedAttribute:sk.attr, die:4, modifier:-2, isBase:sk.base, category:sk.categ }
     })),
-    { pack: "kk9.kk9-skills" }
+    { pack: "kk9.kk9-abilities" }
   );
 
+  // Перестраиваем индекс для поиска id
   const abPack = game.packs.get("kk9.kk9-abilities");
-  for (const fac of FACULTIES_DATA) {
-    const abilityRefs = [];
-    if (abPack) {
-      for (const ab of fac.abilities) {
-        const [created] = await Item.createDocuments([{
-          name: ab.name, type: "ability", img: KK9_DEFAULTS.skillAbility,
-          system: { description:"", category:ab.cat, faculty_id:null, die:4, modifier:-2 }
-        }], { pack: "kk9.kk9-abilities" });
-        abilityRefs.push({ name:ab.name, itemId:created.id, category:ab.cat });
-      }
-    }
-    await Item.createDocuments([{
-      name: fac.name, type: "faculty", img: KK9_DEFAULTS.skillAbility,
-      system: { description:"", color:fac.color, color_key:"", teacher:fac.teacher, abilities:abilityRefs }
-    }], { pack: "kk9.kk9-faculties" });
-  }
+  await abPack.getIndex();
+  const abilityIndex = new Map(Array.from(abPack.index).map(i => [i.name, i._id]));
 
+  // ── Создаём факультеты — ссылаемся на существующие ability по имени ──
+  await Item.createDocuments(
+    FACULTIES_DATA.map(fac => ({
+      name: fac.name, type: "faculty", img: KK9_DEFAULTS.skillAbility,
+      system: {
+        description:"", color:fac.color, color_key:"", teacher:fac.teacher,
+        abilities: fac.abilities
+          .filter(ab => abilityIndex.has(ab.name))
+          .map(ab => ({ name:ab.name, itemId:abilityIndex.get(ab.name), category:ab.cat||"" }))
+      }
+    })),
+    { pack: "kk9.kk9-faculties" }
+  );
+
+  // ── Создаём языки ──
   await Item.createDocuments(
     LANGUAGES.map(lang => ({
       name: lang, type: "language", img: KK9_DEFAULTS.skillAbility,
@@ -657,7 +1096,6 @@ async function _ensureCompendiums() {
   console.log("КК9 | Компендиумы заполнены!");
   ui.notifications.info("КК9 | Базовые данные загружены в компендиумы!");
 }
-
 // ============================================================
 // Стартовая сцена
 // ============================================================
@@ -702,20 +1140,4 @@ async function _ensureMasterJournal() {
     ui.notifications.info("КК9 | Журнал «Мастерские дела» создан.");
   }
   return journal;
-}
-
-// Временная функция для тестов — проставляет isBase двум первым способностям компендиума
-async function _patchBaseAbilitiesForTest() {
-  const pack = game.packs.get("kk9.kk9-abilities");
-  if (!pack) return;
-  await pack.getIndex();
-  const allDocs = await Promise.all(
-    Array.from(pack.index).slice(0, 2).map(i => pack.getDocument(i._id))
-  );
-  for (const doc of allDocs) {
-    if (doc && !doc.system.isBase) {
-      await doc.update({ "system.isBase": true });
-      console.log(`КК9 | isBase = true → ${doc.name}`);
-    }
-  }
 }

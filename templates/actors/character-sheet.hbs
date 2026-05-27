@@ -45,7 +45,7 @@
     <div class="sidebar-fields">
       <div class="sfield-row">
         <span class="sfield-label">Курс</span>
-        <input type="text" name="system.academy_year" value="{{system.academy_year}}" class="sfield-val" />
+        <input type="text" name="system.academy_year" value="{{system.academy_year}}" class="sfield-val" {{#unless isGM}}readonly{{/unless}} />
       </div>
       <div class="sfield-row">
         <span class="sfield-label">Страна</span>
@@ -69,11 +69,11 @@
       {{!-- Деньги и Опыт --}}
       <div class="sfield-row">
         <span class="sfield-label">Деньги</span>
-        <input type="number" name="system.money" value="{{system.money}}" class="sfield-val" min="0" />
+        <input type="number" name="system.money" value="{{system.money}}" class="sfield-val" min="0" {{#unless isGM}}readonly{{/unless}} />
       </div>
       <div class="sfield-row">
         <span class="sfield-label">Опыт</span>
-        <input type="number" name="system.experience" value="{{system.experience}}" class="sfield-val" min="0" />
+        <input type="number" name="system.experience" value="{{system.experience}}" class="sfield-val" min="0" {{#unless isGM}}readonly{{/unless}} />
       </div>
 
       {{!-- Жетоны судьбы — пипы по клику, макс 9 --}}

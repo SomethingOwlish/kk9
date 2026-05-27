@@ -636,7 +636,19 @@ export class KK9Actor extends Actor {
   }
 
   async rollAbility(itemId) {
-    return this.rollSkillItem(itemId); // та же логика
+    const result = await this.rollSkillItem(itemId);
+    if (!result) return result;
+
+    // Способность "Медитация" — восстанавливаем энергию по числу успехов
+    const item = this.items.get(itemId);
+    if (item?.name === "Медитация" && result.degree?.successes > 0) {
+      const cur    = this.system.energy?.value ?? 0;
+      const max    = this.system.energy?.max   ?? 0;
+      const newVal = Math.min(cur + result.degree.successes, max);
+      if (newVal > cur) await this.update({ "system.energy.value": newVal });
+    }
+
+    return result;
   }
 
   // ----------------------------------------------------------
@@ -788,7 +800,7 @@ export class KK9Actor extends Actor {
   }
   // ----------------------------------------------------------
   async rollToughness() {
-    const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выжидание"];
+    const resistNames = ["Сопротивление боли","Сопротивление магии","Сопротивление ментальному давлению","Самоконтроль","Выживание"];
     const available   = this.items.filter(i =>
       i.type === "ability" && resistNames.includes(i.name)
     );
@@ -997,7 +1009,7 @@ export class KK9Actor extends Actor {
     const spiritDie = this.system.attributes?.spirit?.die || 6;
 
     // Навыки сопротивления — abilities с нужными именами
-    const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выжидание"];
+    const resistNames = ["Сопротивление боли","Сопротивление магии","Сопротивление ментальному давлению","Самоконтроль","Выживание"];
     const available   = this.items.filter(i => i.type === "ability" && resistNames.includes(i.name));
     const options     = available.map(s =>
       `<option value="${s.id}|${s.system.die||4}">${s.name} (d${s.system.die||4})</option>`

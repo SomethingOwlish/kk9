@@ -406,11 +406,19 @@ export class KK9CharacterSheet extends ActorSheet {
 
     html.find(".skill-die-select").change(this._onSkillDieChange.bind(this));
     html.find(".skill-mod-input").change(async e => {
+      if (!game.user.isGM) return;
       const itemId = e.currentTarget.dataset.itemId;
       await this.actor.items.get(itemId)?.update({ "system.modifier": parseInt(e.currentTarget.value) || 0 });
     });
 
+    // Визуально блокируем контролы навыков/абилити для не-ГМ
+    if (!game.user.isGM) {
+      html.find(".ability-die-select, .ability-mod-input, .skill-die-select, .skill-mod-input")
+          .prop("disabled", true).css("opacity", "0.5").css("cursor", "not-allowed");
+    }
+
     html.find(".ability-die-select").change(async e => {
+      if (!game.user.isGM) return;
       const itemId = e.currentTarget.dataset.itemId;
       const item   = this.actor.items.get(itemId);
       if (!item) return;
@@ -427,6 +435,7 @@ export class KK9CharacterSheet extends ActorSheet {
       await item.update({ "system.die": newDie });
     });
     html.find(".ability-mod-input").change(async e => {
+      if (!game.user.isGM) return;
       const itemId = e.currentTarget.dataset.itemId;
       const item   = this.actor.items.get(itemId);
       if (!item) return;
@@ -462,6 +471,7 @@ export class KK9CharacterSheet extends ActorSheet {
 
     // Жетоны судьбы (bennies)
     html.find(".bennie-pip").click(async e => {
+      if (!game.user.isGM) return;
       const idx = parseInt(e.currentTarget.dataset.index); // 1-based
       const cur = this.actor.system.bennies ?? 0;
       const next = cur === idx ? idx - 1 : idx;
@@ -477,6 +487,7 @@ export class KK9CharacterSheet extends ActorSheet {
 
     // Жетоны судьбы (bennies)
     html.find(".bennie-pip").click(async e => {
+      if (!game.user.isGM) return;
       const idx = parseInt(e.currentTarget.dataset.index); // 1-based
       const cur = this.actor.system.bennies ?? 0;
       // клик на активном пипе = уменьшить до (idx-1), иначе = установить idx
@@ -618,6 +629,10 @@ export class KK9CharacterSheet extends ActorSheet {
     const data = super._getSubmitData(updateData);
     if (!game.user.isGM) {
       delete data["system.energy.value"];
+      delete data["system.money"];
+      delete data["system.experience"];
+      delete data["system.academy_year"];
+      delete data["system.bennies"];
     } else if ("system.energy.value" in data) {
       const max = this.actor.system.energy?.max ?? 0;
       data["system.energy.value"] = Math.min(Math.max(0, data["system.energy.value"]), max);
@@ -1333,7 +1348,7 @@ export class KK9ItemSheet extends ItemSheet {
         const spMod  = attrs.spirit?.modifier || 0;
 
         // Навыки сопротивления — те же имена что у персонажа
-        const resistNames = ["Противостояние пыткам","Противостояние яду","Противостояние истощению","Выжидание"];
+        const resistNames = ["Сопротивление боли","Сопротивление магии","Сопротивление ментальному давлению","Самоконтроль","Выживание"];
         const available   = (this.item.system.skills || []).filter(sk => resistNames.includes(sk.name));
         const options     = available.map((sk, i) =>
           `<option value="${i}">${sk.name} (d${sk.die || 6})</option>`
@@ -1963,7 +1978,7 @@ async function _writeToMasterJournal(actor, state) {
 async function _startChargen(actor) {
   let baseSkills=actor.items.filter(i=>i.type==="ability"&&i.system.isBase);
   if (!baseSkills.length) {
-    const pack=game.packs.get("kk9.kk9-skills");
+    const pack=game.packs.get("kk9.kk9-abilities");
     if (pack) {
       await pack.getIndex();
       const all=await Promise.all(Array.from(pack.index).map(i=>pack.getDocument(i._id)));
