@@ -4,8 +4,9 @@
 
 import {
   CharacterDataModel, NpcLightDataModel, NpcHardDataModel, NpcBossDataModel, ContainerDataModel,
+  DaemonActorDataModel, CompanionActorDataModel,
   FacultyDataModel, AbilityDataModel, WeaponDataModel, GearDataModel,
-  ArtifactDataModel, SpellDataModel, DaemonDataModel, CompanionDataModel,
+  ArtifactDataModel, SpellDataModel,
   VehicleDataModel, DeviceDataModel, ContactDataModel, LanguageDataModel,
   StatusDataModel
 } from "./module/data-models.mjs";
@@ -14,7 +15,7 @@ import { KK9Actor, KK9Item } from "./module/documents.mjs";
 
 // FIX: Персонаж и айтем — из sheets.mjs (НПС-листы убраны оттуда)
 import {
-  KK9CharacterSheet, KK9ItemSheet
+  KK9CharacterSheet, KK9ItemSheet, KK9DaemonSheet, KK9CompanionSheet
 } from "./module/sheets.mjs";
 
 // FIX: НПС-листы — из npc-sheets.mjs (единственный источник правды)
@@ -51,6 +52,50 @@ const KK9_DEFAULTS = {
 };
 
 const SKILL_TYPES = new Set(["ability","faculty","language"]);
+
+// ============================================================
+// ResetCompendiumsConfig — кнопка пересоздания компендиумов
+// ============================================================
+class ResetCompendiumsConfig extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      title:"КК9 | Пересоздать компендиумы", width:400, height:"auto"
+    });
+  }
+  async _renderInner() {
+    const el = $(`<form style="font-family:'Jost',sans-serif;padding:12px;background:#232323;color:#b8b0a4;">
+      <p style="margin-bottom:12px;font-size:0.86em;color:#6a6560;">
+        Это действие <strong style="color:#c4a44a;">полностью очистит</strong> компендиумы
+        <em>kk9-abilities</em>, <em>kk9-faculties</em>, <em>kk9-languages</em>
+        и заполнит их заново из встроенных данных.
+      </p>
+      <p style="font-size:0.82em;color:#6a6560;margin-bottom:16px;">
+        Все ручные изменения в этих компендиумах будут потеряны.<br>
+        Персонажи и их предметы не затрагиваются.
+      </p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" id="cmp-cancel"
+          style="padding:5px 14px;background:transparent;border:1px solid #3a3a3a;
+                 border-radius:3px;color:#b8b0a4;cursor:pointer;font-family:'Jost',sans-serif;">
+          Отмена
+        </button>
+        <button type="button" id="cmp-confirm"
+          style="padding:5px 14px;background:rgba(196,164,74,.1);border:1px solid #7a6430;
+                 border-radius:3px;color:#c4a44a;cursor:pointer;font-family:'Jost',sans-serif;font-weight:500;">
+          Пересоздать
+        </button>
+      </div>
+    </form>`);
+    el.find("#cmp-cancel").on("click", () => this.close());
+    el.find("#cmp-confirm").on("click", async () => {
+      this.close();
+      ui.notifications.info("КК9 | Пересоздаём компендиумы...");
+      await _resetAndRefillCompendiums();
+    });
+    return el;
+  }
+  async _updateObject() {}
+}
 
 // ============================================================
 // BackgroundsConfig — редактор бэкграундов создания персонажа
@@ -181,7 +226,9 @@ Hooks.once("init", function () {
     "npc-light": NpcLightDataModel,
     "npc-hard":  NpcHardDataModel,
     "npc-boss":  NpcBossDataModel,
-    "container": ContainerDataModel
+    "container": ContainerDataModel,
+    "daemon":    DaemonActorDataModel,
+    "companion": CompanionActorDataModel
   };
 
   CONFIG.Item.dataModels = {
@@ -191,8 +238,6 @@ Hooks.once("init", function () {
     "gear":      GearDataModel,
     "artifact":  ArtifactDataModel,
     "spell":     SpellDataModel,
-    "daemon":    DaemonDataModel,
-    "companion": CompanionDataModel,
     "vehicle":   VehicleDataModel,
     "device":    DeviceDataModel,
     "contact":   ContactDataModel,
@@ -206,6 +251,8 @@ Hooks.once("init", function () {
   Actors.registerSheet("kk9", KK9NpcHardSheet,   { types:["npc-hard"],  makeDefault:true, label:"КК9 | НПС сложный" });
   Actors.registerSheet("kk9", KK9NpcBossSheet,   { types:["npc-boss"],  makeDefault:true, label:"КК9 | Босс" });
   Actors.registerSheet("kk9", KK9ContainerSheet, { types:["container"], makeDefault:true, label:"КК9 | Контейнер" });
+  Actors.registerSheet("kk9", KK9DaemonSheet,    { types:["daemon"],    makeDefault:true, label:"КК9 | Даймон" });
+  Actors.registerSheet("kk9", KK9CompanionSheet, { types:["companion"], makeDefault:true, label:"КК9 | Спутник" });
 
   Items.unregisterSheet("core", ItemSheet);
   Items.registerSheet("kk9", KK9ItemSheet, { makeDefault:true, label:"КК9 | Предмет" });
@@ -222,6 +269,7 @@ Hooks.once("init", function () {
     { key: "chargen.skills.max_save",      name: "КК9 | Макс. сохранение навыков", hint: "Максимум очков навыков переносимых на бэкграунды", default: 5, type: Number },
     { key: "chargen.special.cost",         name: "КК9 | Цена спецспособности",     hint: "Очков навыков за одну спецспособность",            default: 3, type: Number },
     { key: "chargen.special.max",          name: "КК9 | Макс. спецспособностей",   hint: "Максимум спецспособностей при создании",           default: 2, type: Number },
+    { key: "status.charges_per_trigger",   name: "КК9 | Статус: зарядов на N бросков", hint: "Каждые N бросков срабатывают статусы категории 2 (яд, заражение, болезнь, холод)", default: 3, type: Number },
   ];
   for (const s of chargenSettings) {
     game.settings.register("kk9", s.key, {
@@ -246,6 +294,15 @@ Hooks.once("init", function () {
     hint:"Добавляй, удаляй и настраивай бэкграунды персонажа",
     icon:"fas fa-scroll",
     type: BackgroundsConfig,
+    restricted:true
+  });
+
+  game.settings.registerMenu("kk9", "resetCompendiumsMenu", {
+    name:"КК9 | Пересоздать компендиумы",
+    label:"Пересоздать",
+    hint:"Очищает и заново заполняет базовые компендиумы (навыки, факультеты, языки). Используй если данные сломаны или устарели.",
+    icon:"fas fa-sync",
+    type: ResetCompendiumsConfig,
     restricted:true
   });
 
@@ -356,6 +413,77 @@ Hooks.on("updateActor", async (actor, changes, options, userId) => {
   const newVal = Math.min(curVal + delta, newMax);
   if (newVal !== curVal) {
     await actor.update({ "system.energy.value": newVal });
+  }
+});
+
+// ============================================================
+// Хук Observer прав на новые ref-итемы
+// ============================================================
+const _prevRefs = new Map(); // actorId → { field → Set<uuid> }
+
+Hooks.on("preUpdateActor", (actor, changes) => {
+  const sys = changes.system;
+  if (!sys) return;
+  const REF_FIELDS = ["artifact_refs","daemon_refs","companion_refs","contact_refs"];
+  if (!REF_FIELDS.some(f => Array.isArray(sys[f]))) return;
+
+  // Сохраняем текущие (старые) значения перед обновлением
+  const prev = {};
+  for (const f of REF_FIELDS) {
+    if (Array.isArray(sys[f])) {
+      prev[f] = new Set(actor.system[f] || []);
+    }
+  }
+  _prevRefs.set(actor.id, prev);
+});
+
+Hooks.on("updateActor", async (actor, changes, options, userId) => {
+  // Только GM выставляет права
+  if (!game.user.isGM) return;
+
+  const sys = changes.system;
+  if (!sys) return;
+  if (!_prevRefs.has(actor.id)) return;
+
+  const prev = _prevRefs.get(actor.id);
+  _prevRefs.delete(actor.id);
+
+  const REF_FIELDS = ["artifact_refs","daemon_refs","companion_refs","contact_refs"];
+
+  // Находим владельцев актора (не GM, уровень Owner)
+  const ownerIds = Object.entries(actor.ownership)
+    .filter(([uid, lvl]) =>
+      lvl === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER &&
+      uid !== "default" &&
+      uid !== game.user.id
+    )
+    .map(([uid]) => uid);
+
+  if (!ownerIds.length) { _prevRefs.delete(actor.id); return; }
+
+  for (const field of REF_FIELDS) {
+    if (!Array.isArray(sys[field])) continue;
+    const oldSet = prev[field] ?? new Set();
+    const addedUuids = sys[field].filter(uuid => !oldSet.has(uuid));
+
+    for (const uuid of addedUuids) {
+      const doc = await fromUuid(uuid);
+      if (!doc || doc.pack) continue; // пропускаем компендиумные
+
+      const newOwnership = { ...doc.ownership };
+      let changed = false;
+      for (const uid of ownerIds) {
+        const cur = newOwnership[uid] ?? CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE;
+        if (cur < CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER) {
+          newOwnership[uid] = CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await doc.update({ ownership: newOwnership });
+        console.log(`КК9 | Observer: ${doc.name} → ${ownerIds.join(", ")}`);
+      }
+    }
   }
 });
 
@@ -475,6 +603,40 @@ function _registerHelpers() {
     daemon:"Даймон", companion:"Спутник", vehicle:"Транспорт", device:"Устройство",
     contact:"Контакт", language:"Язык", status:"Статус"
   })[type] || type);
+
+  // ── Статус-хелперы ──────────────────────────────────────────
+  Handlebars.registerHelper("statusTypeLabel", (type) => ({
+    poison:       "Яд",
+    bleed:        "Кровотечение",
+    acid:         "Кислота",
+    burn:         "Ожог",
+    cold:         "Холод",
+    electric:     "Электричество",
+    infection:    "Заражение",
+    disease:      "Болезнь",
+    shock_mental: "Шок",
+    fear:         "Страх",
+    madness:      "Безумие",
+    blindness:    "Слепота",
+    magic_effect: "Магический эффект",
+    curse:        "Проклятие",
+    debt_fate:    "Долг судьбы",
+    debt:         "Долг",
+  })[type] || type);
+
+  // Проверка — входит ли значение в массив
+  Handlebars.registerHelper("includes", (arr, val) => Array.isArray(arr) && arr.includes(val));
+
+  // Шкала граней куба для применения die_change в рантайме (не для отображения)
+  const DIE_SCALE = [4, 6, 8, 10, 12, 20, 100];
+
+  // Отображение die_change — только шаги, без конкретной грани
+  Handlebars.registerHelper("dieChangeLabel", (change) => {
+    if (!change || change === 0) return "без изменений";
+    const sign = change > 0 ? "+" : "";
+    return `${sign}${change} шаг${Math.abs(change) === 1 ? "" : (Math.abs(change) < 5 ? "а" : "ов")}`;
+  });
+
 }
 
 // ============================================================
@@ -500,8 +662,8 @@ async function _preloadTemplates() {
     "systems/kk9/templates/items/gear-sheet.hbs",
     "systems/kk9/templates/items/artifact-sheet.hbs",
     "systems/kk9/templates/items/spell-sheet.hbs",
-    "systems/kk9/templates/items/daemon-sheet.hbs",
-    "systems/kk9/templates/items/companion-sheet.hbs",
+    "systems/kk9/templates/actors/daemon-sheet.hbs",
+    "systems/kk9/templates/actors/companion-sheet.hbs",
     "systems/kk9/templates/items/vehicle-sheet.hbs",
     "systems/kk9/templates/items/device-sheet.hbs",
     "systems/kk9/templates/items/contact-sheet.hbs",
@@ -556,10 +718,39 @@ Hooks.on("renderSidebarTab", (app, html) => {
 });
 
 // ============================================================
+// Принудительный сброс и пересоздание компендиумов
+// ============================================================
+async function _resetAndRefillCompendiums() {
+  const packNames = ["kk9-faculties","kk9-abilities","kk9-languages",
+    "kk9-weapons","kk9-gear","kk9-artifacts","kk9-spells","kk9-daemons",
+    "kk9-companions","kk9-vehicles","kk9-devices","kk9-contacts","kk9-statuses",
+    "kk9-npc-light","kk9-npc-hard","kk9-npc-boss"];
+  for (const name of packNames) {
+    const p = game.packs.get(`kk9.${name}`);
+    if (p?.locked) await p.configure({ locked: false });
+  }
+  // Очистка
+  const packsToClear = ["kk9-abilities","kk9-faculties","kk9-languages"];
+  for (const name of packsToClear) {
+    const p = game.packs.get(`kk9.${name}`);
+    if (!p) continue;
+    const docs = await p.getDocuments();
+    if (docs.length) await Promise.all(docs.map(d => d.delete()));
+    console.log(`КК9 | Очищен: ${name} (${docs.length} записей)`);
+  }
+  // Заполняем заново — через _ensureCompendiums но без guard
+  // Временно сбрасываем индекс чтобы guard не сработал
+  const abPack = game.packs.get("kk9.kk9-abilities");
+  if (abPack) abPack._index = new Collection();
+  await _ensureCompendiums();
+  ui.notifications.info("КК9 | Компендиумы пересозданы!");
+}
+
+// ============================================================
 // Компендиумы
 // ============================================================
 async function _ensureCompendiums() {
-  const packNames = ["kk9-faculties","kk9-abilities","kk9-languages","kk9-skills",
+  const packNames = ["kk9-faculties","kk9-abilities","kk9-languages",
     "kk9-weapons","kk9-gear","kk9-artifacts","kk9-spells","kk9-daemons",
     "kk9-companions","kk9-vehicles","kk9-devices","kk9-contacts","kk9-statuses",
     "kk9-npc-light","kk9-npc-hard","kk9-npc-boss"];
@@ -570,24 +761,40 @@ async function _ensureCompendiums() {
     if (p?.locked) await p.configure({ locked: false });
   }
 
-  const skillPack = game.packs.get("kk9.kk9-skills");
-  if (!skillPack) { console.warn("КК9 | Компендиум навыков не найден"); return; }
+  const skillPack = game.packs.get("kk9.kk9-abilities");
+  if (!skillPack) { console.warn("КК9 | Компендиум способностей не найден"); return; }
   await skillPack.getIndex();
+  if (skillPack.index.size > 0) {
+    // Уже заполнен — только разлочиваем
+    console.log("КК9 | Компендиумы уже заполнены, пропускаем.");
+    return;
+  }
 
-  console.log("КК9 | Наполняем компендиумы...");
+  console.log("КК9 | Очищаем и наполняем компендиумы...");
+
+  // ── Очистка перед заполнением ──
+  const packsToClear = ["kk9-abilities","kk9-faculties","kk9-languages"];
+  for (const name of packsToClear) {
+    const p = game.packs.get(`kk9.${name}`);
+    if (!p) continue;
+    await p.getIndex();
+    const ids = Array.from(p.index).map(i => i._id);
+    if (ids.length) await p.getDocuments().then(docs => Promise.all(docs.map(d => d.delete())));
+  }
+
+  // ── Данные ниже, создание в конце функции ──
 
   const SKILLS_DATA = [
-  [
   {name:"Плавание", attr:"endurance", base:true, categ:"learned"},
   {name:"Атлетика", attr:"endurance", base:true, categ:"common"},
-  {name:"Общая эрудиция", attr:"wit", base:true, categ:"common",
-  {name:"Техника", attr:"wit", base:true, categ:"learned"},
-  {name:"Электроника", attr:"wit", base:true, categ:"common"},
-  {name:"Ориентирование", attr:"wit", base:true, categ:"learned"},
-  {name:"Наблюдательность", attr:"wit", base:true, categ:"common"},
-  {name:"Языки", attr:"wit", base:true, categ:"common"},
-  {name:"Анализ", attr:"wit", base:true, categ:"common"},
-  {name:"Знание Нижнего Мира", attr:"wit", base:true, categ:"common"},
+  {name:"Общая эрудиция", attr:"smarts", base:true, categ:"common"},
+  {name:"Техника", attr:"smarts", base:true, categ:"learned"},
+  {name:"Электроника", attr:"smarts", base:true, categ:"common"},
+  {name:"Ориентирование", attr:"smarts", base:true, categ:"learned"},
+  {name:"Наблюдательность", attr:"smarts", base:true, categ:"common"},
+  {name:"Языки", attr:"smarts", base:true, categ:"common"},
+  {name:"Анализ", attr:"smarts", base:true, categ:"common"},
+  {name:"Знание Нижнего Мира", attr:"smarts", base:true, categ:"common"},
   {name:"Эмпатия", attr:"spirit", base:true, categ:"common"},
   {name:"Самоконтроль", attr:"spirit", base:true, categ:"learned"},
   {name:"Убеждение", attr:"spirit", base:true, categ:"common"},
@@ -600,28 +807,28 @@ async function _ensureCompendiums() {
   {name:"Кулинария", attr:"agility", base:true, categ:"learned"},
   {name:"Скрытность", attr:"agility", base:true, categ:"common"},
   {name:"Координация", attr:"agility", base:true, categ:"common"},
-  {name:"Тактика", attr:"wit", base:false, categ:"learned"},
-  {name:"Логические игры", attr:"wit", base:false, categ:"learned"},
-  {name:"Этикет", attr:"wit", base:false, categ:"learned"},
-  {name:"Знание Верхнего Мира", attr:"wit", base:false, categ:"learned"},
-  {name:"Манипуляция", attr:"wit", base:false, categ:"learned"},
-  {name:"Детект менджик", attr:"wit", base:false, categ:"learned"},
-  {name:"Системы безопасности", attr:"wit", base:false, categ:"learned"},
-  {name:"Токсикология", attr:"wit", base:false, categ:"learned"},
-  {name:"Медицина", attr:"wit", base:false, categ:"learned"},
-  {name:"Расследование", attr:"wit", base:false, categ:"common"},
-  {name:"Big Data", attr:"wit", base:false, categ:"learned"},
-  {name:"Программирование", attr:"wit", base:false, categ:"learned"},
-  {name:"Информационная безопасность", attr:"wit", base:false, categ:"learned"},
-  {name:"Хакинг", attr:"wit", base:false, categ:"learned"},
-  {name:"Криптография", attr:"wit", base:false, categ:"learned"},
-  {name:"Профайлинг", attr:"wit", base:false, categ:"learned"},
+  {name:"Тактика", attr:"smarts", base:false, categ:"learned"},
+  {name:"Логические игры", attr:"smarts", base:false, categ:"learned"},
+  {name:"Этикет", attr:"smarts", base:false, categ:"learned"},
+  {name:"Знание Верхнего Мира", attr:"smarts", base:false, categ:"learned"},
+  {name:"Манипуляция", attr:"smarts", base:false, categ:"learned"},
+  {name:"Детект менджик", attr:"smarts", base:false, categ:"learned"},
+  {name:"Системы безопасности", attr:"smarts", base:false, categ:"learned"},
+  {name:"Токсикология", attr:"smarts", base:false, categ:"learned"},
+  {name:"Медицина", attr:"smarts", base:false, categ:"learned"},
+  {name:"Расследование", attr:"smarts", base:false, categ:"common"},
+  {name:"Big Data", attr:"smarts", base:false, categ:"learned"},
+  {name:"Программирование", attr:"smarts", base:false, categ:"learned"},
+  {name:"Информационная безопасность", attr:"smarts", base:false, categ:"learned"},
+  {name:"Хакинг", attr:"smarts", base:false, categ:"learned"},
+  {name:"Криптография", attr:"smarts", base:false, categ:"learned"},
+  {name:"Профайлинг", attr:"smarts", base:false, categ:"learned"},
   {name:"Актерское мастерство", attr:"spirit", base:false, categ:"learned"},
-  {name:"Политология", attr:"wit", base:false, categ:"learned"},
-  {name:"Риторика", attr:"wit", base:false, categ:"learned"},
-  {name:"Инженерия", attr:"wit", base:false, categ:"learned"},
-  {name:"Военные технологии", attr:"wit", base:false, categ:"learned"},
-  {name:"Юриспруденция", attr:"wit", base:false, categ:"learned"},
+  {name:"Политология", attr:"smarts", base:false, categ:"learned"},
+  {name:"Риторика", attr:"smarts", base:false, categ:"learned"},
+  {name:"Инженерия", attr:"smarts", base:false, categ:"learned"},
+  {name:"Военные технологии", attr:"smarts", base:false, categ:"learned"},
+  {name:"Юриспруденция", attr:"smarts", base:false, categ:"learned"},
   {name:"Владение клинковым оружием", attr:"agility", base:false, categ:"learned"},
   {name:"Владение древковым оружием", attr:"agility", base:false, categ:"learned"},
   {name:"Владение метательным/стрелковым оружием", attr:"agility", base:false, categ:"learned"},
@@ -664,10 +871,10 @@ async function _ensureCompendiums() {
   {name:"Техномантия", attr:"magic", base:false, categ:"magic"},
   {name:"Ментальная магия", attr:"magic", base:false, categ:"magic"},
   {name:"Даймонология", attr:"magic", base:false, categ:"magic"},
-  {name:"Инфильтрация", attr:"wit", base:false, categ:"learned"},
-  {name:"Агентурная сеть", attr:"wit", base:false, categ:"learned"},
-  {name:"Яды и противоядия", attr:"wit", base:false, categ:"learned"},
-  {name:"Викка", attr:"wit", base:false, categ:"magic"},
+  {name:"Инфильтрация", attr:"smarts", base:false, categ:"learned"},
+  {name:"Агентурная сеть", attr:"smarts", base:false, categ:"learned"},
+  {name:"Яды и противоядия", attr:"smarts", base:false, categ:"learned"},
+  {name:"Викка", attr:"smarts", base:false, categ:"magic"},
   {name:"Некромантия", attr:"magic", base:false, categ:"magic"},
   {name:"Вампиризм", attr:"agility", base:false, categ:"magic"},
   {name:"Оборотничество", attr:"endurance", base:false, categ:"magic"},
@@ -881,35 +1088,41 @@ async function _ensureCompendiums() {
    abilities:[]},
   ];
 
+
   const LANGUAGES = ["Русский","Английский","Немецкий","Французский","Испанский",
     "Латынь","ДревнеГреческий","Ангельский","Демонический","Японский","Жестовый","Азбука морзе"];
 
+
+
+  // ── Создаём навыки/способности ──
   await Item.createDocuments(
     SKILLS_DATA.map(sk => ({
       name: sk.name, type: "ability", img: KK9_DEFAULTS.skillAbility,
       system: { description:"", linkedAttribute:sk.attr, die:4, modifier:-2, isBase:sk.base, category:sk.categ }
     })),
-    { pack: "kk9.kk9-skills" }
+    { pack: "kk9.kk9-abilities" }
   );
 
+  // Перестраиваем индекс для поиска id
   const abPack = game.packs.get("kk9.kk9-abilities");
-  for (const fac of FACULTIES_DATA) {
-    const abilityRefs = [];
-    if (abPack) {
-      for (const ab of fac.abilities) {
-        const [created] = await Item.createDocuments([{
-          name: ab.name, type: "ability", img: KK9_DEFAULTS.skillAbility,
-          system: { description:"", faculty_id:null, die:4, modifier:-2 }
-        }], { pack: "kk9.kk9-abilities" });
-        abilityRefs.push({ name:ab.name, itemId:created.id, category:ab.cat });
-      }
-    }
-    await Item.createDocuments([{
-      name: fac.name, type: "faculty", img: KK9_DEFAULTS.skillAbility,
-      system: { description:"", color:fac.color, color_key:"", teacher:fac.teacher, abilities:abilityRefs }
-    }], { pack: "kk9.kk9-faculties" });
-  }
+  await abPack.getIndex();
+  const abilityIndex = new Map(Array.from(abPack.index).map(i => [i.name, i._id]));
 
+  // ── Создаём факультеты — ссылаемся на существующие ability по имени ──
+  await Item.createDocuments(
+    FACULTIES_DATA.map(fac => ({
+      name: fac.name, type: "faculty", img: KK9_DEFAULTS.skillAbility,
+      system: {
+        description:"", color:fac.color, color_key:"", teacher:fac.teacher,
+        abilities: fac.abilities
+          .filter(ab => abilityIndex.has(ab.name))
+          .map(ab => ({ name:ab.name, itemId:abilityIndex.get(ab.name), category:ab.cat||"" }))
+      }
+    })),
+    { pack: "kk9.kk9-faculties" }
+  );
+
+  // ── Создаём языки ──
   await Item.createDocuments(
     LANGUAGES.map(lang => ({
       name: lang, type: "language", img: KK9_DEFAULTS.skillAbility,
@@ -921,7 +1134,6 @@ async function _ensureCompendiums() {
   console.log("КК9 | Компендиумы заполнены!");
   ui.notifications.info("КК9 | Базовые данные загружены в компендиумы!");
 }
-
 // ============================================================
 // Стартовая сцена
 // ============================================================
@@ -966,7 +1178,4 @@ async function _ensureMasterJournal() {
     ui.notifications.info("КК9 | Журнал «Мастерские дела» создан.");
   }
   return journal;
-}
-
-
 }

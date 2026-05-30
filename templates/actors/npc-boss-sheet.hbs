@@ -172,24 +172,43 @@
                   placeholder="опишите уникальную механику: фазы, условия победы, особые правила...">{{system.special_mechanics}}</textarea>
 
         {{!-- Активные статусы --}}
-        <div class="active-statuses-block actor-status-drop" style="margin-top:10px" title="Перетащи статус-итем сюда">
-          <div class="active-statuses-header">
-            <span class="active-statuses-title">Активные статусы</span>
+        <div class="actor-statuses-section actor-status-drop" style="margin-top:10px" title="Перетащи статус-итем сюда">
+          <div class="actor-statuses-header">
+            <span class="actor-statuses-title">Активные статусы</span>
+            <span class="actor-statuses-hint">перетащи статус-итем</span>
           </div>
-          {{#if system.active_statuses.length}}
-          <div class="active-statuses-list">
-            {{#each system.active_statuses as |st|}}
-            <div class="active-status-row status-type-{{st.status_type}}">
-              <span class="active-status-icon">{{#if (eq st.status_type "poison")}}☠{{else if (eq st.status_type "shock")}}⚡{{else if (eq st.status_type "magic")}}✦{{else if (eq st.status_type "bleed")}}🩸{{else if (eq st.status_type "acid")}}⚗{{/if}}</span>
-              <span class="active-status-name">{{st.statusName}}</span>
-              {{#if (ne st.uses -1)}}<span class="active-status-uses">{{st.uses}}×</span>{{/if}}
-              <button type="button" class="actor-remove-status fac-del" data-index="{{@index}}">✕</button>
+          {{#if activeStatuses.length}}
+          <div class="actor-statuses-list">
+            {{#each activeStatuses as |st|}}
+            <div class="actor-status-row" data-item-id="{{st.id}}">
+              <div class="actor-status-body">
+                <span class="actor-status-name item-name-click" style="cursor:pointer">{{st.name}}</span>
+                <span class="actor-status-dur">
+                  {{#if (eq st.duration_mode "counter")}}{{st.duration_value}} раунд.
+                  {{else if (eq st.duration_mode "charges")}}{{st.duration_value}} зар.
+                  {{else}}время{{/if}}
+                </span>
+                {{#if st.status_types.length}}
+                <span class="actor-status-tags">
+                  {{#each st.status_types as |t|}}<span class="actor-status-tag">{{statusTypeLabel t}}</span>{{/each}}
+                  {{#if st.apply_stun}}<span class="actor-status-tag actor-status-tag--stun">Стан</span>{{/if}}
+                </span>
+                {{/if}}
+              </div>
+              {{#if ../isGM}}
+              <button type="button" class="actor-remove-status actor-status-del-btn" data-item-id="{{st.id}}">✕</button>
+              {{#if (eq st.duration_mode "time")}}
+              <button type="button" class="actor-apply-status actor-status-apply-btn"
+                      data-item-id="{{st.id}}" title="Применить эффект">▶</button>
+              {{/if}}
+              {{/if}}
             </div>
             {{/each}}
           </div>
           {{else}}
-          <div class="active-statuses-empty">Нет активных статусов · перетащи статус-итем</div>
+          <div class="actor-statuses-empty">Нет активных статусов</div>
           {{/if}}
+        </div>
         </div>
 
         <div class="section-title" style="margin-top:12px">Навыки и способности</div>

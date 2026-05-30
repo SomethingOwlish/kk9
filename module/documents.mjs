@@ -247,10 +247,13 @@ export class KK9Actor extends Actor {
   // Механика успехов
   // ----------------------------------------------------------
   _getSuccessDegree(roll, halfResult = false) {
-    let total = roll.total;
+    return this._getSuccessDegreeFromTotal(roll.total, halfResult, roll);
+  }
+
+  _getSuccessDegreeFromTotal(total, halfResult = false, roll = null) {
     if (halfResult) total = Math.floor(total / 2);
 
-    const diceTerms     = roll.terms?.filter(t => Array.isArray(t.results)) ?? [];
+    const diceTerms     = roll?.terms?.filter(t => Array.isArray(t.results)) ?? [];
     const activeResults = diceTerms.flatMap(t => t.results.filter(r => r.active !== false));
 
     const allOnes       = activeResults.length >= 2 && activeResults.every(r => r.result === 1);
@@ -283,7 +286,7 @@ export class KK9Actor extends Actor {
   // HTML кубиков
   // ----------------------------------------------------------
   // Строит HTML для раздела "кубики" в details
-  _buildDiceHtml(roll, modReasons = []) {
+  _buildDiceHtml(roll, modReasons = [], overrideTotal = null) {
     const lines = [];
 
     // Рекурсивно собираем Die-термы из структуры Foundry v13
@@ -396,10 +399,11 @@ export class KK9Actor extends Actor {
 
     // Итог
     lines.push(`<div class="kk9-dsep"></div>`);
+    const displayTotal = overrideTotal !== null ? overrideTotal : roll.total;
     lines.push(
       `<div class="kk9-drow kk9-dtotal">` +
       `<span class="kk9-dlabel">итог</span>` +
-      `<span class="kk9-dtotal-val">${roll.total}</span>` +
+      `<span class="kk9-dtotal-val">${displayTotal}</span>` +
       `</div>`
     );
     return lines.join("");
@@ -408,7 +412,7 @@ export class KK9Actor extends Actor {
   // ----------------------------------------------------------
   // Общий метод броска
   // ----------------------------------------------------------
-  async _doRoll(baseFormula, label, { attrKey=null, extraMod=0, isToughness=false, reasons=[], skillItem=null } = {}) {
+  async _doRoll(baseFormula, label, { attrKey=null, extraMod=0, isToughness=false, reasons=[], skillItem=null, itemType=null, skillUuid=null, isInitiative=false } = {}) {
     let healthMod  = 0;
     let halfResult = false;
     const allReasons = [...reasons];
@@ -424,28 +428,104 @@ export class KK9Actor extends Actor {
       allReasons.push(...h.reasons);
     }
 
-    const totalMod = healthMod + extraMod;
+    // ── Статусные модификаторы ──────────────────────────────
+    const rollCtx = {
+      attributeKey: attrKey,
+      itemType:     itemType     ?? null,
+      skillUuid:    skillUuid    ?? (skillItem?.uuid ?? null),
+      isToughness:  isToughness  ?? false,
+      isInitiative: isInitiative ?? false,
+    };
+    const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+    const stMods = collectStatusModifiers(this, rollCtx);
+
+    // Все reasons от статусов — добавляем в allReasons
+    for (const r of stMods.reasons) {
+      if (r.includes("доп.")) continue; // extraDie выводим отдельно ниже
+      allReasons.push(r);
+    }
+
+    // Изменение грани куба
+    let evalFormula = baseFormula;
+    if (stMods.dieMod !== 0) {
+      evalFormula = this._applyDieChange(baseFormula, stMods.dieMod);
+    }
+
+    // Числовой модификатор от статусов
+    const totalMod = healthMod + extraMod + stMods.numericMod;
     const modStr   = totalMod !== 0 ? (totalMod > 0 ? `+${totalMod}` : `${totalMod}`) : "";
 
-    // Вставляем модификатор прямо в формулу ПУЛа
-    // {1d8x, 1d6x}kh + modStr
-    const evalFormula = modStr ? `(${baseFormula})${modStr}` : baseFormula;
+    // Модификатор успехов
+    const successMod = stMods.successMod;
 
-    const roll = new Roll(evalFormula);
+    // Основная формула — без extraDie
+    const fullFormula = modStr
+      ? `(${evalFormula})${modStr}`
+      : evalFormula;
+
+    const roll = new Roll(fullFormula);
     await roll.evaluate();
 
-    const degree   = this._getSuccessDegree(roll, halfResult);
-    const diceHtml = this._buildDiceHtml(roll, allReasons);
-    const content  = this._buildRollMessage(label, degree, diceHtml, allReasons);
+    // Дополнительные кубики от статусов — бросаем каждый отдельно, показываем в reasons
+    let extraDieTotal = 0;
+    for (const ed of (stMods.extraDice ?? [])) {
+      const sign      = ed.mode === "add" ? 1 : -1;
+      const extraRoll = new Roll(`1d${ed.faces}`);
+      await extraRoll.evaluate();
+      extraDieTotal += sign * extraRoll.total;
+      const signStr  = sign > 0 ? `+1d${ed.faces} = +${extraRoll.total}` : `-1d${ed.faces} = −${extraRoll.total}`;
+      allReasons.push(`${ed.name ?? "Статус"}: ${signStr}`);
+    }
+
+    const rollTotal  = roll.total + extraDieTotal;
+    const baseTotal  = rollTotal;
+    const degree     = this._getSuccessDegreeFromTotal(baseTotal, halfResult, roll);
+
+    // successMod — модификатор к числу успехов, применяем после вычисления
+    if (successMod !== 0 && degree.type === "success") {
+      degree.successes = Math.max(0, degree.successes + successMod);
+      const s = degree.successes;
+      degree.label = s === 1 ? "1 успех" : s <= 4 ? `${s} успеха` : `${s} успехов`;
+    }
+
+    const finalTotal = baseTotal;
+    const diceHtml   = this._buildDiceHtml(roll, allReasons, finalTotal);
+    const content    = this._buildRollMessage(label, degree, diceHtml, allReasons);
 
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: this }),
       content,
       flags: { kk9: { isRoll: true, actorId: this.id } }
     });
+
+    // Срабатывание статусов категории 1 и 2 при броске
+    try {
+      const { triggerStatusEffectsOnRoll } = await import("./weapon-combat.mjs");
+      await triggerStatusEffectsOnRoll(this);
+    } catch(e) { console.warn("KK9: triggerStatusEffectsOnRoll", e); }
+
+    // Расходуем заряды статусов (roll_modifier charges)
+    if (stMods.usedIds.length) await consumeStatusCharges(this, stMods.usedIds);
+
     return { roll, degree };
   }
 
+
+  // ----------------------------------------------------------
+  // Применить сдвиг грани куба к формуле броска
+  // Сдвигает каждый кубик в формуле на N шагов по шкале
+  // d4 → d6 → d8 → d10 → d12 → d20 → d100
+  // ----------------------------------------------------------
+  _applyDieChange(formula, steps) {
+    const SCALE = [4, 6, 8, 10, 12, 20, 100];
+    return formula.replace(/d(\d+)/g, (match, faces) => {
+      const n   = parseInt(faces);
+      const idx = SCALE.indexOf(n);
+      if (idx === -1) return match; // нестандартный куб — не трогаем
+      const newIdx = Math.max(0, Math.min(SCALE.length - 1, idx + steps));
+      return `d${SCALE[newIdx]}`;
+    });
+  }
 
   // ----------------------------------------------------------
   // Применить бонус артефакта с учётом состояния
@@ -630,7 +710,8 @@ export class KK9Actor extends Actor {
     const isWC     = this.type === "character";
 
     return this._doRoll(this._rollFormula(die, modStr, isWC), item.name, {
-      attrKey: item.system.linkedAttribute || null,
+      attrKey:   item.system.linkedAttribute || null,
+      skillUuid: item.uuid,
       reasons
     });
   }
@@ -644,8 +725,31 @@ export class KK9Actor extends Actor {
     if (item?.name === "Медитация" && result.degree?.successes > 0) {
       const cur    = this.system.energy?.value ?? 0;
       const max    = this.system.energy?.max   ?? 0;
-      const newVal = Math.min(cur + result.degree.successes, max);
+
+      // Модификатор восстановления от статусов (energy.mode = "roll_mod")
+      const energyRollMod = this.items
+        .filter(i => i.type === "status")
+        .flatMap(i => i.system.effects ?? [])
+        .filter(e => e.enabled && e.type === "energy" && e.energy?.mode === "roll_mod")
+        .reduce((sum, e) => sum + (e.energy.roll_modifier ?? 0), 0);
+
+      const successes = Math.max(0, result.degree.successes + energyRollMod);
+      const newVal    = Math.min(cur + successes, max);
       if (newVal > cur) await this.update({ "system.energy.value": newVal });
+
+      if (energyRollMod !== 0) {
+        const sign = energyRollMod > 0 ? `+${energyRollMod}` : `${energyRollMod}`;
+        ChatMessage.create({
+          content: `<div class="kk9-chat-roll" style="--accent:#a855f7">
+            <div class="kk9-chat-header"><div class="kk9-chat-header-text" style="padding:5px 10px">
+              <span class="kk9-chat-name">${this.name}</span>
+              <span class="kk9-chat-label">Медитация · ${sign} от статуса · восстановлено ${newVal - cur} ед.</span>
+            </div></div>
+          </div>`,
+          speaker: ChatMessage.getSpeaker({ actor: this }),
+          flags: { kk9: { isRoll: true } }
+        });
+      }
     }
 
     return result;
@@ -667,9 +771,49 @@ export class KK9Actor extends Actor {
         return this.rollNpcInitiative();
       case "container":
         return this.rollContainerInitiative();
+      case "daemon":
+        // Даймон-актор: инициатива через sheet, здесь только для combat tracker
+        if (this.system.is_orb) return;
+        return this.rollDaemonInitiative();
+      case "companion":
+        return this.rollCompanionInitiative();
       default:
         return super.rollInitiative(options);
     }
+  }
+
+  async rollDaemonInitiative() {
+    const attrs  = this.system.attributes || {};
+    const agDie  = attrs.agility?.die || 6;
+    const smDie  = attrs.smarts?.die  || 6;
+    const mod    = (attrs.agility?.modifier||0) + (attrs.smarts?.modifier||0);
+    const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
+    const roll   = new Roll(`1d${agDie}x + 1d${smDie}x${modStr}`);
+    await roll.evaluate();
+    const total  = roll.total;
+    const combat = game?.combat;
+    if (combat) {
+      const cb = combat.combatants.find(c => c.actorId === this.id);
+      if (cb) await cb.update({ initiative: total });
+    }
+    return { roll, total };
+  }
+
+  async rollCompanionInitiative() {
+    const attrs  = this.system.attributes || {};
+    const agDie  = attrs.agility?.die || 6;
+    const smDie  = attrs.smarts?.die  || 6;
+    const mod    = (attrs.agility?.modifier||0) + (attrs.smarts?.modifier||0);
+    const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
+    const roll   = new Roll(`1d${agDie}x + 1d${smDie}x${modStr}`);
+    await roll.evaluate();
+    const total  = roll.total;
+    const combat = game?.combat;
+    if (combat) {
+      const cb = combat.combatants.find(c => c.actorId === this.id);
+      if (cb) await cb.update({ initiative: total });
+    }
+    return { roll, total };
   }
 
   async rollCharacterInitiative() {
@@ -684,16 +828,32 @@ export class KK9Actor extends Actor {
 
     const mAg = ag.modifier + hAg.mod;
     const mSm = sm.modifier + hSm.mod;
-    const mTotal = mAg + mSm;
-    const sMod   = mTotal !== 0 ? (mTotal > 0 ? `+${mTotal}` : `${mTotal}`) : "";
+    let mTotal = mAg + mSm;
+    const reasons = [...hAg.reasons, ...hSm.reasons];
+
+    // ── Статусные модификаторы для инициативы ──
+    const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+    const stMods = collectStatusModifiers(this, { isInitiative: true, attributeKey: null });
+    mTotal += stMods.numericMod;
+    // Инициатива — успехи не применяются, исключаем усп. из reasons
+    if (stMods.reasons.length) reasons.push(...stMods.reasons.filter(r => !r.includes("усп.")));
+
+    const sMod = mTotal !== 0 ? (mTotal > 0 ? `+${mTotal}` : `${mTotal}`) : "";
+
+    // Применяем сдвиг граней если есть
+    let agDie = ag.die, smDie = sm.die;
+    if (stMods.dieMod !== 0) {
+      agDie = this._applyDieChange(`d${agDie}`, stMods.dieMod).replace("d","");
+      smDie = this._applyDieChange(`d${smDie}`, stMods.dieMod).replace("d","");
+      agDie = parseInt(agDie); smDie = parseInt(smDie);
+    }
 
     // Wild Card: берём два лучших из трёх кубиков
-    const formula = `{1d${ag.die}x, 1d${sm.die}x, 1d6x}kh2${sMod}`;
-    const reasons = [...hAg.reasons, ...hSm.reasons];
+    const formula = `{1d${agDie}x, 1d${smDie}x, 1d6x}kh2${sMod}`;
 
     const roll = new Roll(formula);
     await roll.evaluate();
-    const total    = roll.total;
+    let total = roll.total;
     const diceHtml = this._buildDiceHtml(roll, reasons);
     const content  = this._buildInitiativeMessage("Инициатива", total, diceHtml);
 
@@ -708,16 +868,19 @@ export class KK9Actor extends Actor {
       content,
       flags: { kk9: { isRoll: true, actorId: this.id } }
     });
+
+    if (stMods.usedIds.length) await consumeStatusCharges(this, stMods.usedIds);
     return { roll, total };
   }
 
-  // Инициатива контейнера — берёт первого доступного даймона/спутника
+  // Инициатива контейнера — берёт первого доступного даймона/спутника (акторы)
   async rollContainerInitiative() {
     const refs = [...(this.system.daemon_refs || []), ...(this.system.companion_refs || [])];
     const items = [];
     for (const uuid of refs) {
       const doc = await fromUuid(uuid);
-      if (doc?.system?.attributes) { items.push(doc); break; }
+      // daemon-актор: пропускаем шарики
+      if (doc?.system?.attributes && !(doc.system.is_orb === true)) { items.push(doc); break; }
     }
     if (!items.length) {
       ui.notifications.warn(`${this.name}: нет доступных даймонов или спутников для инициативы.`);
@@ -788,13 +951,16 @@ export class KK9Actor extends Actor {
 
     const combat = game?.combat;
     if (combat) {
-      const combatant = combat.combatants.find(cb => cb.actorId === this.id);
+      // Ищем combatant по id актора-даймона/спутника (они теперь акторы)
+      const cbByItem = combat.combatants.find(cb => cb.actorId === item.id);
+      const cbByContainer = combat.combatants.find(cb => cb.actorId === this.id);
+      const combatant = cbByItem || cbByContainer;
       if (combatant) await combatant.update({ initiative: total });
     }
     await ChatMessage.create({
-      speaker: ChatMessage.getSpeaker({ actor: this }),
+      speaker: ChatMessage.getSpeaker({ actor: item }),
       content,
-      flags: { kk9: { isRoll: true, actorId: this.id } }
+      flags: { kk9: { isRoll: true, actorId: item.id } }
     });
     return { roll, total };
   }
@@ -831,38 +997,84 @@ export class KK9Actor extends Actor {
 
     // Стойкость — isToughness:true → не блокируется пипом 5
     const h      = this._getHealthModForAttr("spirit", true);
-    const mod    = spiritMod + h.mod;
-    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
     const reasons = [...h.reasons];
+
+    // ── Статусные модификаторы для стойкости ──
+    const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+    const skillUuid = result ? (this.items.get(result.split("|")[0])?.uuid ?? null) : null;
+    const stMods = collectStatusModifiers(this, {
+      attributeKey: "spirit",
+      isToughness:  true,
+      skillUuid,
+    });
+    if (stMods.reasons.length) {
+      for (const r of stMods.reasons) {
+        if (r.includes("доп.")) continue; // extraDie выводим отдельно ниже
+        reasons.push(r);
+      }
+    }
+
+    // Применяем сдвиг грани к духу
+    let effSpiritDie = spiritDie;
+    if (stMods.dieMod !== 0) {
+      effSpiritDie = parseInt(this._applyDieChange(`d${spiritDie}`, stMods.dieMod).replace("d",""));
+    }
+
+    const mod    = spiritMod + h.mod + stMods.numericMod;
+    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
 
     let formula, labelExtra = "";
     if (result) {
       const [itemId, skillDie] = result.split("|");
       const skillItem = this.items.get(itemId);
       labelExtra = skillItem ? ` + ${skillItem.name}` : "";
-      const skillMod  = (skillItem?.system?.modifier || 0) + h.mod;
+      // Применяем сдвиг и к навыку стойкости если есть
+      let effSkillDie = parseInt(skillDie);
+      if (stMods.dieMod !== 0) {
+        effSkillDie = parseInt(this._applyDieChange(`d${effSkillDie}`, stMods.dieMod).replace("d",""));
+      }
+      const skillMod  = (skillItem?.system?.modifier || 0) + h.mod + stMods.numericMod;
       const mTotal    = mod + skillMod;
       const totalStr  = mTotal !== 0 ? (mTotal > 0 ? `+${mTotal}` : `${mTotal}`) : "";
-      // Один wild die на весь бросок: берём два лучших из трёх кубиков
       formula = isWC
-        ? `{1d${spiritDie}x, 1d${skillDie}x, 1d6x}kh2${totalStr}`
-        : `1d${spiritDie}x${modStr} + 1d${skillDie}x${skillMod !== 0 ? (skillMod > 0 ? "+" + skillMod : skillMod) : ""}`;
+        ? `{1d${effSpiritDie}x, 1d${effSkillDie}x, 1d6x}kh2${totalStr}`
+        : `1d${effSpiritDie}x${modStr} + 1d${effSkillDie}x${skillMod !== 0 ? (skillMod > 0 ? "+" + skillMod : skillMod) : ""}`;
     } else {
-      // Только Дух — один кубик + wild die, берём лучший
-      formula = isWC ? `{1d${spiritDie}x, 1d6x}kh${modStr}` : `1d${spiritDie}x${modStr}`;
+      formula = isWC ? `{1d${effSpiritDie}x, 1d6x}kh${modStr}` : `1d${effSpiritDie}x${modStr}`;
     }
 
     const roll = new Roll(formula);
     await roll.evaluate();
-    const degree   = this._getSuccessDegree(roll, h.halfResult);
-    const diceHtml = this._buildDiceHtml(roll);
-    const content  = this._buildRollMessage(`Стойкость${labelExtra}`, degree, diceHtml, reasons);
+
+    // Доп. кубики от статусов — бросаем каждый отдельно, показываем в reasons
+    let extraDieTotal = 0;
+    for (const ed of (stMods.extraDice ?? [])) {
+      const sign      = ed.mode === "add" ? 1 : -1;
+      const extraRoll = new Roll(`1d${ed.faces}`);
+      await extraRoll.evaluate();
+      extraDieTotal += sign * extraRoll.total;
+      const signStr  = sign > 0 ? `+1d${ed.faces} = +${extraRoll.total}` : `-1d${ed.faces} = −${extraRoll.total}`;
+      reasons.push(`${ed.name ?? "Статус"}: ${signStr}`);
+    }
+
+    // successMod + extraDie применяем к итогу
+    const finalTotal = roll.total + extraDieTotal;
+    const degree     = this._getSuccessDegreeFromTotal(finalTotal, h.halfResult);
+    if (stMods.successMod !== 0 && degree.type === "success") {
+      degree.successes = Math.max(0, degree.successes + stMods.successMod);
+      const s = degree.successes;
+      degree.label = s === 1 ? "1 успех" : s <= 4 ? `${s} успеха` : `${s} успехов`;
+    }
+    const diceHtml   = this._buildDiceHtml(roll, reasons, finalTotal);
+    const content    = this._buildRollMessage(`Стойкость${labelExtra}`, degree, diceHtml, reasons);
 
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor: this }),
       content,
       flags: { kk9: { isRoll: true, actorId: this.id } }
     });
+
+    if (stMods.usedIds.length) await consumeStatusCharges(this, stMods.usedIds);
     return { roll, degree };
   }
 
@@ -954,36 +1166,49 @@ export class KK9Actor extends Actor {
 
     const attr = this.system.attributes?.[attributeName];
     if (!attr) { ui.notifications.warn(`Атрибут «${attributeName}» не найден.`); return; }
-    const die = attr.die;
 
     const labels = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
     const label  = labels[attributeName] || attributeName;
-    const formula = this._npcRollFormula(die, "", isWC, wcDie);
-    return this._doRoll(formula, label, { attrKey: null });
+
+    return this._doRoll(
+      this._npcRollFormula(attr.die, "", isWC, wcDie),
+      label,
+      { attrKey: attributeName }
+    );
   }
 
-  // Бросок инициативы НПС — формула как у персонажа: {d_agi, d_sma, d_wc}kh2
+  // Бросок инициативы НПС
   async rollNpcInitiative() {
     const isBoss = this.type === "npc-boss";
     const isWC   = isBoss;
     const wcDie  = isBoss ? (this.system.wild_die || 6) : 6;
 
-    const dieAgi    = this.system.attributes?.agility?.die  || 6;
-    const dieSmarts = this.system.attributes?.smarts?.die   || 6;
+    let dieAgi    = this.system.attributes?.agility?.die  || 6;
+    let dieSmarts = this.system.attributes?.smarts?.die   || 6;
 
     const modAgi    = this.system.attributes?.agility?.modifier  || 0;
     const modSmarts = this.system.attributes?.smarts?.modifier   || 0;
-    const mTotal    = modAgi + modSmarts;
-    const modStr    = mTotal !== 0 ? (mTotal > 0 ? `+${mTotal}` : `${mTotal}`) : "";
+    let mTotal      = modAgi + modSmarts;
 
+    // ── Статусные модификаторы для инициативы ──
+    const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+    const stMods = collectStatusModifiers(this, { isInitiative: true, attributeKey: null });
+    mTotal += stMods.numericMod;
+    if (stMods.dieMod !== 0) {
+      dieAgi    = parseInt(this._applyDieChange(`d${dieAgi}`,    stMods.dieMod).replace("d",""));
+      dieSmarts = parseInt(this._applyDieChange(`d${dieSmarts}`, stMods.dieMod).replace("d",""));
+    }
+    const reasons = [...stMods.reasons.filter(r => !r.includes("усп."))];
+
+    const modStr = mTotal !== 0 ? (mTotal > 0 ? `+${mTotal}` : `${mTotal}`) : "";
     const formula = isWC
       ? `{1d${dieAgi}x, 1d${dieSmarts}x, 1d${wcDie}x}kh2${modStr}`
       : `1d${dieAgi}x + 1d${dieSmarts}x${modStr}`;
 
     const roll = new Roll(formula);
     await roll.evaluate();
-    const total    = roll.total;
-    const diceHtml = this._buildDiceHtml(roll, []);
+    let total   = roll.total;
+    const diceHtml = this._buildDiceHtml(roll, reasons);
     const content  = this._buildInitiativeMessage("Инициатива", total, diceHtml);
 
     const combat = game?.combat;
@@ -997,10 +1222,11 @@ export class KK9Actor extends Actor {
       content,
       flags: { kk9: { isRoll: true, actorId: this.id } }
     });
+    if (stMods.usedIds.length) await consumeStatusCharges(this, stMods.usedIds);
     return { roll, total };
   }
 
-  // Бросок стойкости НПС — Дух + опциональный навык сопротивления (как у персонажа)
+  // Бросок стойкости НПС
   async rollNpcToughness() {
     const isBoss  = this.type === "npc-boss";
     const isWC    = isBoss;
@@ -1008,7 +1234,6 @@ export class KK9Actor extends Actor {
 
     const spiritDie = this.system.attributes?.spirit?.die || 6;
 
-    // Навыки сопротивления — abilities с нужными именами
     const resistNames = ["Сопротивление боли","Сопротивление магии","Сопротивление ментальному давлению","Самоконтроль","Выживание"];
     const available   = this.items.filter(i => i.type === "ability" && resistNames.includes(i.name));
     const options     = available.map(s =>
@@ -1048,18 +1273,11 @@ export class KK9Actor extends Actor {
         : `1d${spiritDie}x`;
     }
 
-    const roll = new Roll(formula);
-    await roll.evaluate();
-    const degree   = this._getSuccessDegree(roll, false);
-    const diceHtml = this._buildDiceHtml(roll, []);
-    const content  = this._buildRollMessage(`Стойкость${labelExtra}`, degree, diceHtml, []);
-
-    await ChatMessage.create({
-      speaker: ChatMessage.getSpeaker({ actor: this }),
-      content,
-      flags: { kk9: { isRoll: true, actorId: this.id } }
+    return this._doRoll(formula, `Стойкость${labelExtra}`, {
+      attrKey:     "spirit",
+      isToughness: true,
+      skillUuid:   chosen ? available.find(s => s.id === chosen.split("|")[0])?.uuid ?? null : null,
     });
-    return { roll, degree };
   }
 
   // Бросок способности/навыка НПС по item id
@@ -1074,7 +1292,10 @@ export class KK9Actor extends Actor {
     const mod    = item.system.modifier || 0;
     const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
     const formula = this._npcRollFormula(die, modStr, isWC, wcDie);
-    return this._doRoll(formula, item.name, { attrKey: null });
+    return this._doRoll(formula, item.name, {
+      attrKey:   item.system.linkedAttribute || null,
+      skillUuid: item.uuid,
+    });
   }
 
 }

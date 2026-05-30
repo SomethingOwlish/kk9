@@ -1,4 +1,4 @@
-{{!-- КК9 | Карточка статуса v1.0 --}}
+{{!-- КК9 | Карточка статуса v2.0 --}}
 <form class="kk9-sheet item-sheet status-sheet" autocomplete="off">
 
   {{!-- ═══ ШАПКА ═══ --}}
@@ -8,14 +8,13 @@
       <div class="st-name-row">
         <input class="st-name-input" type="text" name="name"
                value="{{item.name}}" placeholder="Название статуса" />
-        <span class="st-type-badge">
-          {{#if (eq system.status_type "poison")}}Яд
-          {{else if (eq system.status_type "shock")}}Шок
-          {{else if (eq system.status_type "magic")}}Магия
-          {{else if (eq system.status_type "bleed")}}Кровотечение
-          {{else if (eq system.status_type "acid")}}Кислота
-          {{/if}}
-        </span>
+      </div>
+      {{!-- Теги типов --}}
+      <div class="st-type-tags">
+        {{#each system.status_types as |t|}}
+        <span class="st-tag st-tag-{{t}}">{{statusTypeLabel t}}</span>
+        {{/each}}
+        {{#if system.apply_stun}}<span class="st-tag st-tag-stun">Стан</span>{{/if}}
       </div>
     </div>
   </header>
@@ -23,89 +22,384 @@
   {{!-- ═══ ТЕЛО ═══ --}}
   <div class="st-body">
 
-    {{!-- Основные параметры --}}
-    <div class="st-params-grid st-params-grid--2col">
-
-      <div class="st-param-block">
-        <span class="st-param-label">Тип статуса</span>
-        <select name="system.status_type" class="kk9-select">
-          <option value="poison" {{#if (eq system.status_type "poison")}}selected{{/if}}>Яд</option>
-          <option value="shock"  {{#if (eq system.status_type "shock")}}selected{{/if}}>Шок</option>
-          <option value="magic"  {{#if (eq system.status_type "magic")}}selected{{/if}}>Магия</option>
-          <option value="bleed"  {{#if (eq system.status_type "bleed")}}selected{{/if}}>Кровотечение</option>
-          <option value="acid"   {{#if (eq system.status_type "acid")}}selected{{/if}}>Кислота</option>
-        </select>
+    {{!-- ── БЛОК: ТИПЫ ── --}}
+    <div class="st-section">
+      <div class="st-section-title">Типы статуса</div>
+      <div class="st-type-grid">
+        {{#each statusTypeOptions as |opt|}}
+        <label class="st-type-cb {{#if (includes ../system.status_types opt.value)}}st-type-cb--on{{/if}}">
+          <input type="checkbox" class="st-type-checkbox" data-type="{{opt.value}}"
+                 {{#if (includes ../system.status_types opt.value)}}checked{{/if}} />
+          <span>{{opt.label}}</span>
+        </label>
+        {{/each}}
       </div>
 
-      <div class="st-param-block">
-        <span class="st-param-label">Частота</span>
-        <select name="system.frequency" class="kk9-select">
-          <option value="per_turn"   {{#if (eq system.frequency "per_turn")}}selected{{/if}}>Раз в ход</option>
-          <option value="per_combat" {{#if (eq system.frequency "per_combat")}}selected{{/if}}>Раз в бой</option>
-          <option value="per_hour"   {{#if (eq system.frequency "per_hour")}}selected{{/if}}>Раз в час</option>
-          <option value="per_day"    {{#if (eq system.frequency "per_day")}}selected{{/if}}>Раз в день</option>
-          <option value="rare"       {{#if (eq system.frequency "rare")}}selected{{/if}}>Редко</option>
-        </select>
-      </div>
-
+      {{!-- Стан — отдельная галочка --}}
+      <label class="st-stun-toggle {{#if system.apply_stun}}st-stun-toggle--on{{/if}}">
+        <input type="checkbox" name="system.apply_stun"
+               {{#if system.apply_stun}}checked{{/if}} />
+        <span>Оглушение (Stun) — вешать в конце каждого хода</span>
+      </label>
     </div>
 
-    {{!-- Урон --}}
-    <div class="st-params-grid st-params-grid--3col">
-
-      <div class="st-param-block">
-        <span class="st-param-label">Урон при срабатывании</span>
-        <select name="system.damage" class="kk9-select">
-          <option value="none"   {{#if (eq system.damage "none")}}selected{{/if}}>Нет урона</option>
-          <option value="light"  {{#if (eq system.damage "light")}}selected{{/if}}>Лёгкий (1 уровень)</option>
-          <option value="heavy"  {{#if (eq system.damage "heavy")}}selected{{/if}}>Тяжёлый (2 уровня)</option>
-          <option value="lethal" {{#if (eq system.damage "lethal")}}selected{{/if}}>Летальный (3 уровня)</option>
-        </select>
+    {{!-- ── БЛОК: ДЛИТЕЛЬНОСТЬ ── --}}
+    <div class="st-section">
+      <div class="st-section-title">Длительность</div>
+      <div class="st-duration-row">
+        <div class="st-param-block">
+          <span class="st-param-label">Режим</span>
+          <select name="system.duration.mode" class="kk9-select st-duration-mode">
+            <option value="time"    {{#if (eq system.duration.mode "time")}}selected{{/if}}>Время (не авто)</option>
+            <option value="charges" {{#if (eq system.duration.mode "charges")}}selected{{/if}}>Заряды (по применениям)</option>
+            <option value="counter" {{#if (eq system.duration.mode "counter")}}selected{{/if}}>Счётчик (по раундам)</option>
+          </select>
+        </div>
+        <div class="st-param-block st-param-block--sm">
+          <span class="st-param-label">Значение</span>
+          <input type="number" name="system.duration.value"
+                 value="{{system.duration.value}}"
+                 class="kk9-input" min="0" style="width:70px;text-align:center" />
+        </div>
+        {{#unless (eq system.duration.mode "time")}}
+        <label class="st-auto-label">
+          <input type="checkbox" name="system.duration.auto_reduce"
+                 {{#if system.duration.auto_reduce}}checked{{/if}} />
+          <span class="st-param-label">Авто-убывание</span>
+        </label>
+        {{/unless}}
       </div>
-
-      <div class="st-param-block">
-        <span class="st-param-label">Тип урона</span>
-        <select name="system.damage_type" class="kk9-select">
-          <option value="physical" {{#if (eq system.damage_type "physical")}}selected{{/if}}>Физический</option>
-          <option value="mental"   {{#if (eq system.damage_type "mental")}}selected{{/if}}>Ментальный</option>
-        </select>
-      </div>
-
-      <div class="st-param-block">
-        <span class="st-param-label">Применений <span class="st-uses-hint">−1 = ∞</span></span>
-        <input type="number" name="system.uses" value="{{system.uses}}"
-               class="kk9-input st-uses-input" />
-      </div>
-
+      {{#if (eq system.duration.mode "time")}}
+      <div class="st-hint">Режим «Время» не автоматизируется — снимать вручную.</div>
+      {{/if}}
+      {{#if (eq system.duration.mode "charges")}}
+      <div class="st-hint">Заряд расходуется при каждом броске, использующем цель эффекта.</div>
+      {{/if}}
+      {{#if (eq system.duration.mode "counter")}}
+      <div class="st-hint">Счётчик уменьшается в конце каждого раунда боя. При 0 — статус снимается.</div>
+      {{/if}}
     </div>
 
-    {{!-- Эффект --}}
-    <div class="st-param-block">
-      <span class="st-param-label">Эффект</span>
-      <textarea name="system.effect" class="kk9-textarea st-effect-ta"
-                placeholder="Описание эффекта статуса...">{{system.effect}}</textarea>
+    {{!-- ── БЛОК: ЭФФЕКТЫ ── --}}
+    <div class="st-section">
+      <div class="st-section-header">
+        <div class="st-section-title">Эффекты</div>
+        <div class="st-effect-add-row">
+          <button type="button" class="st-add-effect" data-type="roll_modifier">+ Бросок</button>
+          <button type="button" class="st-add-effect" data-type="health">+ Здоровье</button>
+          <button type="button" class="st-add-effect" data-type="energy">+ Энергия</button>
+        </div>
+      </div>
+
+      <div class="st-effects-list">
+        {{#each system.effects as |eff idx|}}
+        <div class="st-effect-block st-effect-{{eff.type}} {{#unless eff.enabled}}st-effect--disabled{{/unless}}"
+             data-effect-idx="{{idx}}">
+
+          {{!-- Заголовок эффекта --}}
+          <div class="st-effect-head">
+            <label class="st-effect-enabled-toggle">
+              <input type="checkbox" class="st-effect-enabled"
+                     data-idx="{{idx}}"
+                     {{#if eff.enabled}}checked{{/if}} />
+              <span class="st-effect-type-label">
+                {{#if (eq eff.type "roll_modifier")}}Модификатор бросков
+                {{else if (eq eff.type "health")}}Здоровье
+                {{else if (eq eff.type "energy")}}Энергия
+                {{/if}}
+              </span>
+            </label>
+            <button type="button" class="st-effect-delete fac-del" data-idx="{{idx}}">✕</button>
+          </div>
+
+          {{!-- ══ МОДИФИКАТОР БРОСКОВ ══ --}}
+          {{#if (eq eff.type "roll_modifier")}}
+          <div class="st-effect-body">
+
+            {{!-- Цели --}}
+            <div class="st-sub-label">Цели броска</div>
+            <label class="st-cb-row {{#if eff.roll_modifier.target_all}}st-cb-row--on{{/if}}">
+              <input type="checkbox" class="st-rm-field"
+                     data-idx="{{idx}}" data-field="roll_modifier.target_all"
+                     {{#if eff.roll_modifier.target_all}}checked{{/if}} />
+              Все броски актора
+            </label>
+
+            {{#unless eff.roll_modifier.target_all}}
+            <div class="st-sub-label" style="margin-top:6px">Атрибуты</div>
+            <div class="st-cb-grid">
+              <label class="st-cb-row {{#if eff.roll_modifier.target_agility}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_agility"
+                       {{#if eff.roll_modifier.target_agility}}checked{{/if}} />
+                Ловкость <span class="st-attr-hint">(+ инициатива)</span>
+              </label>
+              <label class="st-cb-row {{#if eff.roll_modifier.target_smarts}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_smarts"
+                       {{#if eff.roll_modifier.target_smarts}}checked{{/if}} />
+                Смекалка <span class="st-attr-hint">(+ инициатива)</span>
+              </label>
+              <label class="st-cb-row {{#if eff.roll_modifier.target_spirit}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_spirit"
+                       {{#if eff.roll_modifier.target_spirit}}checked{{/if}} />
+                Дух <span class="st-attr-hint">(+ стойкость)</span>
+              </label>
+              <label class="st-cb-row {{#if eff.roll_modifier.target_endurance}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_endurance"
+                       {{#if eff.roll_modifier.target_endurance}}checked{{/if}} />
+                Выносливость
+              </label>
+              <label class="st-cb-row {{#if eff.roll_modifier.target_magic}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_magic"
+                       {{#if eff.roll_modifier.target_magic}}checked{{/if}} />
+                Магия
+              </label>
+            </div>
+
+            <div class="st-sub-label" style="margin-top:6px">Отдельно</div>
+            <div class="st-cb-grid">
+              <label class="st-cb-row {{#if eff.roll_modifier.target_toughness}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_toughness"
+                       {{#if eff.roll_modifier.target_toughness}}checked{{/if}} />
+                Стойкость
+              </label>
+              <label class="st-cb-row {{#if eff.roll_modifier.target_initiative}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_initiative"
+                       {{#if eff.roll_modifier.target_initiative}}checked{{/if}} />
+                Инициатива
+              </label>
+            </div>
+
+            <div class="st-sub-label" style="margin-top:6px">Типы предметов</div>
+            <div class="st-cb-grid">
+              <label class="st-cb-row {{#if eff.roll_modifier.target_weapon}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_weapon"
+                       {{#if eff.roll_modifier.target_weapon}}checked{{/if}} />
+                Оружие
+              </label>
+              <label class="st-cb-row {{#if eff.roll_modifier.target_spell}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_spell"
+                       {{#if eff.roll_modifier.target_spell}}checked{{/if}} />
+                Заклинания
+              </label>
+              <label class="st-cb-row {{#if eff.roll_modifier.target_device}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_device"
+                       {{#if eff.roll_modifier.target_device}}checked{{/if}} />
+                Устройства
+              </label>
+              <label class="st-cb-row {{#if eff.roll_modifier.target_gear}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_gear"
+                       {{#if eff.roll_modifier.target_gear}}checked{{/if}} />
+                Снаряжение
+              </label>
+              <label class="st-cb-row {{#if eff.roll_modifier.target_artifact}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_artifact"
+                       {{#if eff.roll_modifier.target_artifact}}checked{{/if}} />
+                Артефакты
+              </label>
+              <label class="st-cb-row {{#if eff.roll_modifier.target_all_items}}st-cb-row--on{{/if}}">
+                <input type="checkbox" class="st-rm-field"
+                       data-idx="{{idx}}" data-field="roll_modifier.target_all_items"
+                       {{#if eff.roll_modifier.target_all_items}}checked{{/if}} />
+                Все предметы
+              </label>
+            </div>
+
+            {{!-- Drag-drop навыков --}}
+            <div class="st-sub-label" style="margin-top:6px">Конкретные навыки / способности</div>
+            <div class="st-skills-drop st-skill-drop-zone" data-idx="{{idx}}">
+              {{#each eff.roll_modifier.target_skills as |sk sidx|}}
+              <div class="st-skill-tag">
+                <span>{{sk.name}}</span>
+                <button type="button" class="st-skill-remove fac-del"
+                        data-eff-idx="{{../idx}}" data-sk-idx="{{sidx}}">✕</button>
+              </div>
+              {{/each}}
+              <div class="st-skill-drop-hint">Перетащи навык или способность сюда</div>
+            </div>
+            {{/unless}}
+
+            {{!-- Воздействие --}}
+            <div class="st-sub-label" style="margin-top:10px">Воздействие</div>
+            <div class="st-effect-mods">
+
+              <div class="st-mod-row">
+                <span class="st-mod-label">Изменение грани куба</span>
+                <div class="st-mod-stepper">
+                  <button type="button" class="st-die-step" data-idx="{{idx}}" data-dir="-1">−</button>
+                  <span class="st-die-step-val">{{dieChangeLabel eff.roll_modifier.die_change}}</span>
+                  <button type="button" class="st-die-step" data-idx="{{idx}}" data-dir="1">+</button>
+                  <input type="hidden" class="st-rm-hidden"
+                         data-idx="{{idx}}" data-field="roll_modifier.die_change"
+                         value="{{eff.roll_modifier.die_change}}" />
+                </div>
+                <span class="st-hint-inline">обрезается до d4 / d100</span>
+              </div>
+
+              <div class="st-mod-row">
+                <label class="st-cb-inline {{#if eff.roll_modifier.extra_die_enabled}}st-cb-inline--on{{/if}}">
+                  <input type="checkbox" class="st-rm-field"
+                         data-idx="{{idx}}" data-field="roll_modifier.extra_die_enabled"
+                         {{#if eff.roll_modifier.extra_die_enabled}}checked{{/if}} />
+                  Дополнительный куб
+                </label>
+                {{#if eff.roll_modifier.extra_die_enabled}}
+                <select class="kk9-select st-rm-select st-die-faces-select"
+                        data-idx="{{idx}}" data-field="roll_modifier.extra_die_faces"
+                        data-value="{{eff.roll_modifier.extra_die_faces}}">
+                  {{#each @root.dieFaceOptions as |f|}}
+                  <option value="{{f}}">d{{f}}</option>
+                  {{/each}}
+                </select>
+                <select class="kk9-select st-rm-select"
+                        data-idx="{{idx}}" data-field="roll_modifier.extra_die_mode">
+                  <option value="add"      {{#if (eq eff.roll_modifier.extra_die_mode "add")}}selected{{/if}}>Прибавить</option>
+                  <option value="subtract" {{#if (eq eff.roll_modifier.extra_die_mode "subtract")}}selected{{/if}}>Вычесть</option>
+                </select>
+                {{/if}}
+              </div>
+
+              <div class="st-mod-row">
+                <span class="st-mod-label">Числовой модификатор</span>
+                <input type="number" class="kk9-input st-mod-input st-rm-number"
+                       data-idx="{{idx}}" data-field="roll_modifier.modifier"
+                       value="{{eff.roll_modifier.modifier}}" placeholder="0" />
+              </div>
+
+              <div class="st-mod-row">
+                <span class="st-mod-label">Модификатор успехов</span>
+                <input type="number" class="kk9-input st-mod-input st-rm-number"
+                       data-idx="{{idx}}" data-field="roll_modifier.success_modifier"
+                       value="{{eff.roll_modifier.success_modifier}}" placeholder="0" />
+              </div>
+
+            </div>
+          </div>
+          {{/if}}
+
+          {{!-- ══ ЗДОРОВЬЕ ══ --}}
+          {{#if (eq eff.type "health")}}
+          <div class="st-effect-body">
+            <div class="st-hint">Применяется в конце каждого раунда боя.</div>
+            <div class="st-params-2col">
+              <div class="st-param-block">
+                <span class="st-param-label">Шкала</span>
+                <select class="kk9-select st-rm-select"
+                        data-idx="{{idx}}" data-field="health.track">
+                  <option value="physical" {{#if (eq eff.health.track "physical")}}selected{{/if}}>Физическая</option>
+                  <option value="mental"   {{#if (eq eff.health.track "mental")}}selected{{/if}}>Ментальная</option>
+                </select>
+              </div>
+              <div class="st-param-block">
+                <span class="st-param-label">Режим</span>
+                <select class="kk9-select st-rm-select"
+                        data-idx="{{idx}}" data-field="health.mode">
+                  <option value="damage" {{#if (eq eff.health.mode "damage")}}selected{{/if}}>Урон</option>
+                  <option value="heal"   {{#if (eq eff.health.mode "heal")}}selected{{/if}}>Лечение</option>
+                </select>
+              </div>
+              <div class="st-param-block">
+                <span class="st-param-label">Пипов</span>
+                <input type="number" class="kk9-input st-rm-number"
+                       data-idx="{{idx}}" data-field="health.amount"
+                       value="{{eff.health.amount}}" min="0" style="width:60px;text-align:center" />
+              </div>
+            </div>
+            {{#if (eq eff.health.mode "damage")}}
+            <label class="st-cb-row {{#if eff.health.overflow}}st-cb-row--on{{/if}}" style="margin-top:6px">
+              <input type="checkbox" class="st-rm-field"
+                     data-idx="{{idx}}" data-field="health.overflow"
+                     {{#if eff.health.overflow}}checked{{/if}} />
+              Переполнение: физ → ментал → оверкап
+            </label>
+            {{/if}}
+          </div>
+          {{/if}}
+
+          {{!-- ══ ЭНЕРГИЯ ══ --}}
+          {{#if (eq eff.type "energy")}}
+          <div class="st-effect-body">
+            <div class="st-params-2col">
+              <div class="st-param-block">
+                <span class="st-param-label">Режим</span>
+                <select class="kk9-select st-rm-select"
+                        data-idx="{{idx}}" data-field="energy.mode">
+                  <option value="current"  {{#if (eq eff.energy.mode "current")}}selected{{/if}}>Текущее значение</option>
+                  <option value="max"      {{#if (eq eff.energy.mode "max")}}selected{{/if}}>Максимум</option>
+                  <option value="restore"  {{#if (eq eff.energy.mode "restore")}}selected{{/if}}>Восстановление</option>
+                  <option value="roll_mod" {{#if (eq eff.energy.mode "roll_mod")}}selected{{/if}}>Мод. бросков восстановления</option>
+                </select>
+              </div>
+              {{#unless (eq eff.energy.mode "roll_mod")}}
+              <div class="st-param-block">
+                <span class="st-param-label">Количество</span>
+                <input type="number" class="kk9-input st-rm-number"
+                       data-idx="{{idx}}" data-field="energy.amount"
+                       value="{{eff.energy.amount}}" style="width:70px;text-align:center" />
+              </div>
+              {{/unless}}
+              {{#if (eq eff.energy.mode "roll_mod")}}
+              <div class="st-param-block">
+                <span class="st-param-label">Модификатор броска</span>
+                <input type="number" class="kk9-input st-rm-number"
+                       data-idx="{{idx}}" data-field="energy.roll_modifier"
+                       value="{{eff.energy.roll_modifier}}" style="width:70px;text-align:center" />
+              </div>
+              {{/if}}
+            </div>
+          </div>
+          {{/if}}
+
+        </div>
+        {{/each}}
+
+        {{#unless system.effects.length}}
+        <div class="st-effects-empty">Нет эффектов — добавь через кнопки выше</div>
+        {{/unless}}
+      </div>
     </div>
 
-    {{!-- Описание --}}
-    <div class="st-param-block">
-      <span class="st-param-label">Описание</span>
-      <textarea name="system.description" class="kk9-textarea st-desc-ta"
-                placeholder="Подробное описание...">{{system.description}}</textarea>
+    {{!-- ── ОПИСАНИЕ И ИНСТРУКЦИЯ ── --}}
+    <div class="st-section">
+      <div class="st-section-title">Описание</div>
+      <textarea name="system.description" class="kk9-textarea"
+                style="min-height:60px"
+                placeholder="Описание статуса (видят все)...">{{system.description}}</textarea>
+    </div>
+
+    <div class="st-section">
+      <div class="st-section-title">Инструкция по снятию <span class="st-gm-badge">ГМ</span></div>
+      {{#if isGM}}
+      <textarea name="system.removal_instruction" class="kk9-textarea"
+                style="min-height:50px"
+                placeholder="Как снять этот статус...">{{system.removal_instruction}}</textarea>
+      {{else}}
+      <div class="st-removal-readonly">{{#if system.removal_instruction}}{{system.removal_instruction}}{{else}}<span class="st-hint">Инструкция не заполнена.</span>{{/if}}</div>
+      {{/if}}
     </div>
 
   </div>
-
 </form>
 
 <style>
+/* ─── Основа ────────────────────────────────────────────── */
 .status-sheet {
   flex-direction: column !important;
-  overflow-y: auto;
+  overflow: hidden;
 }
-
 .status-sheet .st-header {
-  display: flex; flex-direction: row;
-  align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 12px;
   padding: 10px 14px;
   background: var(--bg2); border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -125,35 +419,243 @@
 }
 .status-sheet .st-name-input:focus { border-bottom-color: var(--gold); }
 
-/* Бейджи типов статусов */
-.status-sheet .st-type-badge {
-  flex-shrink: 0; font-size: 0.66em; font-weight: 500;
-  text-transform: uppercase; letter-spacing: 0.07em;
-  padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+/* ─── Теги типов в шапке ─────────────────────────────── */
+.status-sheet .st-type-tags {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
 }
-.status-sheet .st-type-poison  { background: rgba(134,239,172,0.12); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
-.status-sheet .st-type-shock   { background: rgba(253,224,71,0.12);  color: #fde047; border: 1px solid rgba(253,224,71,0.3); }
-.status-sheet .st-type-magic   { background: rgba(192,132,252,0.12); color: #c084fc; border: 1px solid rgba(192,132,252,0.3); }
-.status-sheet .st-type-bleed   { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
-.status-sheet .st-type-acid    { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+.status-sheet .st-tag {
+  font-size: 0.62em; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.07em; padding: 1px 7px; border-radius: 8px;
+  background: rgba(196,164,74,0.1); color: var(--gold);
+  border: 1px solid rgba(196,164,74,0.25);
+}
+.status-sheet .st-tag-stun {
+  background: rgba(253,224,71,0.12); color: #fde047;
+  border-color: rgba(253,224,71,0.3);
+}
 
+/* ─── Тело ───────────────────────────────────────────── */
 .status-sheet .st-body {
-  flex: 1; padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+  flex: 1; padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
-.status-sheet .st-params-grid--2col {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;
+
+/* ─── Секции ──────────────────────────────────────────── */
+.status-sheet .st-section {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 4px; padding: 8px 10px;
 }
-.status-sheet .st-params-grid--3col {
-  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: end;
+.status-sheet .st-section-title {
+  font-size: 0.68em; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gold); margin-bottom: 7px; font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
 }
+.status-sheet .st-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 7px;
+}
+.status-sheet .st-gm-badge {
+  font-size: 0.7em; padding: 1px 5px; border-radius: 4px;
+  background: rgba(192,57,43,0.15); color: #c0392b;
+  border: 1px solid rgba(192,57,43,0.3);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+/* ─── Типы: чекбокс-сетка ───────────────────────────── */
+.status-sheet .st-type-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+  margin-bottom: 8px;
+}
+.status-sheet .st-type-cb {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 7px; border-radius: 3px; cursor: pointer;
+  font-size: 0.78em; border: 1px solid var(--border);
+  background: var(--bg2); color: var(--text-dim);
+  transition: all 0.12s; user-select: none;
+}
+.status-sheet .st-type-cb input { display: none; }
+.status-sheet .st-type-cb--on {
+  background: rgba(196,164,74,0.1); color: var(--gold);
+  border-color: rgba(196,164,74,0.3);
+}
+.status-sheet .st-stun-toggle {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.8em; color: var(--text-dim); cursor: pointer;
+  padding: 4px 6px; border-radius: 3px;
+  border: 1px solid var(--border); background: var(--bg2);
+  transition: all 0.12s;
+}
+.status-sheet .st-stun-toggle--on {
+  color: #fde047; border-color: rgba(253,224,71,0.3);
+  background: rgba(253,224,71,0.08);
+}
+.status-sheet .st-stun-toggle input { display: none; }
+
+/* ─── Длительность ───────────────────────────────────── */
+.status-sheet .st-duration-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.status-sheet .st-auto-label {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.78em; cursor: pointer; color: var(--text-dim);
+}
+.status-sheet .st-hint {
+  font-size: 0.72em; color: var(--text-dim);
+  margin-top: 5px; font-style: italic;
+}
+
+/* ─── Кнопки добавления эффекта ──────────────────────── */
+.status-sheet .st-effect-add-row {
+  display: flex; gap: 5px;
+}
+.status-sheet .st-add-effect {
+  font-size: 0.72em; padding: 2px 9px; border-radius: 3px; cursor: pointer;
+  background: transparent; border: 1px solid var(--border2);
+  color: var(--text-dim); font-family: 'Jost', sans-serif;
+  transition: all 0.12s;
+}
+.status-sheet .st-add-effect:hover {
+  border-color: var(--gold); color: var(--gold);
+}
+
+/* ─── Блок одного эффекта ────────────────────────────── */
+.status-sheet .st-effects-list { display: flex; flex-direction: column; gap: 8px; }
+.status-sheet .st-effect-block {
+  border: 1px solid var(--border); border-radius: 4px;
+  overflow: hidden;
+}
+.status-sheet .st-effect-roll_modifier { border-left: 3px solid #c084fc; }
+.status-sheet .st-effect-health        { border-left: 3px solid #f87171; }
+.status-sheet .st-effect-energy        { border-left: 3px solid #60a5fa; }
+.status-sheet .st-effect--disabled { opacity: 0.45; }
+
+.status-sheet .st-effect-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 8px; background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+.status-sheet .st-effect-enabled-toggle {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.status-sheet .st-effect-enabled-toggle input { margin: 0; }
+.status-sheet .st-effect-type-label {
+  font-size: 0.75em; font-weight: 600; color: var(--text);
+}
+.status-sheet .st-effect-body {
+  padding: 8px 10px; background: var(--bg);
+}
+
+/* ─── Чекбоксы целей ─────────────────────────────────── */
+.status-sheet .st-sub-label {
+  font-size: 0.62em; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--text-dim); margin-bottom: 4px;
+}
+.status-sheet .st-cb-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;
+}
+.status-sheet .st-cb-row {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.76em; cursor: pointer; color: var(--text-dim);
+  padding: 2px 5px; border-radius: 3px;
+  border: 1px solid transparent;
+  transition: all 0.1s; user-select: none;
+}
+.status-sheet .st-cb-row input { margin: 0; }
+.status-sheet .st-cb-row--on {
+  color: var(--text); border-color: var(--border);
+  background: rgba(196,164,74,0.06);
+}
+.status-sheet .st-attr-hint {
+  font-size: 0.8em; color: var(--text-dim); font-style: italic;
+}
+
+/* ─── Drag-drop зона навыков ─────────────────────────── */
+.status-sheet .st-skills-drop {
+  min-height: 28px; border: 1px dashed var(--border2); border-radius: 3px;
+  padding: 4px 6px; display: flex; flex-wrap: wrap; gap: 4px;
+  align-items: center; background: var(--bg2);
+}
+.status-sheet .st-skills-drop.st-drop-hover {
+  border-color: var(--gold); background: rgba(196,164,74,0.05);
+}
+.status-sheet .st-skill-tag {
+  display: flex; align-items: center; gap: 4px;
+  background: rgba(192,132,252,0.1); border: 1px solid rgba(192,132,252,0.25);
+  border-radius: 3px; padding: 1px 6px; font-size: 0.76em; color: #c084fc;
+}
+.status-sheet .st-skill-drop-hint {
+  font-size: 0.68em; color: var(--text-dim); font-style: italic;
+}
+
+/* ─── Воздействие: строки модов ──────────────────────── */
+.status-sheet .st-effect-mods { display: flex; flex-direction: column; gap: 6px; }
+.status-sheet .st-mod-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.status-sheet .st-mod-label {
+  font-size: 0.74em; color: var(--text-dim); min-width: 170px;
+}
+.status-sheet .st-mod-input { width: 70px !important; text-align: center; }
+
+/* ─── Степпер грани куба ─────────────────────────────── */
+.status-sheet .st-die-step-val {
+  font-size: 0.82em; font-family: 'Jost', sans-serif;
+  color: var(--text); min-width: 60px; text-align: center;
+}
+.status-sheet .st-mod-stepper {
+  display: flex; align-items: center; gap: 4px;
+}
+.status-sheet .st-die-step {
+  width: 22px; height: 22px; border-radius: 3px; cursor: pointer;
+  background: var(--bg2); border: 1px solid var(--border2);
+  color: var(--text); font-size: 1em; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Jost', sans-serif; transition: all 0.1s;
+}
+.status-sheet .st-die-step:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ─── Inline чекбокс (extra die) ───────────────────── */
+.status-sheet .st-cb-inline {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.76em; cursor: pointer; color: var(--text-dim);
+}
+.status-sheet .st-cb-inline--on { color: var(--text); }
+.status-sheet .st-cb-inline input { margin: 0; }
+.status-sheet .st-rm-select { font-size: 0.78em !important; padding: 2px 4px !important; }
+
+/* ─── 2-кол сетка параметров ────────────────────────── */
+.status-sheet .st-params-2col {
+  display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px;
+  align-items: end;
+}
+
+/* ─── Пустое состояние ──────────────────────────────── */
+.status-sheet .st-effects-empty {
+  font-size: 0.76em; color: var(--text-dim); font-style: italic;
+  text-align: center; padding: 10px;
+}
+
+/* ─── Параметры: базовые ─────────────────────────────── */
 .status-sheet .st-param-block { display: flex; flex-direction: column; gap: 3px; }
+.status-sheet .st-param-block--sm .kk9-input { width: 70px !important; }
 .status-sheet .st-param-label {
-  font-size: 0.65em; text-transform: uppercase;
+  font-size: 0.63em; text-transform: uppercase;
   letter-spacing: 0.07em; color: var(--text-dim);
 }
-.status-sheet .st-uses-input  { width: 80px !important; text-align: center; }
-.status-sheet .st-uses-hint   { font-size: 0.65em; color: var(--text-dim); }
-.status-sheet .st-effect-ta   { min-height: 60px; }
-.status-sheet .st-desc-ta     { min-height: 60px; }
+
+/* ─── Readonly-блок инструкции снятия ────────────────── */
+.status-sheet .st-removal-readonly {
+  font-size: 0.82em; color: var(--text); line-height: 1.5;
+  padding: 6px 8px; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: 3px;
+  min-height: 36px; white-space: pre-wrap;
+}
+
+/* ─── Inline подсказка рядом с элементом ─────────────── */
+.status-sheet .st-hint-inline {
+  font-size: 0.65em; color: var(--text-dim);
+  font-style: italic; align-self: center;
+}
 </style>

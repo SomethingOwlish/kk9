@@ -49,6 +49,18 @@ class KK9NpcBaseSheet extends ActorSheet {
     c.operativeClass = c.system.operative_class || "";
     c.facultyColor = c.system.operative_faculty_color || "";
 
+    // Статусы — embedded Items на акторе
+    c.activeStatuses = this.actor.items
+      .filter(i => i.type === "status")
+      .map(i => ({
+        id:             i.id,
+        name:           i.name,
+        status_types:   i.system.status_types ?? [],
+        apply_stun:     i.system.apply_stun ?? false,
+        duration_mode:  i.system.duration?.mode  ?? "time",
+        duration_value: i.system.duration?.value ?? 1,
+      }));
+
     return c;
   }
 
@@ -305,10 +317,30 @@ class KK9NpcBaseSheet extends ActorSheet {
 
     // Удалить активный статус
     html.find(".actor-remove-status").click(async e => {
-      const idx = parseInt(e.currentTarget.dataset.index);
-      const statuses = foundry.utils.deepClone(this.actor.system.active_statuses || []);
-      statuses.splice(idx, 1);
-      await this.actor.update({ "system.active_statuses": statuses });
+      if (!game.user.isGM) return;
+      const itemId = e.currentTarget.dataset.itemId;
+      if (!itemId) { console.warn("KK9: actor-remove-status — нет itemId"); return; }
+      try {
+        const { removeStatusFromActor } = await import("./weapon-combat.mjs");
+        await removeStatusFromActor(this.actor, itemId);
+      } catch(err) {
+        console.warn("KK9: removeStatusFromActor недоступен, fallback", err);
+        const item = this.actor.items.get(itemId);
+        if (item) await item.delete();
+        const cache = foundry.utils.deepClone(this.actor.system.active_statuses || []);
+        const idx   = cache.findIndex(s => s.itemId === itemId);
+        if (idx >= 0) { cache.splice(idx, 1); await this.actor.update({ "system.active_statuses": cache }); }
+      }
+    });
+
+    // Применить эффект статуса вручную (debt / debt_fate — только ГМ)
+    html.find(".actor-apply-status").click(async e => {
+      if (!game.user.isGM) return;
+      const itemId     = e.currentTarget.dataset.itemId;
+      const statusItem = this.actor.items.get(itemId);
+      if (!statusItem) return;
+      const { _applyStatusEffectsManual } = await import("./weapon-combat.mjs");
+      if (_applyStatusEffectsManual) await _applyStatusEffectsManual(this.actor, statusItem);
     });
   }
 
@@ -330,10 +362,22 @@ class KK9NpcBaseSheet extends ActorSheet {
     const data = await TextEditor.getDragEventData(event);
     if (!data) return super._onDrop(event);
 
-    // ── Актор → связь ──
+    // ── Актор → связь или refs ──
     if (data.type === "Actor") {
       const actor = await fromUuid(data.uuid);
       if (!actor || actor.id === this.actor.id) return;
+      // Даймон/спутник — в refs если поле есть у этого типа актора
+      if (actor.type === "daemon" || actor.type === "companion") {
+        const fieldMap = { daemon:"daemon_refs", companion:"companion_refs" };
+        const field = fieldMap[actor.type];
+        if (this.actor.system[field] !== undefined) {
+          const refs = [...(this.actor.system[field] || [])];
+          if (refs.includes(actor.uuid)) { ui.notifications.warn(`«${actor.name}» уже привязан.`); return; }
+          refs.push(actor.uuid);
+          await this.actor.update({ [`system.${field}`]: refs });
+          return;
+        }
+      }
       const relations = this.actor.system.relations || [];
       if (!relations.find(r => r.name === actor.name)) {
         await this.actor.update({ "system.relations": [...relations, {
@@ -572,9 +616,11 @@ export class KK9ContainerSheet extends ActorSheet {
     }
     c.itemCounts = Object.entries(counts).map(([label, count]) => ({ label, count }));
 
-    // Инициатива — даймоны и спутники с атрибутами
+    // Инициатива — даймоны (не шарики) и спутники с атрибутами
     const initItems = refItems.filter(i =>
-      (i.type === "daemon" || i.type === "companion") && i.system?.attributes
+      (i.type === "daemon" || i.type === "companion") &&
+      i.system?.attributes &&
+      !(i.type === "daemon" && i.system.is_orb === true)
     );
     c.initiativeItems         = initItems;
     c.hasInitiativeItems      = initItems.length > 0;
@@ -704,15 +750,41 @@ export class KK9ContainerSheet extends ActorSheet {
 
     // Инициатива
     html.find(".btn-container-initiative").click(async e => {
+      const selId = html.find(".container-initiative-select").val();
+
+      // Контейнер сам по себе — бросаем 1d6+1d6
+      if (!selId || selId === "__container__") {
+        const roll = new Roll("1d6 + 1d6");
+        await roll.evaluate();
+        const total   = roll.total;
+        const actor   = this.actor;
+        const portrait = actor.img || "icons/svg/mystery-man.svg";
+        let diceRows = "";
+        for (const term of roll.terms) {
+          if (typeof term.faces !== "number") continue;
+          const results = term.results ?? [];
+          const vals = results.map(rv => `<span class="kk9-rv dk">${rv.result}</span>`).join("");
+          const sum  = results.reduce((a,v) => a + v.result, 0);
+          diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
+        }
+        diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div>`;
+        const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">Инициатива</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${total}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`;
+        if (game?.combat) {
+          const cb = game.combat.combatants.find(c => c.actorId === actor.id);
+          if (cb) await game.combat.setInitiative(cb.id, total);
+        }
+        await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content, flags: { kk9: { isRoll: true } } });
+        return;
+      }
+
+      // Даймон или спутник
       const initItems = [];
       for (const uuid of [...(this.actor.system.daemon_refs||[]), ...(this.actor.system.companion_refs||[])]) {
         const doc = await fromUuid(uuid);
-        if (doc?.system?.attributes) initItems.push(doc);
+        if (doc?.system?.attributes && !(doc.system.is_orb === true)) initItems.push(doc);
       }
       if (!initItems.length) return;
-
-      const selId = html.find(".container-initiative-select").val();
-      const item  = (selId && initItems.find(i => i.uuid === selId)) || initItems[0];
+      const item = initItems.find(i => i.uuid === selId) || initItems[0];
       await this.actor.rollContainerInitiativeForItem(item);
     });
   }
@@ -721,28 +793,53 @@ export class KK9ContainerSheet extends ActorSheet {
     event.preventDefault();
     let data;
     try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch(e) { return; }
+
+    // Даймон/спутник теперь акторы — принимаем Actor drag
+    if (data.type === "Actor") {
+      const actor = await fromUuid(data.uuid);
+      if (!actor) return;
+      if (actor.type !== "daemon" && actor.type !== "companion") {
+        ui.notifications.warn(`Сюда можно перетащить только даймона или спутника.`);
+        return;
+      }
+      const fieldMap = { daemon:"daemon_refs", companion:"companion_refs" };
+      const field = fieldMap[actor.type];
+      const refs  = [...(this.actor.system[field] || [])];
+      if (refs.includes(actor.uuid)) {
+        ui.notifications.warn(`«${actor.name}» уже в контейнере.`);
+        return;
+      }
+      refs.push(actor.uuid);
+      await this.actor.update({ [`system.${field}`]: refs });
+      return;
+    }
+
     if (data.type !== "Item") return;
 
     const item = await fromUuid(data.uuid);
     if (!item) return;
 
-    const ALLOWED = new Set([...REF_TYPES, ...EMBED_TYPES]);
+    // daemon/companion больше не Items — игнорируем если попал старый тип
+    if (item.type === "daemon" || item.type === "companion") {
+      ui.notifications.warn(`Даймоны и спутники теперь акторы — перетащи актора.`);
+      return;
+    }
+
+    const ALLOWED = new Set([...EMBED_TYPES, "artifact"]);
     if (!ALLOWED.has(item.type)) {
       ui.notifications.warn(`Тип "${item.type}" нельзя положить в контейнер.`);
       return;
     }
 
-    if (REF_TYPES.has(item.type)) {
+    if (item.type === "artifact") {
       // UUID-ссылка
-      const fieldMap = { artifact:"artifact_refs", daemon:"daemon_refs", companion:"companion_refs" };
-      const field = fieldMap[item.type];
-      const refs  = [...(this.actor.system[field] || [])];
+      const refs = [...(this.actor.system.artifact_refs || [])];
       if (refs.includes(item.uuid)) {
         ui.notifications.warn(`«${item.name}» уже в контейнере.`);
         return;
       }
       refs.push(item.uuid);
-      await this.actor.update({ [`system.${field}`]: refs });
+      await this.actor.update({ "system.artifact_refs": refs });
     } else {
       // Embedded copy
       await Item.create(item.toObject(), { parent: this.actor });

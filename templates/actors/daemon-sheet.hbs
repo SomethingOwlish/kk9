@@ -1,0 +1,518 @@
+{{!-- КК9 | Карточка даймона v2.0 --}}
+<form class="kk9-sheet actor-sheet daemon-sheet" autocomplete="off">
+
+  {{!-- ═══ ШАПКА ═══ --}}
+  <header class="dm-header">
+    <img class="dm-avatar" src="{{actor.img}}" data-edit="img" title="{{actor.name}}" />
+    <div class="dm-header-right">
+
+      <div class="dm-name-row">
+        <input class="dm-name-input" type="text" name="name"
+               value="{{actor.name}}" placeholder="Имя даймона" />
+        {{!-- Режим --}}
+        <label class="dm-mode-badge {{#if system.is_orb}}dm-mode-orb{{else}}dm-mode-free{{/if}}">
+          <input type="checkbox" name="system.is_orb"
+                 {{#if system.is_orb}}checked{{/if}} style="display:none" />
+          {{#if system.is_orb}}Шарик{{else}}Свободен{{/if}}
+        </label>
+        {{!-- Заблокирован --}}
+        {{#if system.is_orb}}
+          {{#if system.used}}<span class="dm-locked-badge">Использован</span>{{/if}}
+        {{else}}
+          {{#if system.gone}}<span class="dm-locked-badge">Ушёл</span>{{/if}}
+        {{/if}}
+      </div>
+
+      <div class="dm-sub-row">
+        {{!-- Корпорация + класс + масть --}}
+        <span class="dm-corp-tag dm-corp-{{system.corporation}}">
+          {{#if (eq system.corporation "taro")}}Таро
+          {{else if (eq system.corporation "rainbow")}}Радуга
+          {{else}}Новая{{/if}}
+        </span>
+        <span class="dm-class-tag">{{system.daemon_class}}</span>
+        {{#if (eq system.corporation "taro")}}
+        <span class="dm-suit-tag">
+          {{#if (eq system.suit "cups")}}Кубки
+          {{else if (eq system.suit "wands")}}Жезлы
+          {{else if (eq system.suit "swords")}}Мечи
+          {{else}}Пентакли{{/if}}
+        </span>
+        {{/if}}
+        <span class="dm-color-dot" style="background:{{colorHex system.color}}" title="{{system.color}}"></span>
+      </div>
+
+    </div>
+  </header>
+
+  {{!-- ═══ ЕСЛИ ЗАБЛОКИРОВАН ═══ --}}
+  {{#if system.is_orb}}{{#if system.used}}
+  <div class="dm-body">
+    <div class="dm-locked-msg">Даймон использован. Шарик пуст.</div>
+    <label class="dm-toggle">
+      <input type="checkbox" name="system.used" checked />
+      <span>Снять отметку «использован»</span>
+    </label>
+  </div>
+  {{else}}
+  {{!-- ── РЕЖИМ ШАРИК ── --}}
+  <div class="dm-body">
+    {{> daemon-params-common}}
+
+    <div class="dm-section">
+      <div class="dm-section-title">Шарик</div>
+      <div class="dm-param-block">
+        <span class="dm-param-label">Пленитель</span>
+        <input type="text" name="system.captor" value="{{system.captor}}"
+               class="kk9-input" placeholder="Кто поймал даймона..." />
+      </div>
+      <label class="dm-toggle dm-toggle-danger">
+        <input type="checkbox" name="system.used" {{#if system.used}}checked{{/if}} />
+        Использован
+      </label>
+    </div>
+
+    {{> daemon-params-psychology}}
+    {{> daemon-params-desc}}
+  </div>
+  {{/if}}{{/if}}
+
+  {{#unless system.is_orb}}{{#if system.gone}}
+  <div class="dm-body">
+    <div class="dm-locked-msg">Даймон ушёл.</div>
+    <label class="dm-toggle">
+      <input type="checkbox" name="system.gone" checked />
+      <span>Снять отметку «ушёл»</span>
+    </label>
+  </div>
+  {{else}}
+  {{!-- ── РЕЖИМ СВОБОДНЫЙ ── --}}
+  <div class="dm-body">
+    {{> daemon-params-common}}
+
+
+    {{!-- Атрибуты --}}
+    <div class="dm-section">
+      <div class="dm-section-title">Характеристики</div>
+      <div class="npc-attributes-grid">
+        {{#each system.attributes as |attr key|}}
+        <div class="npc-attr-box dm-attr-roll" data-attr="{{key}}" title="Бросить {{lookup ../attributeLabels key}}">
+          <span class="npc-attr-label">
+            {{#if (eq key "agility")}}Ловкость
+            {{else if (eq key "smarts")}}Смекалка
+            {{else if (eq key "spirit")}}Дух
+            {{else if (eq key "strength")}}Сила
+            {{else if (eq key "magic")}}Магия
+            {{else}}{{key}}{{/if}}
+          </span>
+          <span class="npc-attr-die">d{{attr.die}}{{#if attr.modifier}}{{#if (gt attr.modifier 0)}}+{{attr.modifier}}{{else}}{{attr.modifier}}{{/if}}{{/if}}</span>
+          <select name="system.attributes.{{key}}.die" class="npc-die-select" onclick="event.stopPropagation()">
+            <option value="4"  {{#if (eq attr.die 4)}}selected{{/if}}>d4</option>
+            <option value="6"  {{#if (eq attr.die 6)}}selected{{/if}}>d6</option>
+            <option value="8"  {{#if (eq attr.die 8)}}selected{{/if}}>d8</option>
+            <option value="10" {{#if (eq attr.die 10)}}selected{{/if}}>d10</option>
+            <option value="12" {{#if (eq attr.die 12)}}selected{{/if}}>d12</option>
+          </select>
+          <input type="number" name="system.attributes.{{key}}.modifier"
+                 value="{{attr.modifier}}" placeholder="±0" onclick="event.stopPropagation()"
+                 class="npc-die-select" style="width:100%;text-align:center" />
+        </div>
+        {{/each}}
+      </div>
+    </div>
+
+    {{!-- Инициатива и Стойкость --}}
+    <div class="derived-bar" style="margin:0;padding:6px 0;background:transparent;border:none">
+      <div class="derived-btn daemon-roll-initiative" title="Инициатива (Лов + Смек)">
+        <span class="derived-lbl">Инициатива</span>
+      </div>
+      <div class="derived-btn daemon-roll-toughness" title="Стойкость (Дух)">
+        <span class="derived-lbl">Стойкость</span>
+      </div>
+    </div>
+
+    {{!-- Здоровье --}}
+    <div class="dm-section">
+      <div class="dm-section-title">Состояние</div>
+      <div class="health-tracks npc-tracks">
+        <div class="health-track">
+          <div class="track-header">
+            <span class="track-label">Физическое состояние</span>
+            <span class="health-state-badge state-{{system.health.physical.value}}">{{healthLabel system.health.physical.value}}</span>
+          </div>
+          <div class="track-pips">
+            {{#times 5}}
+            <div class="health-pip {{#if (gte ../system.health.physical.value this)}}pip-filled pip-phys-{{this}}{{else}}pip-empty{{/if}}"
+                 data-track="daemon-physical" data-value="{{this}}" title="{{healthLabel this}}">
+              <span class="pip-txt">{{healthLabel this}}</span>
+            </div>
+            {{/times}}
+          </div>
+        </div>
+        <div class="health-track" style="margin-top:8px">
+          <div class="track-header">
+            <span class="track-label">Ментальное состояние</span>
+            <span class="health-state-badge state-mental-{{system.health.mental.value}}">{{mentalLabel system.health.mental.value}}</span>
+          </div>
+          <div class="track-pips">
+            {{#times 5}}
+            <div class="health-pip {{#if (gte ../system.health.mental.value this)}}pip-filled pip-ment-{{this}}{{else}}pip-empty{{/if}}"
+                 data-track="daemon-mental" data-value="{{this}}" title="{{mentalLabel this}}">
+              <span class="pip-txt">{{mentalLabel this}}</span>
+            </div>
+            {{/times}}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {{!-- Навыки и способности --}}
+    <div class="dm-section daemon-items-drop">
+      <div class="dm-section-title">Навыки и способности
+        <span class="dm-drop-hint">Перетащи навык или способность</span>
+      </div>
+      {{#if daemonItems.length}}
+        {{#each daemonItems as |sk idx|}}
+        <div class="dm-skill-row">
+          <span class="dm-skill-name dm-rollable" data-index="{{@index}}">{{sk.name}}</span>
+          <div class="skill-controls">
+            <select class="die-select-sm dm-skill-die" data-index="{{@index}}" onclick="event.stopPropagation()">
+              <option value="4"  {{#if (eq sk.die 4)}}selected{{/if}}>d4</option>
+              <option value="6"  {{#if (eq sk.die 6)}}selected{{/if}}>d6</option>
+              <option value="8"  {{#if (eq sk.die 8)}}selected{{/if}}>d8</option>
+              <option value="10" {{#if (eq sk.die 10)}}selected{{/if}}>d10</option>
+              <option value="12" {{#if (eq sk.die 12)}}selected{{/if}}>d12</option>
+            </select>
+            <input type="number" class="mod-input-sm dm-skill-mod" data-index="{{@index}}"
+                   value="{{sk.modifier}}" placeholder="±0" />
+            <button type="button" class="btn-delete-xs dm-skill-del"
+                    data-index="{{@index}}">✕</button>
+          </div>
+        </div>
+        {{/each}}
+      {{else}}
+        <div class="dm-drop-empty">Нет навыков. Перетащи навык или способность.</div>
+      {{/if}}
+    </div>
+
+    <label class="dm-toggle dm-toggle-danger">
+      <input type="checkbox" name="system.gone" {{#if system.gone}}checked{{/if}} />
+      Ушёл
+    </label>
+
+    {{!-- Статусы даймона --}}
+    <div class="dm-section">
+      <div class="dm-section-title">Активные статусы</div>
+      <div class="dm-status-drop-zone daemon-status-drop" title="Перетащи статус-итем сюда">
+        {{#if activeStatuses.length}}
+        <div class="dm-status-list">
+          {{#each activeStatuses as |st|}}
+          <div class="actor-status-row dm-status-row" data-item-id="{{st.id}}">
+            <div class="dm-status-info">
+              <span class="dm-status-name item-name-click" style="cursor:pointer">{{st.name}}</span>
+              <span class="dm-status-meta">
+                {{#if (eq st.duration_mode "counter")}}{{st.duration_value}} раунд.
+                {{else if (eq st.duration_mode "charges")}}{{st.duration_value}} зар.
+                {{else}}время{{/if}}
+              </span>
+              {{#if st.status_types.length}}
+              <span class="dm-status-tags">
+                {{#each st.status_types as |t|}}<span class="dm-status-tag">{{statusTypeLabel t}}</span>{{/each}}
+              </span>
+              {{/if}}
+            </div>
+            {{#if ../isGM}}
+            <button type="button" class="actor-remove-status fac-del" data-item-id="{{st.id}}">✕</button>
+            {{#if (eq st.duration_mode "time")}}
+            <button type="button" class="actor-apply-status actor-status-apply-btn"
+                    data-item-id="{{st.id}}" title="Применить эффект">▶</button>
+            {{/if}}
+            {{/if}}
+          </div>
+          {{/each}}
+        </div>
+        {{else}}
+        <div class="dm-status-empty">Нет статусов · перетащи статус-итем</div>
+        {{/if}}
+      </div>
+    </div>
+
+    {{> daemon-params-psychology}}
+    {{> daemon-params-desc}}
+  </div>
+  {{/if}}{{/unless}}
+
+</form>
+
+{{!-- ── ПАРТИАЛЫ ── --}}
+{{#*inline "daemon-params-common"}}
+<div class="dm-params-grid">
+  <div class="dm-param-block">
+    <span class="dm-param-label">Корпорация</span>
+    <select name="system.corporation" class="kk9-select">
+      <option value="taro"    {{#if (eq system.corporation "taro")}}selected{{/if}}>Таро</option>
+      <option value="rainbow" {{#if (eq system.corporation "rainbow")}}selected{{/if}}>Радуга</option>
+      <option value="new"     {{#if (eq system.corporation "new")}}selected{{/if}}>Новая</option>
+    </select>
+  </div>
+
+  {{!-- Класс для Таро --}}
+  {{#if (eq system.corporation "taro")}}
+  <div class="dm-param-block">
+    <span class="dm-param-label">Класс</span>
+    <select name="system.daemon_class" class="kk9-select">
+      <option value="1"     {{#if (eq system.daemon_class "1")}}selected{{/if}}>1</option>
+      <option value="2"     {{#if (eq system.daemon_class "2")}}selected{{/if}}>2</option>
+      <option value="3"     {{#if (eq system.daemon_class "3")}}selected{{/if}}>3</option>
+      <option value="4"     {{#if (eq system.daemon_class "4")}}selected{{/if}}>4</option>
+      <option value="5"     {{#if (eq system.daemon_class "5")}}selected{{/if}}>5</option>
+      <option value="6"     {{#if (eq system.daemon_class "6")}}selected{{/if}}>6</option>
+      <option value="7"     {{#if (eq system.daemon_class "7")}}selected{{/if}}>7</option>
+      <option value="8"     {{#if (eq system.daemon_class "8")}}selected{{/if}}>8</option>
+      <option value="9"     {{#if (eq system.daemon_class "9")}}selected{{/if}}>9</option>
+      <option value="10"    {{#if (eq system.daemon_class "10")}}selected{{/if}}>10</option>
+      <option value="page"  {{#if (eq system.daemon_class "page")}}selected{{/if}}>Паж</option>
+      <option value="queen" {{#if (eq system.daemon_class "queen")}}selected{{/if}}>Дама</option>
+      <option value="knight" {{#if (eq system.daemon_class "knight")}}selected{{/if}}>Рыцарь</option>
+      <option value="king"  {{#if (eq system.daemon_class "king")}}selected{{/if}}>Король</option>
+      <option value="major" {{#if (eq system.daemon_class "major")}}selected{{/if}}>Старшая карта</option>
+    </select>
+  </div>
+  <div class="dm-param-block">
+    <span class="dm-param-label">Масть</span>
+    <select name="system.suit" class="kk9-select">
+      <option value="cups"      {{#if (eq system.suit "cups")}}selected{{/if}}>Кубки</option>
+      <option value="wands"     {{#if (eq system.suit "wands")}}selected{{/if}}>Жезлы</option>
+      <option value="swords"    {{#if (eq system.suit "swords")}}selected{{/if}}>Мечи</option>
+      <option value="pentacles" {{#if (eq system.suit "pentacles")}}selected{{/if}}>Пентакли</option>
+    </select>
+  </div>
+  {{/if}}
+
+  {{!-- Класс для Радуги --}}
+  {{#if (eq system.corporation "rainbow")}}
+  <div class="dm-param-block">
+    <span class="dm-param-label">Ранг</span>
+    <select name="system.daemon_class" class="kk9-select">
+      <option value="junior"  {{#if (eq system.daemon_class "junior")}}selected{{/if}}>Младший</option>
+      <option value="middle"  {{#if (eq system.daemon_class "middle")}}selected{{/if}}>Средний</option>
+      <option value="senior"  {{#if (eq system.daemon_class "senior")}}selected{{/if}}>Старший</option>
+      <option value="elder"   {{#if (eq system.daemon_class "elder")}}selected{{/if}}>Ветеран</option>
+      <option value="great"   {{#if (eq system.daemon_class "great")}}selected{{/if}}>Великий</option>
+    </select>
+  </div>
+  {{/if}}
+
+  <div class="dm-param-block">
+    <span class="dm-param-label">Цвет</span>
+    <select name="system.color" class="kk9-select">
+      <option value="black"   {{#if (eq system.color "black")}}selected{{/if}}>Чёрный</option>
+      <option value="white"   {{#if (eq system.color "white")}}selected{{/if}}>Белый</option>
+      <option value="gold"    {{#if (eq system.color "gold")}}selected{{/if}}>Золотой</option>
+      <option value="silver"  {{#if (eq system.color "silver")}}selected{{/if}}>Серебряный</option>
+      <option value="red"     {{#if (eq system.color "red")}}selected{{/if}}>Красный</option>
+      <option value="orange"  {{#if (eq system.color "orange")}}selected{{/if}}>Оранжевый</option>
+      <option value="green"   {{#if (eq system.color "green")}}selected{{/if}}>Зелёный</option>
+      <option value="blue"    {{#if (eq system.color "blue")}}selected{{/if}}>Синий</option>
+      <option value="purple"  {{#if (eq system.color "purple")}}selected{{/if}}>Фиолетовый</option>
+      <option value="yellow"  {{#if (eq system.color "yellow")}}selected{{/if}}>Жёлтый</option>
+      <option value="pink"    {{#if (eq system.color "pink")}}selected{{/if}}>Розовый</option>
+      <option value="pearl"   {{#if (eq system.color "pearl")}}selected{{/if}}>Перламутровый</option>
+      <option value="grey"    {{#if (eq system.color "grey")}}selected{{/if}}>Серый</option>
+    </select>
+  </div>
+</div>
+
+<div class="dm-params-grid dm-params-grid--2">
+  <div class="dm-param-block">
+    <span class="dm-param-label">Настоящее имя</span>
+    <input type="text" name="system.true_name" value="{{system.true_name}}"
+           class="kk9-input" placeholder="Скрытое истинное имя..." />
+  </div>
+  <div class="dm-param-block">
+    <span class="dm-param-label">Внешний вид</span>
+    <input type="text" name="system.appearance" value="{{system.appearance}}"
+           class="kk9-input" placeholder="Описание облика..." />
+  </div>
+</div>
+{{/inline}}
+
+{{#*inline "daemon-params-psychology"}}
+<div class="dm-section dm-psych-section">
+  <div class="dm-section-title">Психология</div>
+  <div class="dm-psych-grid">
+    <div class="dm-param-block">
+      <span class="dm-param-label">Мечта</span>
+      <textarea name="system.dream" class="kk9-textarea dm-psych-ta"
+                placeholder="О чём мечтает...">{{system.dream}}</textarea>
+    </div>
+    <div class="dm-param-block">
+      <span class="dm-param-label">Страх</span>
+      <textarea name="system.fear" class="kk9-textarea dm-psych-ta"
+                placeholder="Чего боится...">{{system.fear}}</textarea>
+    </div>
+    <div class="dm-param-block">
+      <span class="dm-param-label">Желание</span>
+      <textarea name="system.desire" class="kk9-textarea dm-psych-ta"
+                placeholder="Чего хочет...">{{system.desire}}</textarea>
+    </div>
+  </div>
+</div>
+{{/inline}}
+
+{{#*inline "daemon-params-desc"}}
+<div class="dm-param-block">
+  <span class="dm-param-label">Описание</span>
+  <textarea name="system.description" class="kk9-textarea dm-desc-ta"
+            placeholder="Описание даймона...">{{system.description}}</textarea>
+</div>
+{{/inline}}
+
+<style>
+.daemon-sheet {
+  flex-direction: column !important;
+  overflow-y: auto;
+}
+
+/* ── Шапка ── */
+.daemon-sheet .dm-header {
+  display: flex; flex-direction: row; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.daemon-sheet .dm-avatar {
+  width: 48px; height: 48px; border-radius: 4px; object-fit: cover;
+  cursor: pointer; flex-shrink: 0; border: 2px solid var(--border2);
+}
+.daemon-sheet .dm-header-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.daemon-sheet .dm-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.daemon-sheet .dm-name-input {
+  flex: 1; font-family: 'Caveat', cursive; font-size: 1.4em; font-weight: 700;
+  background: transparent; border: none;
+  border-bottom: 2px solid var(--border2);
+  color: var(--text-head); padding: 0 0 1px; outline: none; min-width: 0;
+}
+.daemon-sheet .dm-name-input:focus { border-bottom-color: var(--gold); }
+.daemon-sheet .dm-sub-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Бейджи */
+.daemon-sheet .dm-mode-badge {
+  flex-shrink: 0; font-size: 0.7em; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 2px 9px; border-radius: 10px; cursor: pointer;
+}
+.daemon-sheet .dm-mode-orb  { background: rgba(30,30,30,0.8);   color: #94a3b8; border: 1px solid #444; }
+.daemon-sheet .dm-mode-free { background: rgba(196,164,74,0.12); color: var(--gold); border: 1px solid rgba(196,164,74,0.3); }
+.daemon-sheet .dm-locked-badge {
+  font-size: 0.68em; padding: 2px 8px; border-radius: 8px;
+  background: rgba(100,100,100,0.15); color: var(--text-dim); border: 1px solid var(--border2);
+}
+
+/* Корпорация */
+.daemon-sheet .dm-corp-tag {
+  font-size: 0.72em; padding: 1px 7px; border-radius: 8px;
+}
+.daemon-sheet .dm-corp-taro    { background: rgba(168,85,247,0.1); color: #c084fc; border: 1px solid rgba(168,85,247,0.25); }
+.daemon-sheet .dm-corp-rainbow { background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+.daemon-sheet .dm-corp-new     { background: rgba(96,165,250,0.1); color: #60a5fa; border: 1px solid rgba(96,165,250,0.25); }
+.daemon-sheet .dm-class-tag    { font-size: 0.72em; color: var(--text-dim); }
+.daemon-sheet .dm-suit-tag     { font-size: 0.72em; color: var(--text-dim); }
+.daemon-sheet .dm-color-dot    { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0; }
+
+/* ── Тело ── */
+.daemon-sheet .dm-body {
+  flex: 1; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px; overflow-y: auto;
+}
+.daemon-sheet .dm-params-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: end;
+}
+.daemon-sheet .dm-params-grid--2 { grid-template-columns: 1fr 1fr; }
+.daemon-sheet .dm-param-block { display: flex; flex-direction: column; gap: 3px; }
+.daemon-sheet .dm-param-label {
+  font-size: 0.65em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim);
+}
+.daemon-sheet .dm-drop-hint { font-size: 0.7em; color: var(--text-dim); font-style: italic; margin-left: auto; }
+
+/* Секции */
+.daemon-sheet .dm-section {
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 10px 12px; background: var(--bg2);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.daemon-sheet .dm-section-title {
+  font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--gold-dim); font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* Здоровье */
+.daemon-sheet .dm-health-block { display: flex; flex-direction: column; gap: 4px; }
+.daemon-sheet .dm-track { display: flex; flex-direction: column; gap: 3px; }
+.daemon-sheet .dm-pips  { display: flex; gap: 4px; }
+.daemon-sheet .dm-toughness-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+}
+.daemon-sheet .dm-tough-input { width: 60px !important; text-align: center; }
+
+/* Навыки */
+.daemon-sheet .dm-skill-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 6px; border-radius: 3px; transition: background 0.1s;
+}
+.daemon-sheet .dm-skill-row:hover { background: var(--bg3); }
+.daemon-sheet .dm-skill-name {
+  flex: 1; font-size: 0.86em; color: var(--text); cursor: pointer;
+}
+.daemon-sheet .dm-skill-name:hover { color: var(--gold); }
+
+/* Психология */
+.daemon-sheet .dm-psych-section { border-color: rgba(168,85,247,0.2); }
+.daemon-sheet .dm-psych-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+}
+.daemon-sheet .dm-psych-ta { min-height: 70px; }
+
+/* Чекбоксы */
+.daemon-sheet .dm-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.8em; cursor: pointer; color: var(--text);
+  padding: 4px 10px; border-radius: 4px;
+  background: var(--bg2); border: 1px solid var(--border);
+  width: fit-content; transition: all 0.15s;
+}
+.daemon-sheet .dm-toggle input { margin: 0; }
+.daemon-sheet .dm-toggle-danger { color: #f87171; }
+.daemon-sheet .dm-toggle-danger:hover { border-color: rgba(239,68,68,0.3); }
+
+/* Заблокировано */
+.daemon-sheet .dm-locked-msg {
+  text-align: center; padding: 20px;
+  font-size: 0.88em; color: var(--text-dim); font-style: italic;
+}
+
+.daemon-sheet .dm-desc-ta { min-height: 80px; }
+
+/* Статусы */
+.daemon-sheet .dm-status-drop-zone {
+  min-height: 28px; border: 1px dashed var(--border2); border-radius: 3px;
+  padding: 4px 6px; background: var(--bg);
+}
+.daemon-sheet .dm-status-drop-zone.dm-drop-hover {
+  border-color: var(--gold); background: rgba(196,164,74,0.05);
+}
+.daemon-sheet .dm-status-list { display: flex; flex-direction: column; gap: 4px; }
+.daemon-sheet .dm-status-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 2px 4px;
+}
+.daemon-sheet .dm-status-info { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; }
+.daemon-sheet .dm-status-name { font-size: 0.82em; color: var(--text); }
+.daemon-sheet .dm-status-meta { font-size: 0.7em; color: var(--text-dim); }
+.daemon-sheet .dm-status-tags { display: flex; gap: 3px; flex-wrap: wrap; }
+.daemon-sheet .dm-status-tag {
+  font-size: 0.62em; padding: 1px 5px; border-radius: 8px;
+  background: rgba(196,164,74,0.1); color: var(--gold);
+  border: 1px solid rgba(196,164,74,0.2);
+}
+.daemon-sheet .dm-status-empty { font-size: 0.72em; color: var(--text-dim); font-style: italic; }
+</style>

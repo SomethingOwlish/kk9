@@ -1,9 +1,6 @@
 // ============================================================
-// КК9 | weapon-combat.mjs v1.0
+// КК9 | weapon-combat.mjs v2.0
 // Логика атаки, применения урона и статусов
-// Подключить в kk9.mjs:
-//   import { registerCombatHooks, rollWeaponAttack } from "./module/weapon-combat.mjs";
-//   // в Hooks.once("init"): registerCombatHooks();
 // ============================================================
 
 // ── Константы ──────────────────────────────────────────────
@@ -15,547 +12,1152 @@ const DAMAGE_LABELS = {
   lethal: "Летальный (3 уровня)"
 };
 
-const FREQ_LABELS = {
-  per_turn:   "раз в ход",
-  per_combat: "раз в бой",
-  per_hour:   "раз в час",
-  per_day:    "раз в день",
-  rare:       "редко"
+// Шкала граней куба для die_change
+const DIE_SCALE = [4, 6, 8, 10, 12, 20, 100];
+
+// ── Категории статусов по типу срабатывания ─────────────────
+const STATUS_CATEGORY_1 = new Set(["bleed","burn","acid","electric","shock_mental"]);       // каждый бросок
+const STATUS_CATEGORY_2 = new Set(["poison","infection","disease","cold"]);                  // раз в N бросков
+// category 3 = counter (по раундам) — обрабатывается в _processRoundEnd
+// category 4 = debt_fate, debt — только вручную ГМ
+
+// Применить health/energy эффекты статуса к актору
+async function _applyStatusEffects(actor, st) {
+  for (const eff of (st.system.effects ?? [])) {
+    if (!eff.enabled) continue;
+    if (eff.type === "health") {
+      const h = eff.health;
+      if (h.mode === "damage") {
+        await applyDamageToActor(actor, _pipsToLevel(h.amount), h.track === "mental" ? "mental" : "physical", h.overflow ?? false);
+      } else if (h.mode === "heal") {
+        const track = h.track === "mental" ? "system.health.mental.value" : "system.health.physical.value";
+        const cur   = h.track === "mental" ? (actor.system.health?.mental?.value ?? 0) : (actor.system.health?.physical?.value ?? 0);
+        if (cur > 0) await actor.update({ [track]: Math.max(0, cur - h.amount) });
+      }
+    }
+    if (eff.type === "energy") {
+      const e   = eff.energy;
+      const cur = actor.system.energy?.value ?? 0;
+      const max = actor.system.energy?.max   ?? 0;
+      if (e.mode === "current") {
+        const newVal = Math.min(max, Math.max(0, cur + (e.amount ?? 0)));
+        if (newVal !== cur) await actor.update({ "system.energy.value": newVal });
+      } else if (e.mode === "restore") {
+        const newVal = Math.min(max, cur + Math.abs(e.amount ?? 0));
+        if (newVal > cur) await actor.update({ "system.energy.value": newVal });
+      }
+    }
+  }
+}
+
+// Убыть один заряд статуса (или снять если 0)
+export async function _decrementStatusCharge(actor, st) {
+  const dur    = st.system.duration;
+  if (dur?.mode !== "charges") return;
+  const newVal = (dur.value ?? 1) - 1;
+  if (newVal <= 0) {
+    await removeStatusFromActor(actor, st.id);
+  } else {
+    await st.update({ "system.duration.value": newVal });
+    const cache = foundry.utils.deepClone(actor.system.active_statuses || []);
+    const ci    = cache.findIndex(c => c.itemId === st.id);
+    if (ci >= 0) { cache[ci].duration_value = newVal; await actor.update({ "system.active_statuses": cache }); }
+  }
+}
+
+// Срабатывание статусов при броске актора (категория 1 и 2)
+export async function triggerStatusEffectsOnRoll(actor) {
+  if (!actor) return;
+  const statuses = actor.items.filter(i => i.type === "status");
+  if (!statuses.length) return;
+
+  let N = 3;
+  try { N = game.settings.get("kk9", "status.charges_per_trigger") ?? 3; } catch(e) {}
+
+  for (const st of statuses) {
+    const types  = st.system.status_types ?? [];
+    const isCat1 = types.some(t => STATUS_CATEGORY_1.has(t));
+    const isCat2 = types.some(t => STATUS_CATEGORY_2.has(t));
+    if (!isCat1 && !isCat2) continue;
+
+    // Категория 1 — каждый бросок
+    if (isCat1) {
+      await _applyStatusEffects(actor, st);
+      // Убываем заряд только если charges режим
+      const dur = st.system.duration;
+      if (dur?.mode === "charges") await _decrementStatusCharge(actor, st);
+
+    // Категория 2 — раз в N бросков
+    } else if (isCat2) {
+      const flagKey = `status_roll_count.${st.id}`;
+      const count   = (actor.getFlag("kk9", flagKey) ?? 0) + 1;
+      if (count >= N) {
+        await actor.unsetFlag("kk9", flagKey);
+        await _applyStatusEffects(actor, st);
+        const dur = st.system.duration;
+        if (dur?.mode === "charges") await _decrementStatusCharge(actor, st);
+      } else {
+        await actor.setFlag("kk9", flagKey, count);
+      }
+    }
+  }
+}
+
+// Карта token effects по типу статуса
+const STATUS_TOKEN_EFFECTS = {
+  poison:       "poison",
+  bleed:        "curse",
+  acid:         "curse",
+  burn:         "burning",
+  cold:         "frozen",
+  electric:     "shock",
+  infection:    "disease",
+  disease:      "disease",
+  shock_mental: "fear",
+  fear:         "fear",
+  madness:      "curse",
+  blindness:    "blind",
+  magic_effect: "curse",
+  curse:        "curse",
+  debt_fate:    "curse",
+  debt:         "curse",
 };
 
-const STATUS_ICONS = {
-  poison: "☠", shock: "⚡", magic: "✦", bleed: "🩸", acid: "⚗"
-};
+// ── Вспомогалка: сдвинуть грань куба на N шагов ────────────
+function shiftDie(currentDie, steps) {
+  const idx = DIE_SCALE.indexOf(currentDie);
+  if (idx === -1) return currentDie;
+  const newIdx = Math.max(0, Math.min(DIE_SCALE.length - 1, idx + steps));
+  return DIE_SCALE[newIdx];
+}
+
+// ── Вспомогалка: получить все активные token effects ────────
+async function _getActiveTokenEffectIds(actor) {
+  const token = actor.token ?? actor.getActiveTokens()[0]?.document;
+  if (!token) return new Set();
+  return new Set((token.statuses ?? []).map(s => s));
+}
+
+// ── Вспомогалка: добавить/убрать token status ───────────────
+async function _setTokenStatus(actor, statusId, active) {
+  // Actor#toggleStatusEffect — правильный способ в Foundry v13+
+  await actor.toggleStatusEffect(statusId, { active });
+}
 
 // ── Применить урон к актору ─────────────────────────────────
-export async function applyDamageToActor(actor, damageLevel, damageType, extraLevels = 0) {
-  const levels  = (DAMAGE_LEVELS[damageLevel] || 1) + extraLevels;
-  const track   = damageType === "mental"
-    ? "system.health.mental.value"
-    : "system.health.physical.value";
-  const current = damageType === "mental"
-    ? (actor.system.health?.mental?.value ?? 0)
-    : (actor.system.health?.physical?.value ?? 0);
-  const newVal  = Math.min(current + levels, 5);
-  await actor.update({ [track]: newVal });
-  return { levels, newVal };
-}
+export async function applyDamageToActor(actor, damageLevel, damageType, overflow = false) {
+  const levels  = DAMAGE_LEVELS[damageLevel] || 1;
+  const isBoss  = actor.type === "npc-boss";
+  const isPhys  = damageType !== "mental";
 
-// ── Применить урон заклинания с overflow между шкалами ──────
-// Физ→ментал→overflow, ментал→физ→overflow. Overflow пишется в system.overflow_damage.
-export async function applySpellDamageToActor(actor, damageLevel, damageType, extraLevels = 0) {
-  const totalLevels = (DAMAGE_LEVELS[damageLevel] || 1) + extraLevels;
-  const physCur = actor.system.health?.physical?.value ?? 0;
-  const mentCur = actor.system.health?.mental?.value  ?? 0;
-  const CAP = 5;
-  let remaining = totalLevels;
-  let newPhys = physCur;
-  let newMent = mentCur;
-  let overflow = 0;
-
-  if (damageType === "physical") {
-    const physSpace = CAP - newPhys;
-    if (remaining <= physSpace) { newPhys += remaining; remaining = 0; }
-    else {
-      remaining -= physSpace; newPhys = CAP;
-      const mentSpace = CAP - newMent;
-      if (remaining <= mentSpace) { newMent += remaining; remaining = 0; }
-      else { remaining -= mentSpace; newMent = CAP; overflow = remaining; }
+  // Спутник — любой урон даёт стан
+  if (actor.type === "companion") {
+    const inCombat = game?.combat?.combatants?.some(c => c.actorId === actor.id);
+    if (inCombat) {
+      await actor.update({ "system.is_stunned": true });
+      ChatMessage.create({
+        content: `<div class="kk9-chat-roll" style="--accent:#6a6560">
+          <div class="kk9-chat-header">
+            <div class="kk9-chat-header-text" style="padding:5px 10px">
+              <span class="kk9-chat-name">${actor.name}</span>
+              <span class="kk9-chat-label">получает стан</span>
+            </div>
+          </div>
+        </div>`,
+        speaker: ChatMessage.getSpeaker({ alias: "" }),
+        flags: { kk9: { isRoll: true } }
+      });
+    } else {
+      ChatMessage.create({
+        content: `<div class="kk9-chat-roll" style="--accent:#6a6560">
+          <div class="kk9-chat-header">
+            <div class="kk9-chat-header-text" style="padding:5px 10px">
+              <span class="kk9-chat-name">${actor.name}</span>
+              <span class="kk9-chat-label">получает урон · вне боя</span>
+            </div>
+          </div>
+        </div>`,
+        speaker: ChatMessage.getSpeaker({ alias: "" }),
+        flags: { kk9: { isRoll: true } }
+      });
     }
-  } else {
-    const mentSpace = CAP - newMent;
-    if (remaining <= mentSpace) { newMent += remaining; remaining = 0; }
-    else {
-      remaining -= mentSpace; newMent = CAP;
-      const physSpace = CAP - newPhys;
-      if (remaining <= physSpace) { newPhys += remaining; remaining = 0; }
-      else { remaining -= physSpace; newPhys = CAP; overflow = remaining; }
-    }
+    return { levels, newVal: 0, isCompanion: true };
   }
 
-  const updateData = {
-    "system.health.physical.value": newPhys,
-    "system.health.mental.value":   newMent
-  };
-  if (overflow > 0) {
-    updateData["system.overflow_damage"] = (actor.system.overflow_damage ?? 0) + overflow;
+  // Босс — нет пипов, весь урон идёт в overflow_damage
+  if (isBoss) {
+    const cur = actor.system.overflow_damage ?? 0;
+    const newVal = cur + levels;
+    await actor.update({ "system.overflow_damage": newVal });
+    return { levels, newVal, isBoss: true };
   }
-  await actor.update(updateData);
-  return { newPhys, newMent, overflow };
-}
 
-// ── Применить статус к актору ───────────────────────────────
-export async function applyStatusToActor(actor, statusItem) {
-  const statuses = foundry.utils.deepClone(actor.system.active_statuses || []);
-  // Не дублируем один и тот же статус
-  if (statuses.find(s => s.uuid === statusItem.uuid)) return;
-  statuses.push({
-    uuid:        statusItem.uuid,
-    statusName:  statusItem.name,
-    status_type: statusItem.system.status_type,
-    damage:      statusItem.system.damage,
-    damage_type: statusItem.system.damage_type,
-    frequency:   statusItem.system.frequency,
-    uses:        statusItem.system.uses
-  });
-  await actor.update({ "system.active_statuses": statuses });
-}
+  const physVal = actor.system.health?.physical?.value ?? 0;
+  const mentVal = actor.system.health?.mental?.value   ?? 0;
 
-
-// ── Собрать бонусы от buff-артефактов актора ────────────────
-// Возвращает { totalBonus, reasons }
-// Учитывает состояние артефакта через методы актора:
-//   broken/inactive → 0, worn → ×0.5 (floor), perfect → ×1.5 (floor), normal → ×1.0
-function collectArtifactBonuses(actor, skillItem, attrKey) {
-  if (!actor) return { totalBonus: 0, reasons: [] };
-
-  const reasons = [];
-  let totalBonus = 0;
-
-  // Получаем все UUID артефактов актора
-  const artifactRefs = actor.system.artifact_refs || [];
-
-  for (const uuid of artifactRefs) {
-    const art = fromUuidSync(uuid);
-    if (!art) continue;
-    if (art.system.artifact_type !== "buff") continue;
-    if (art.system.equipped !== "equipped") continue;
-    if (!art.system.active) continue;
-
-    // Получаем состояние через метод актора — он знает всю логику buffTier
-    const cond = actor._getItemConditionMod(art);
-    if (cond.blocked || !cond.buffActive) continue;
-
-    // Бонус к атрибуту навыка — отдельная строка
-    if (attrKey && art.system.bonuses?.[attrKey]) {
-      const raw = art.system.bonuses[attrKey] || 0;
-      const b   = actor._calcArtifactBonus(raw, cond.buffTier);
-      if (b !== 0) {
-        totalBonus += b;
-        reasons.push(`${art.name} (атр.): ${b > 0 ? "+" : ""}${b}`);
+  if (isPhys) {
+    const newPhys = Math.min(physVal + levels, 5);
+    const leftover = (physVal + levels) - 5;
+    const update = { "system.health.physical.value": newPhys };
+    if (overflow && leftover > 0) {
+      const newMent = Math.min(mentVal + leftover, 5);
+      const overflowMent = (mentVal + leftover) - 5;
+      update["system.health.mental.value"] = newMent;
+      if (overflowMent > 0) {
+        update["system.overflow_damage"] = (actor.system.overflow_damage ?? 0) + overflowMent;
       }
     }
+    await actor.update(update);
+    return { levels, newVal: newPhys };
+  } else {
+    const newMent = Math.min(mentVal + levels, 5);
+    const leftover = (mentVal + levels) - 5;
+    const update = { "system.health.mental.value": newMent };
+    if (overflow && leftover > 0) {
+      update["system.overflow_damage"] = (actor.system.overflow_damage ?? 0) + leftover;
+    }
+    await actor.update(update);
+    return { levels, newVal: newMent };
+  }
+}
 
-    // Бонус к конкретному навыку — каждый отдельной строкой
-    if (skillItem && art.system.skill_bonuses?.length) {
-      for (const sb of art.system.skill_bonuses) {
-        const sbItem = fromUuidSync(sb.item_uuid);
-        if (!sbItem) continue;
-        if (sbItem.name === skillItem.name && sbItem.type === skillItem.type) {
-          const raw = sb.bonus || 0;
-          const b   = actor._calcArtifactBonus(raw, cond.buffTier);
-          if (b !== 0) {
-            totalBonus += b;
-            reasons.push(`${art.name} (нав.): ${b > 0 ? "+" : ""}${b}`);
-          }
+// ============================================================
+// СТАТУСЫ — ПРИМЕНЕНИЕ К АКТОРУ (embedded Item)
+// ============================================================
+export async function applyStatusToActor(actor, statusItem) {
+  // 1. Создаём embedded Item-копию на акторе
+  const itemData = statusItem.toObject();
+  // Сбрасываем id чтобы создать новый экземпляр
+  delete itemData._id;
+  const [created] = await Item.createDocuments([itemData], { parent: actor });
+  if (!created) {
+    ui.notifications.error("Не удалось создать статус на акторе.");
+    return;
+  }
+
+  // 2. Обновляем display-cache active_statuses[]
+  const cache = foundry.utils.deepClone(actor.system.active_statuses || []);
+  cache.push({
+    itemId:        created.id,
+    statusName:    created.name,
+    status_types:  created.system.status_types ?? [],
+    duration_mode:  created.system.duration?.mode  ?? "time",
+    duration_value: created.system.duration?.value ?? 1,
+  });
+  await actor.update({ "system.active_statuses": cache });
+
+  // 3. Token effects — по типам статуса
+  const types = created.system.status_types ?? [];
+  const addedEffects = new Set();
+  for (const t of types) {
+    const effectId = STATUS_TOKEN_EFFECTS[t];
+    if (effectId && !addedEffects.has(effectId)) {
+      await _setTokenStatus(actor, effectId, true);
+      addedEffects.add(effectId);
+    }
+  }
+  // Stun — отдельно
+  if (created.system.apply_stun) {
+    await _setTokenStatus(actor, "stun", true);
+  }
+
+  // 4. Чат-сообщение о наложении
+  const typeLabels = types.map(t => _statusTypeLabel(t)).join(", ") || "—";
+  const durText = _durationText(created.system.duration);
+  ChatMessage.create({
+    content: `<div class="kk9-chat-roll" style="--accent:#a855f7">
+      <div class="kk9-chat-header">
+        <div class="kk9-chat-header-text" style="padding:5px 10px">
+          <span class="kk9-chat-name">${created.name}</span>
+          <span class="kk9-chat-label">наложен на · ${actor.name}</span>
+        </div>
+      </div>
+      <div style="padding:4px 10px 6px;font-size:0.78em;color:var(--text-dim,#6a6560);font-family:'Jost',sans-serif">
+        ${typeLabels} · ${durText}${created.system.removal_instruction ? `<br>Снятие: ${created.system.removal_instruction}` : ""}
+      </div>
+    </div>`,
+    speaker: ChatMessage.getSpeaker({ alias: "" }),
+    flags: { kk9: { isRoll: true } }
+  });
+}
+
+// ============================================================
+// СТАТУСЫ — СНЯТИЕ С АКТОРА
+// ============================================================
+export async function removeStatusFromActor(actor, itemId) {
+  // Найти embedded Item
+  const statusItem = actor.items.get(itemId);
+  const statusName = statusItem?.name ?? "Статус";
+  const types      = statusItem?.system?.status_types ?? [];
+  const hadStun    = statusItem?.system?.apply_stun ?? false;
+
+  // Удалить embedded Item
+  if (statusItem) await statusItem.delete();
+
+  // Обновить display-cache
+  const cache = foundry.utils.deepClone(actor.system.active_statuses || []);
+  const idx   = cache.findIndex(s => s.itemId === itemId);
+  if (idx >= 0) cache.splice(idx, 1);
+  await actor.update({ "system.active_statuses": cache });
+
+  // Снять token effects если больше нет статусов с тем же типом
+  const remainingItems = actor.items.filter(i => i.type === "status");
+  const remainingTypes = new Set(remainingItems.flatMap(i => i.system.status_types ?? []));
+  const remainingStun  = remainingItems.some(i => i.system.apply_stun);
+
+  for (const t of types) {
+    const effectId = STATUS_TOKEN_EFFECTS[t];
+    if (effectId && !remainingTypes.has(t)) {
+      // Проверяем — нет ли другого типа который даёт тот же effectId
+      const otherTypesWithSameEffect = Object.entries(STATUS_TOKEN_EFFECTS)
+        .filter(([k, v]) => v === effectId && k !== t)
+        .map(([k]) => k);
+      const stillNeeded = otherTypesWithSameEffect.some(ot => remainingTypes.has(ot));
+      if (!stillNeeded) await _setTokenStatus(actor, effectId, false);
+    }
+  }
+  if (hadStun && !remainingStun) {
+    await _setTokenStatus(actor, "stun", false);
+  }
+
+  // Чат-сообщение о снятии
+  ChatMessage.create({
+    content: `<div class="kk9-chat-roll" style="--accent:#6a6560">
+      <div class="kk9-chat-header">
+        <div class="kk9-chat-header-text" style="padding:5px 10px">
+          <span class="kk9-chat-name">${statusName}</span>
+          <span class="kk9-chat-label">снят с · ${actor.name}</span>
+        </div>
+      </div>
+    </div>`,
+    speaker: ChatMessage.getSpeaker({ alias: "" }),
+    flags: { kk9: { isRoll: true } }
+  });
+}
+
+// ── Вспомогалки для чат-сообщений ──────────────────────────
+function _statusTypeLabel(type) {
+  return ({
+    poison:"Яд", bleed:"Кровотечение", acid:"Кислота", burn:"Ожог",
+    cold:"Холод", electric:"Электричество", infection:"Заражение",
+    disease:"Болезнь", shock_mental:"Шок", fear:"Страх", madness:"Безумие",
+    blindness:"Слепота", magic_effect:"Маг. эффект", curse:"Проклятие",
+    debt_fate:"Долг судьбы", debt:"Долг",
+  })[type] || type;
+}
+
+function _durationText(duration) {
+  if (!duration) return "время не указано";
+  const val = duration.value ?? 1;
+  if (duration.mode === "time")    return `длит.: ${val} (вручную)`;
+  if (duration.mode === "counter") return `${val} раундов`;
+  if (duration.mode === "charges") return `${val} зарядов`;
+  return "—";
+}
+
+
+// Форматирует результат урона для чата
+function _damageResultLabel(target, newVal, damageType, isBoss, hasStatus, statusUuid) {
+  const typeStr = damageType === "mental" ? "Ментал." : "Физич.";
+  const statStr = hasStatus && statusUuid ? " · статус" : "";
+  if (isBoss) return `урон · оверкап: ${newVal}${statStr}`;
+  return `урон · ${typeStr}: ${newVal}/5${statStr}`;
+}
+
+// ============================================================
+// COMBAT HOOKS — counter убывание, DoT здоровье, stun
+// ============================================================
+export function registerCombatHooks() {
+
+  // ── Конец раунда: counter убывает, health DoT срабатывает ──
+  Hooks.on("combatRound", async (combat, updateData, updateOptions) => {
+    if (updateOptions.direction < 0) return; // перемотка назад — пропускаем
+    for (const combatant of combat.combatants) {
+      const actor = combatant.actor;
+      if (!actor) continue;
+      await _processRoundEnd(actor);
+    }
+  });
+
+  // ── Конец хода: stun применяется на следующий ход ──────────
+  Hooks.on("combatTurn", async (combat, updateData, updateOptions) => {
+    if (updateOptions.direction < 0) return;
+    const prev = combat.combatants.get(updateData.combatantId ?? combat.previous?.combatantId);
+    const actor = prev?.actor;
+    if (!actor) return;
+    await _processStunOnTurnEnd(actor);
+  });
+
+  // ── Конец боя: counter-статусы с оставшимся временем → time ──
+  Hooks.on("deleteCombat", async (combat) => {
+    for (const combatant of combat.combatants) {
+      const actor = combatant.actor;
+      if (!actor) continue;
+      const counterStatuses = actor.items.filter(i =>
+        i.type === "status" && i.system.duration?.mode === "counter" && (i.system.duration?.value ?? 0) > 0
+      );
+      for (const st of counterStatuses) {
+        await st.update({ "system.duration.mode": "time" });
+      }
+    }
+  });
+}
+
+async function _processRoundEnd(actor) {
+  const statuses = actor.items.filter(i => i.type === "status");
+  if (!statuses.length) return;
+
+  for (const st of statuses) {
+    const dur = st.system.duration;
+
+    // time-статусы НЕ применяют health/energy автоматически
+    if (dur?.mode === "time") {
+      // Counter убывание пропускаем тоже
+      continue;
+    }
+
+    for (const eff of (st.system.effects ?? [])) {
+      if (!eff.enabled) continue;
+
+      // ── Health DoT ──
+      if (eff.type === "health") {
+        const h = eff.health;
+        if (h.mode === "damage") {
+          await applyDamageToActor(actor, _pipsToLevel(h.amount), h.track === "mental" ? "mental" : "physical", h.overflow);
+        } else if (h.mode === "heal") {
+          const track = h.track === "mental" ? "system.health.mental.value" : "system.health.physical.value";
+          const cur   = h.track === "mental" ? (actor.system.health?.mental?.value ?? 0) : (actor.system.health?.physical?.value ?? 0);
+          if (cur > 0) await actor.update({ [track]: Math.max(0, cur - h.amount) });
         }
       }
+
+      // ── Energy ──
+      if (eff.type === "energy") {
+        const e   = eff.energy;
+        const cur = actor.system.energy?.value ?? 0;
+        const max = actor.system.energy?.max   ?? 0;
+
+        if (e.mode === "current") {
+          const newVal = Math.min(max, Math.max(0, cur + (e.amount ?? 0)));
+          if (newVal !== cur) await actor.update({ "system.energy.value": newVal });
+        } else if (e.mode === "restore") {
+          const newVal = Math.min(max, cur + Math.abs(e.amount ?? 0));
+          if (newVal > cur) await actor.update({ "system.energy.value": newVal });
+        }
+        // max и roll_mod — не обрабатываем здесь
+      }
+    }
+
+    // ── Charges — убываем после применения эффектов ──
+    if (dur?.mode === "charges" && dur.auto_reduce) {
+      const newVal = (dur.value ?? 1) - 1;
+      if (newVal <= 0) {
+        await removeStatusFromActor(actor, st.id);
+      } else {
+        await st.update({ "system.duration.value": newVal });
+        const cache = foundry.utils.deepClone(actor.system.active_statuses || []);
+        const ci    = cache.findIndex(c => c.itemId === st.id);
+        if (ci >= 0) { cache[ci].duration_value = newVal; await actor.update({ "system.active_statuses": cache }); }
+      }
+    }
+
+    // ── Counter — убываем ──
+    if (dur?.mode === "counter" && dur.auto_reduce) {
+      const newVal = (dur.value ?? 1) - 1;
+      if (newVal <= 0) {
+        await removeStatusFromActor(actor, st.id);
+      } else {
+        await st.update({ "system.duration.value": newVal });
+        const cache = foundry.utils.deepClone(actor.system.active_statuses || []);
+        const ci    = cache.findIndex(c => c.itemId === st.id);
+        if (ci >= 0) { cache[ci].duration_value = newVal; await actor.update({ "system.active_statuses": cache }); }
+      }
+    }
+  }
+}
+
+async function _processStunOnTurnEnd(actor) {
+  const statuses = actor.items.filter(i => i.type === "status" && i.system.apply_stun);
+  if (!statuses.length) return;
+  // Stun уже висит на токене через token effect — просто убеждаемся
+  await _setTokenStatus(actor, "stun", true);
+}
+
+// Вспомогалка: пипы → уровень урона (для DoT)
+function _pipsToLevel(pips) {
+  if (pips >= 3) return "lethal";
+  if (pips >= 2) return "heavy";
+  return "light";
+}
+
+// ============================================================
+// ПРИМЕНЕНИЕ УРОНА К АКТОРУ (из чата)
+// ============================================================
+export async function applyDamageToActor_simple(actor, damageLevel, damageType) {
+  return applyDamageToActor(actor, damageLevel, damageType, false);
+}
+
+// ============================================================
+// БРОСКИ — МОДИФИКАТОРЫ СТАТУСОВ
+// ============================================================
+
+// Собрать все модификаторы статусов для конкретного броска
+// rollContext = { type, attributeKey, itemType, skillUuid, isToughness, isInitiative }
+export function collectStatusModifiers(actor, rollContext) {
+  const statuses = actor.items.filter(i => i.type === "status");
+  let dieMod       = 0;
+  let numericMod   = 0;
+  let successMod   = 0;
+  let extraDice    = []; // [{ faces, mode, name }]
+  const reasons    = [];
+  const usedIds    = []; // id статусов с charges для убывания
+
+  for (const st of statuses) {
+    for (const eff of (st.system.effects ?? [])) {
+      if (!eff.enabled || eff.type !== "roll_modifier") continue;
+      const rm = eff.roll_modifier;
+      if (!_rollMatchesTarget(rm, rollContext)) continue;
+
+      if (rm.die_change)       { dieMod     += rm.die_change;     reasons.push(`${st.name}: ${rm.die_change > 0 ? "+" : ""}${rm.die_change} гр.`); }
+      if (rm.modifier)         { numericMod += rm.modifier;       reasons.push(`${st.name}: ${rm.modifier > 0 ? "+" : ""}${rm.modifier}`); }
+      if (rm.success_modifier) { successMod += rm.success_modifier; reasons.push(`${st.name}: ${rm.success_modifier > 0 ? "+" : ""}${rm.success_modifier} усп.`); }
+      if (rm.extra_die_enabled) {
+        extraDice.push({ faces: rm.extra_die_faces, mode: rm.extra_die_mode, name: st.name });
+        reasons.push(`${st.name}: доп. d${rm.extra_die_faces}`);
+      }
+
+      // Charges — отмечаем для убывания после броска
+      if (st.system.duration?.mode === "charges" && st.system.duration?.auto_reduce) {
+        usedIds.push(st.id);
+      }
     }
   }
 
-  return { totalBonus, reasons };
+  return { dieMod, numericMod, successMod, extraDie: extraDice.length ? extraDice[0] : null, extraDice, reasons, usedIds };
 }
 
-// ── Хелперы рендера чат-сообщения атаки ─────────────────────
-
-// Получить wildcard die актора (character=d6, npc-boss=wild_die, остальные=null)
-function getActorWcDie(actor) {
-  if (!actor) return 6;
-  if (actor.type === "character") return 6;
-  if (actor.type === "npc-boss") return actor.system.wild_die ?? 6;
-  return null;
+// Применить эффекты статуса вручную (ГМ — для debt/debt_fate)
+export async function _applyStatusEffectsManual(actor, st) {
+  await _applyStatusEffects(actor, st);
+  // Убываем заряд если charges
+  const dur = st.system.duration;
+  if (dur?.mode === "charges") await _decrementStatusCharge(actor, st);
+  ChatMessage.create({
+    content: `<div class="kk9-chat-roll" style="--accent:#c4a44a">
+      <div class="kk9-chat-header"><div class="kk9-chat-header-text" style="padding:5px 10px">
+        <span class="kk9-chat-name">${actor.name}</span>
+        <span class="kk9-chat-label">${st.name} — применён вручную</span>
+      </div></div>
+    </div>`,
+    speaker: ChatMessage.getSpeaker({ alias: "Система" }),
+    flags: { kk9: { isRoll: true } }
+  });
 }
 
-// Системное сообщение в стиле системы (без хедера)
-function _sysMsg(actorOrName, text, sub = "", accentColor = "#c4a44a") {
-  const name = typeof actorOrName === "string" ? actorOrName : actorOrName?.name ?? "Система";
-  const portrait = (typeof actorOrName === "object" ? actorOrName?.img : null) ?? "icons/svg/mystery-man.svg";
-  const lines = [
-    `<style>.kk9-combat-msg .message-header{display:none!important}</style>`,
-    `<div class="kk9-chat-roll kk9-combat-msg" style="--accent:${accentColor}">`,
-    `  <div class="kk9-chat-header">`,
-    `    <img class="kk9-chat-portrait" src="${portrait}" alt="${name}">`,
-    `    <div class="kk9-chat-header-text">`,
-    `      <span class="kk9-chat-name">${name}</span>`,
-    sub ? `      <span class="kk9-chat-label">${sub}</span>` : "",
-    `    </div>`,
-    `  </div>`,
-    `  <div style="padding:8px 14px 10px;font-size:0.88em;color:rgba(255,255,255,0.7);">${text}</div>`,
-    `</div>`
-  ];
-  return lines.filter(Boolean).join("\n");
+// Убыть заряды после броска (roll_modifier charges)
+export async function consumeStatusCharges(actor, statusIds) {
+  for (const id of statusIds) {
+    const st = actor.items.get(id);
+    if (!st) continue;
+    const val = (st.system.duration?.value ?? 1) - 1;
+    if (val <= 0) {
+      await removeStatusFromActor(actor, id);
+    } else {
+      await st.update({ "system.duration.value": val });
+      const cache = foundry.utils.deepClone(actor.system.active_statuses || []);
+      const ci    = cache.findIndex(c => c.itemId === id);
+      if (ci >= 0) { cache[ci].duration_value = val; await actor.update({ "system.active_statuses": cache }); }
+    }
+  }
 }
 
-// Степени успеха
-function _atkSuccessDegree(total) {
-  if (total < 6) return { type: "failure", label: "ПРОМАХ" };
-  const s = 1 + Math.floor((total - 6) / 4);
-  const label = s === 1 ? "1 УСПЕХ" : s <= 4 ? `${s} УСПЕХА` : `${s} УСПЕХОВ`;
-  return { type: "success", label };
+// Проверка — применяется ли эффект к данному броску
+function _rollMatchesTarget(rm, ctx) {
+  if (rm.target_all) return true;
+
+  // Атрибут
+  if (ctx.attributeKey) {
+    const attrKey = `target_${ctx.attributeKey}`;
+    if (rm[attrKey]) return true;
+    // Авто-правила: agility/smarts → инициатива; spirit → стойкость
+    if (ctx.isInitiative && (rm.target_agility || rm.target_smarts)) return true;
+    if (ctx.isToughness  && rm.target_spirit)                        return true;
+  }
+
+  // Отдельные флаги
+  if (ctx.isToughness  && rm.target_toughness)  return true;
+  if (ctx.isInitiative && rm.target_initiative)  return true;
+
+  // Тип предмета
+  if (ctx.itemType) {
+    if (rm.target_all_items) return true;
+    const itemKey = `target_${ctx.itemType}`;
+    if (rm[itemKey]) return true;
+  }
+
+  // Конкретный навык
+  if (ctx.skillUuid && rm.target_skills?.some(s => s.uuid === ctx.skillUuid)) return true;
+
+  return false;
 }
 
-// HTML кубиков — точная копия логики из documents.mjs _buildDiceHtml
-function _atkBuildDiceHtml(roll, modReasons = []) {
+
+// Строит HTML кубиков для сообщений атаки (та же логика что _buildDiceHtml)
+function _renderAttackDiceHtml(roll, reasons = []) {
   const lines = [];
-
-  const renderDiceTerms = (terms) => {
+  const renderDice = (terms) => {
     for (const t of terms) {
       if (Array.isArray(t.rolls) && Array.isArray(t.results)) {
-        // PoolTerm
         t.rolls.forEach((r, idx) => {
           const poolEntry   = t.results[idx] ?? {};
           const isDiscarded = poolEntry.active === false || poolEntry.discarded === true;
           const die = r.terms?.find(dt => typeof dt.faces === "number" && Array.isArray(dt.results));
           if (!die) return;
-          const faces   = die.faces;
-          const results = die.results ?? [];
-          const rollStr = results.map(res => {
-            const boom = res.exploded ? "💥" : "";
-            return `<span class="kk9-rv ${isDiscarded ? "dr" : "dk"}">${boom}${res.result}</span>`;
+          const rollStr = die.results.map(rv => {
+            const boom = rv.exploded ? "💥" : "";
+            return `<span class="kk9-rv ${isDiscarded?"dr":"dk"}">${boom}${rv.result}</span>`;
           }).join('<span class="kk9-rplus">+</span>');
-          const total = results.reduce((s, res) => s + res.result, 0);
-          lines.push(
-            `<div class="${isDiscarded ? "kk9-drow discarded" : "kk9-drow kept"}">` +
-            `<span class="kk9-dlabel">d${faces}</span>` +
-            `<span class="kk9-dvals">${rollStr}</span>` +
-            (!isDiscarded ? `<span class="kk9-dsum">= ${total}</span>` : "") +
-            `</div>`
-          );
+          const total = die.results.reduce((s,r)=>s+r.result,0);
+          lines.push(`<div class="kk9-drow ${isDiscarded?"discarded":"kept"}"><span class="kk9-dlabel">d${die.faces}</span><span class="kk9-dvals">${rollStr}</span>${!isDiscarded?`<span class="kk9-dsum">= ${total}</span>`:""}</div>`);
         });
       } else if (typeof t.faces === "number" && Array.isArray(t.results)) {
-        // Обычный Die
-        const faces   = t.faces;
-        const results = t.results ?? [];
-        const rollStr = results.map(res => {
-          const boom = res.exploded ? "💥" : "";
-          return `<span class="kk9-rv dk">${boom}${res.result}</span>`;
+        const rollStr = t.results.map(rv => {
+          const boom = rv.exploded ? "💥" : "";
+          return `<span class="kk9-rv dk">${boom}${rv.result}</span>`;
         }).join('<span class="kk9-rplus">+</span>');
-        const total = results.reduce((s, res) => s + res.result, 0);
-        lines.push(
-          `<div class="kk9-drow kept">` +
-          `<span class="kk9-dlabel">d${faces}</span>` +
-          `<span class="kk9-dvals">${rollStr}</span>` +
-          `<span class="kk9-dsum">= ${total}</span>` +
-          `</div>`
-        );
-      } else if (Array.isArray(t.terms)) renderDiceTerms(t.terms);
-      else if (t.roll?.terms) renderDiceTerms(t.roll.terms);
+        const total = t.results.reduce((s,r)=>s+r.result,0);
+        lines.push(`<div class="kk9-drow kept"><span class="kk9-dlabel">d${t.faces}</span><span class="kk9-dvals">${rollStr}</span><span class="kk9-dsum">= ${total}</span></div>`);
+      } else if (Array.isArray(t.terms)) renderDice(t.terms);
+      else if (t.roll?.terms) renderDice(t.roll.terms);
     }
   };
-  renderDiceTerms(roll.terms);
-
-  // Модификаторы
-  if (modReasons.length) {
-    lines.push(`<div class="kk9-dsep"></div>`);
-    for (const r of modReasons) {
-      lines.push(`<div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ ${r}</span></div>`);
-    }
+  renderDice(roll.terms);
+  if (reasons.length) {
+    lines.push('<div class="kk9-dsep"></div>');
+    reasons.forEach(r => lines.push(`<div class="kk9-drow kk9-dbonus"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`));
   }
-
-  // Итог
-  lines.push(`<div class="kk9-dsep"></div>`);
-  lines.push(
-    `<div class="kk9-drow kk9-dtotal">` +
-    `<span class="kk9-dlabel">итог</span>` +
-    `<span class="kk9-dtotal-val">${roll.total}</span>` +
-    `</div>`
-  );
-  return lines.join("");
+  return lines.length ? `<div class="kk9-dice-body">${lines.join("")}</div>` : "";
 }
 
-// Полное чат-сообщение атаки в стиле системы (details/summary = сворачивание)
-function _atkBuildMessage(actor, itemName, degree, diceHtml, dmgInfo, damageHtml) {
-  const portrait    = actor?.img ?? "icons/svg/mystery-man.svg";
-  const actorName   = actor?.name ?? itemName;
-  const summaryClass = degree.type === "success" ? "kk9-result-success" : "kk9-result-failure";
-
-  const parts = [
-    `<div class="kk9-chat-roll">`,
-    `  <div class="kk9-chat-header">`,
-    `    <img class="kk9-chat-portrait" src="${portrait}" alt="${actorName}">`,
-    `    <div class="kk9-chat-header-text">`,
-    `      <span class="kk9-chat-name">${actorName}</span>`,
-    `      <span class="kk9-chat-label">${itemName}</span>`,
-    `    </div>`,
-    `  </div>`,
-    `  <details class="kk9-result-details">`,
-    `    <summary class="kk9-result-summary ${summaryClass}">`,
-    `      <span class="kk9-result-text">${degree.label}</span>`,
-    `      <span class="kk9-result-expand-hint">›</span>`,
-    `    </summary>`,
-    diceHtml ? `    <div class="kk9-dice-body">${diceHtml}</div>` : "",
-    `  </details>`,
-  ];
-
-  // Инфо об уроне — мелко под details, всегда видно при успехе
-  if (dmgInfo) {
-    parts.push(`  <div style="font-size:0.78em;color:rgba(255,255,255,0.4);padding:4px 14px;font-style:italic">${dmgInfo}</div>`);
-  }
-
-  // Кнопки
-  if (damageHtml) {
-    parts.push(`  <div class="kk9-chat-roll-bar">${damageHtml}</div>`);
-  }
-
-  parts.push(`</div>`);
-  return parts.filter(Boolean).join("\n");
+// То же но с явным итогом (для ветки без навыка)
+function _renderAttackDiceHtmlWithTotal(roll, reasons = [], overrideTotal = null) {
+  const base = _renderAttackDiceHtml(roll, []);
+  const displayTotal = overrideTotal !== null ? overrideTotal : roll.total;
+  const reasonLines = reasons.map(r =>
+    `<div class="kk9-drow kk9-dbonus"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`
+  ).join("");
+  const totalLine = `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${displayTotal}</span></div>`;
+  // base уже содержит kk9-dice-body обёртку — вставляем reasons и total внутрь
+  if (!base) return "";
+  return base.replace("</div>", `${reasonLines}${totalLine}</div>`);
 }
 
-// Кнопки урона — используем kk9-roll-btn из системы
-function _atkDamageButtons(weaponItem, weapon, effectiveDamageLevel, extraDamagePip,
-                            hasStatus, targetOptions, itemBroken, conditionNoArtifactDamage,
-                            isGearOverride = false, isSpell = false) {
-  const dmgLabel  = DAMAGE_LABELS[effectiveDamageLevel] || effectiveDamageLevel;
-  const typeLabel = weapon.damage_type === "mental" ? "Ментальный" : "Физический";
-  const isGear    = isGearOverride || weaponItem.type === "gear";
-  const actorId   = weapon._actorId ?? "";
-
-  if (itemBroken) {
-    return `<span style="font-size:0.82em;color:rgba(255,255,255,0.35);font-style:italic">` +
-           `Нет урона — ${weaponItem.type === "artifact" ? "артефакт" : "снаряжение"} сломано</span>`;
-  }
-  if (conditionNoArtifactDamage) {
-    return `<span style="font-size:0.82em;color:rgba(255,255,255,0.35);font-style:italic">` +
-           `Нет урона — плохое состояние (${weapon.condition_chance}% сработало)</span>`;
-  }
-
-  const baseData = [
-    `data-weapon-id="${weaponItem.id}"`,
-    `data-actor-id="${actorId}"`,
-    `data-damage-level="${effectiveDamageLevel}"`,
-    `data-damage-type="${weapon.damage_type}"`,
-    `data-extra-pip="${extraDamagePip || 0}"`,
-    `data-has-status="${hasStatus ? "1" : "0"}"`,
-    `data-status-uuid="${weapon.status_uuid || ""}"`,
-    `data-is-gear="${isGear ? "1" : "0"}"`,
-    `data-is-spell="${isSpell ? "1" : "0"}"`,
-  ].join(" ");
-
-  const selectHtml = !isGear
-    ? `<select id="kk9-target-select-${weaponItem.id}" style="flex:2;min-width:100px;background:var(--bg3,rgba(0,0,0,0.3));border:1px solid rgba(255,255,255,0.15);border-radius:3px;color:#b8b0a4;padding:2px 6px;font-size:0.78em;font-family:'Jost',sans-serif"><option value="">— выбери цель —</option>${targetOptions}</select>`
-    : "";
-
-  const applyBtn  = `<button class="kk9-apply-damage kk9-roll-btn" ${baseData}>Засчитать${extraDamagePip ? " +пип" : ""}${isGear ? " (все)" : ""}</button>`;
-  const resistBtn = !isGear ? `<button class="kk9-resist-roll kk9-roll-btn" ${baseData}>Стойкость</button>` : "";
-  const missBtn   = `<button class="kk9-miss kk9-roll-btn">Промах</button>`;
-
-  return `${selectHtml}${applyBtn}${resistBtn}${missBtn}`;
-}
-
-// ── Бросок атаки оружием ────────────────────────────────────
+// ============================================================
+// БРОСОК АТАКИ ОРУЖИЕМ
+// ============================================================
 export async function rollWeaponAttack(weaponItem, actor) {
   const weapon = weaponItem.system;
 
-  // Найти навык — только у актора (embedded копия)
-  // Если навык не найден у актора — используем attack_modifier артефакта/оружия
+  // Найти skillItem на акторе — нужен его id для rollSkillItem
   let skillItem = null;
   if (weapon.skill_uuid && actor) {
-    const worldItem = fromUuidSync(weapon.skill_uuid);
+    // Ищем по прямому uuid, короткому id, или по sourceId компендиума
+    const shortId = weapon.skill_uuid.split(".").pop();
     skillItem = actor.items.find(i =>
       i.uuid === weapon.skill_uuid ||
-      i.id === weapon.skill_uuid ||
-      (worldItem && i.name === worldItem.name && i.type === worldItem.type)
-    ) ?? null;
-    // Намеренно НЕ падаем на worldItem — если нет у актора, идём в else → attack_modifier
-  } else if (weapon.skill_uuid && !actor) {
-    // Нет актора — берём мировой item напрямую (броски без персонажа)
-    skillItem = fromUuidSync(weapon.skill_uuid) ?? null;
-  }
-
-  // Wildcard die актора
-  const wcDie    = getActorWcDie(actor);
-  const isWC     = wcDie !== null;
-  const attackerName = actor?.name ?? weaponItem.name;
-
-  // Формула броска
-  let formula, skillLabel, skillDie;
-  if (skillItem) {
-    skillDie   = skillItem.system.die || 4;
-    const mod  = skillItem.system.modifier || 0;
-    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-    formula    = isWC ? `{1d${skillDie}${modStr}, 1d${wcDie}${modStr}}kh` : `1d${skillDie}${modStr}`;
-    skillLabel = skillItem.name;
-  } else {
-    // Нет навыка у актора — ищем die в навыке на объекте (weapon.skill_uuid → мировой item)
-    const worldSkill = weapon.skill_uuid ? fromUuidSync(weapon.skill_uuid) : null;
-    skillDie = worldSkill?.system?.die ?? 4;
-    // Берём attack_modifier с учётом состояния
-    let rawMod = weapon.attack_modifier || 0;
-    let finalMod = rawMod;
-    if (rawMod !== 0 && actor) {
-      if (weaponItem.type === "artifact") {
-        const cond = actor._getItemConditionMod(weaponItem);
-        finalMod = actor._calcArtifactBonus(rawMod, cond.buffTier);
-      } else {
-        const cond = weapon.condition ?? "good";
-        if (cond === "broken")       finalMod = 0;
-        else if (cond === "worn")    finalMod = Math.floor(rawMod * 0.5);
-        else if (cond === "perfect") finalMod = Math.floor(rawMod * 1.5);
-      }
-    }
-    const modStr = finalMod !== 0 ? (finalMod > 0 ? `+${finalMod}` : `${finalMod}`) : "";
-    formula    = isWC ? `{1d${skillDie}${modStr}, 1d${wcDie}${modStr}}kh` : `1d${skillDie}${modStr}`;
-    skillLabel = rawMod !== 0 ? `модификатор ${finalMod > 0 ? "+" : ""}${finalMod}` : "без навыка";
-  }
-
-  // ── Проверка состояния weapon/artifact на broken ──
-  // broken → урон не засчитывается (кнопки не показываем)
-  let itemBroken = false;
-  if (weaponItem.type === "artifact") {
-    // Для артефакта — проверяем через _getItemConditionMod актора
-    const refs = actor ? (actor.system.artifact_refs || []) : [];
-    for (const uuid of refs) {
-      const art = fromUuidSync(uuid);
-      if (!art) continue;
-      if (art.system.artifact_type !== "attack") continue;
-      if (art.system.equipped !== "equipped") continue;
-      const cond = actor._getItemConditionMod(art);
-      if (cond.blocked) { itemBroken = true; break; }
-    }
-  } else {
-    // Для weapon/gear/device — берём condition прямо из item
-    itemBroken = weapon.condition === "broken";
-  }
-
-  // ── Эффект состояния на урон ──
-  // condition_chance — % шанс эффекта (для artifact и weapon)
-  // perfect + прок → урон +1 уровень (lethal → lethal + extra pip)
-  // worn    + прок → нет урона совсем
-  let conditionDamageUpgrade = false;
-  let conditionNoArtifactDamage = false;
-  if (!itemBroken) {
-    const chance = weapon.condition_chance || 0;
-    const cond   = weapon.condition ?? "good";
-    if (chance > 0) {
-      const roll = Math.random() * 100;
-      if (cond === "perfect" && roll < chance) conditionDamageUpgrade    = true;
-      if (cond === "worn"    && roll < chance) conditionNoArtifactDamage = true;
+      i.id   === weapon.skill_uuid ||
+      i.id   === shortId ||
+      (i.system?.sourceId ?? i.flags?.kk9?.sourceId) === weapon.skill_uuid
+    );
+    // Если не нашли — ищем по имени через compendium uuid
+    if (!skillItem) {
+      try {
+        const compItem = fromUuidSync(weapon.skill_uuid);
+        if (compItem?.name) {
+          skillItem = actor.items.find(i => i.name === compItem.name && i.type === compItem.type);
+        }
+      } catch(e) {}
     }
   }
 
-  // ── Бонусы от buff-артефактов ──
-  const attrKey = skillItem?.system?.linkedAttribute ?? null;
-  const { totalBonus: artBonus, reasons: artReasons } = collectArtifactBonuses(actor, skillItem, attrKey);
+  // Строим данные для чата
+  const hasStatus  = weapon.has_status && weapon.status_uuid;
+  const dmgLabel   = DAMAGE_LABELS[weapon.damage_level] || weapon.damage_level;
+  const typeLabel  = weapon.damage_type === "mental" ? "Ментальный" : "Физический";
+  const statusInfo = hasStatus ? ` + ${weapon.status_name || "статус"}` : "";
 
-  // Модификатор навыка уже в формуле — добавляем только артефактный бонус
-  const finalFormula = artBonus !== 0
-    ? `(${formula})${artBonus > 0 ? '+' : ''}${artBonus}`
-    : formula;
-
-  const modReasons = [];
-  if (skillItem?.system?.modifier) {
-    const m = skillItem.system.modifier;
-    modReasons.push(`модификатор: ${m > 0 ? '+' : ''}${m}`);
-  }
-  modReasons.push(...artReasons);
-
-  const roll = new Roll(finalFormula);
-  await roll.evaluate();
-
-  // Цвет сообщения по результату
-  const total   = roll.total;
-  const success = total >= 6;
-
-  // Список акторов для выбора цели: combat → сцена → мир (кроме атакующего)
   const targetOptions = _getTargetCandidates(actor?.id)
     .map(c => `<option value="${c.id}">${c.name}</option>`)
     .join("");
 
-  // Статус-инфо для кнопки
-  const hasStatus  = weapon.has_status && weapon.status_uuid;
-  const statusInfo = hasStatus
-    ? `<span style="font-size:0.82em;color:#c084fc"> + статус: ${weapon.status_name || "?"}</span>`
-    : "";
+  if (skillItem && actor) {
+    // ── Используем rollSkillItem актора — он применяет здоровье, статусы, артефакты ──
+    // Перехватываем ChatMessage чтобы добавить кнопки атаки поверх
+    let interceptedContent = null;
+    let interceptedSpeaker = null;
+    const hookId = Hooks.once("preCreateChatMessage", (doc, data) => {
+      interceptedContent = data.content ?? doc.content;
+      interceptedSpeaker = data.speaker ?? doc.speaker;
+      return false;
+    });
 
-  // Эффективный уровень урона с учётом состояния артефакта
-  const DAMAGE_ORDER = ["light", "heavy", "lethal"];
-  const baseDamageLevel = weapon.damage_level || "light";
-  let effectiveDamageLevel = baseDamageLevel;
-  let extraDamagePip = false; // lethal + perfect прок → +1 пип
+    const result = await actor.rollSkillItem(skillItem.id);
+    if (!result) { Hooks.off("preCreateChatMessage", hookId); return; }
 
-  if (conditionDamageUpgrade) {
-    const idx = DAMAGE_ORDER.indexOf(baseDamageLevel);
-    if (idx < DAMAGE_ORDER.length - 1) {
-      effectiveDamageLevel = DAMAGE_ORDER[idx + 1];
-    } else {
-      // lethal → остаётся lethal + extra pip того же типа
-      extraDamagePip = true;
+    const { roll, degree } = result;
+    const total   = roll.total;
+    const success = degree.type === "success";
+
+    // Дополняем контент кнопками атаки
+    const baseContent = interceptedContent ?? "";
+    const attackBlock = success ? `
+<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid var(--border,#2a2a2a);display:flex;gap:5px;flex-wrap:wrap">
+  <select id="kk9-target-select-${weaponItem.id}" style="flex:1;min-width:120px;background:var(--bg3,#2a2a2a);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text,#b8b0a4);padding:2px 6px;font-size:0.8em;font-family:'Jost',sans-serif">
+    <option value="">— выбери цель —</option>${targetOptions}
+  </select>
+  <button class="kk9-apply-damage" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="background:rgba(160,41,30,0.2);border:1px solid rgba(160,41,30,0.4);border-radius:3px;color:#c0392b;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Засчитать урон</button>
+  <button class="kk9-resist-roll" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:3px;color:#4ade80;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Стойкость</button>
+  <button class="kk9-miss" style="background:rgba(100,100,100,0.1);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text-dim,#6a6560);padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Промах</button>
+</div>` : `<div style="font-size:0.78em;color:var(--text-dim,#6a6560);font-style:italic;padding:4px 10px;border-top:1px solid var(--border,#2a2a2a)">Атака не прошла.</div>`;
+
+    // Вставляем перед закрывающим </div> kk9-chat-roll
+    // Вставляем кнопки атаки внутрь kk9-chat-roll перед последним закрывающим тегом
+    const lastClose = baseContent.lastIndexOf("</div>");
+    const finalContent = lastClose >= 0
+      ? baseContent.slice(0, lastClose) + attackBlock + baseContent.slice(lastClose)
+      : baseContent + attackBlock;
+
+    await ChatMessage.create({
+      speaker: interceptedSpeaker ?? ChatMessage.getSpeaker({ actor }),
+      content: finalContent,
+      flags:   { kk9: { isRoll: true, actorId: actor?.id } }
+    });
+
+  } else {
+    // ── Нет навыка — простой бросок d4-2 ──
+    const stMods = actor ? collectStatusModifiers(actor, {
+      attributeKey: null, itemType: weaponItem.type,
+      skillUuid: null, isToughness: false, isInitiative: false,
+    }) : { dieMod:0, numericMod:0, successMod:0, extraDice:[], reasons:[], usedIds:[] };
+
+    const itemMod  = weapon.modifier || 0;
+    const totalMod = itemMod + stMods.numericMod;
+    const modStr   = totalMod !== 0 ? (totalMod > 0 ? `+${totalMod}` : `${totalMod}`) : "";
+    const isWC     = actor?.type === "character";
+
+    // Применяем die_change
+    let baseDie = 4;
+    if (stMods.dieMod !== 0) baseDie = shiftDie(baseDie, stMods.dieMod);
+    const formula = isWC ? `{1d${baseDie}x-2${modStr}, 1d6x-2${modStr}}kh` : `1d${baseDie}x-2${modStr}`;
+
+    const roll = new Roll(formula);
+    await roll.evaluate();
+
+    if (actor && stMods.usedIds.length) await consumeStatusCharges(actor, stMods.usedIds);
+
+    // Доп. кубики от статусов
+    let extraDieTotal = 0;
+    const allReasons  = [];
+    if (itemMod !== 0) allReasons.push(`${weaponItem.name}: ${itemMod > 0 ? "+" : ""}${itemMod}`);
+    allReasons.push(...stMods.reasons.filter(r => !r.includes("доп.")));
+    for (const ed of (stMods.extraDice ?? [])) {
+      const sign      = ed.mode === "add" ? 1 : -1;
+      const extraRoll = new Roll(`1d${ed.faces}`);
+      await extraRoll.evaluate();
+      extraDieTotal += sign * extraRoll.total;
+      const signStr  = sign > 0 ? `+1d${ed.faces} = +${extraRoll.total}` : `-1d${ed.faces} = −${extraRoll.total}`;
+      allReasons.push(`${ed.name ?? "Статус"}: ${signStr}`);
+    }
+
+    const rollTotal = roll.total + extraDieTotal;
+    const degree    = (() => {
+      if (rollTotal <= 0) return { type:"snake_eyes", label:"Глаза змеи", successes: 0 };
+      if (rollTotal < 4)  return { type:"failure",    label:"Неудача",     successes: 0 };
+      const s = 1 + Math.floor((rollTotal - 4) / 4);
+      return { type:"success", label: s===1?"1 успех":s<=4?`${s} успеха`:`${s} успехов`, successes: s };
+    })();
+
+    // successMod — к числу успехов
+    if (stMods.successMod !== 0 && degree.type === "success") {
+      degree.successes = Math.max(0, degree.successes + stMods.successMod);
+      const s = degree.successes;
+      degree.label = s===1?"1 успех":s<=4?`${s} успеха`:`${s} успехов`;
+    }
+    const success = degree.type === "success";
+
+    const resultClass = {snake_eyes:"kk9-result-snake",failure:"kk9-result-failure",success:"kk9-result-success"}[degree.type];
+    const portrait    = actor?.img || "icons/svg/mystery-man.svg";
+    const fColors     = {white:"#e8e8e8",black:"#888888",blue:"#3b82f6",green:"#22c55e",purple:"#a855f7",red:"#ef4444",brown:"#92400e",mercury:"#94a3b8",invisible:"#6b7280"};
+    const fKey        = actor?.system?.faculty_key || actor?.system?.faculty;
+    const accent      = (fKey && fKey!=="none") ? (fColors[fKey]||"#c4a44a") : "#c4a44a";
+
+    // Строим расшифровку с итогом
+    const diceHtml = _renderAttackDiceHtmlWithTotal(roll, allReasons, rollTotal);
+
+    const content = `<div class="kk9-chat-roll kk9-attack-roll" data-result-type="${degree.type}" style="--accent:${accent}">
+  <div class="kk9-chat-header">
+    <img class="kk9-chat-portrait" src="${portrait}" alt="${actor?.name??""}">
+    <div class="kk9-chat-header-text">
+      <span class="kk9-chat-name">${actor?.name??""}</span>
+      <span class="kk9-chat-label">${weaponItem.name} — атака</span>
+    </div>
+  </div>
+  <div class="kk9-attack-meta" style="font-size:0.76em;color:var(--text-dim,#6a6560);padding:0 10px 4px">без навыка · ${dmgLabel} · ${typeLabel}${statusInfo}</div>
+  <details class="kk9-result-details">
+    <summary class="kk9-result-summary ${resultClass}"><span class="kk9-result-text">${degree.label}</span></summary>
+    ${diceHtml}
+  </details>
+  ${success ? `<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid var(--border,#2a2a2a);display:flex;gap:5px;flex-wrap:wrap">
+    <select id="kk9-target-select-${weaponItem.id}" style="flex:1;min-width:120px;background:var(--bg3,#2a2a2a);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text,#b8b0a4);padding:2px 6px;font-size:0.8em;font-family:'Jost',sans-serif"><option value="">— выбери цель —</option>${targetOptions}</select>
+    <button class="kk9-apply-damage" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="background:rgba(160,41,30,0.2);border:1px solid rgba(160,41,30,0.4);border-radius:3px;color:#c0392b;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Засчитать урон</button>
+    <button class="kk9-resist-roll" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:3px;color:#4ade80;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Стойкость</button>
+    <button class="kk9-miss" style="background:rgba(100,100,100,0.1);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text-dim,#6a6560);padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Промах</button>
+  </div>` : `<div style="font-size:0.78em;color:var(--text-dim,#6a6560);font-style:italic;padding:4px 10px;border-top:1px solid var(--border,#2a2a2a)">Атака не прошла.</div>`}
+</div>`;
+
+    await roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ actor }),
+      flavor:  `${weaponItem.name} — атака`,
+      content,
+      flags:   { kk9: { isRoll: true, actorId: actor?.id } }
+    });
+  }
+}
+
+
+
+// Таблица cost → damage для заклинаний
+function calcSpellDamage(cost, isAoe) {
+  let level, extraPips = 0;
+  if (isAoe) {
+    if (cost <= 4)       { level = "light";  }
+    else if (cost <= 8)  { level = "heavy";  }
+    else if (cost <= 14) { level = "lethal"; }
+    else                 { level = "lethal"; extraPips = Math.floor((cost - 14) / 8); }
+  } else {
+    if (cost <= 2)       { level = "light";  }
+    else if (cost <= 6)  { level = "heavy";  }
+    else if (cost <= 12) { level = "lethal"; }
+    else                 { level = "lethal"; extraPips = Math.floor((cost - 12) / 6); }
+  }
+  return { level, extraPips };
+}
+
+// ============================================================
+// БРОСОК ЗАКЛИНАНИЯ
+// ============================================================
+export async function rollSpellAttack(spellItem, actor) {
+  const spell = spellItem.system;
+
+  let skillItem = null;
+  if (spell.skill_uuid && actor) {
+    const shortId = spell.skill_uuid.split(".").pop();
+    skillItem = actor.items.find(i =>
+      i.uuid === spell.skill_uuid ||
+      i.id   === spell.skill_uuid ||
+      i.id   === shortId ||
+      (i.system?.sourceId ?? i.flags?.kk9?.sourceId) === spell.skill_uuid
+    );
+    if (!skillItem) {
+      try {
+        const compItem = fromUuidSync(spell.skill_uuid);
+        if (compItem?.name) {
+          skillItem = actor.items.find(i => i.name === compItem.name && i.type === compItem.type);
+        }
+      } catch(e) {}
     }
   }
 
-  // Степени успеха
-  const degree = _atkSuccessDegree(total);
-  weapon._actorId = actor?.id ?? "";
+  const cost = spell.cost || 1;
+  const curEnergy = actor?.system.energy?.value ?? 0;
 
-  // Все модификаторы отдельными строками
-  const allReasons = [];
-  if (skillItem?.system?.modifier) {
-    const m = skillItem.system.modifier;
-    allReasons.push(`модификатор: ${m > 0 ? "+" : ""}${m}`);
+  // ── Превозмогание ──────────────────────────────────────────
+  let spellBlocked    = false;
+  let spellOvercast   = false;
+  if (curEnergy < cost) {
+    const overcostPips = cost - curEnergy;
+    const damType = spell.damage_type === "mental" ? "mental" : "physical";
+
+    // Правило: если пипы типа заклинания уже 5/5 — нельзя превозмогать
+    const primaryVal = damType === "mental"
+      ? (actor.system.health?.mental?.value   ?? 0)
+      : (actor.system.health?.physical?.value ?? 0);
+    if (primaryVal >= 5) {
+      ui.notifications.warn(`${actor.name}: все пипы закрашены — превозмогание невозможно.`);
+      return;
+    }
+
+    // Диалог выбора
+    const proceed = await new Promise(resolve => {
+      new Dialog({
+        title: "Недостаточно энергии",
+        content: `<div style="font-family:'Jost',sans-serif;padding:4px 0">
+          <div style="font-size:0.85em;color:#b8b0a4;margin-bottom:8px">
+            Не хватает <strong style="color:#c4a44a">${overcostPips}</strong> ед. энергии.
+          </div>
+          <div style="font-size:0.78em;color:#6a6560">
+            При превозмогании — бросок Духа ≥ 6.<br>
+            Провал: заклинание не работает, но урон от перерасхода наносится.
+          </div>
+        </div>`,
+        buttons: {
+          overcast: { label: "Превозмочь", callback: () => resolve(true) },
+          cancel:   { label: "Отказаться", callback: () => resolve(false) }
+        },
+        default: "cancel",
+        render: (html) => {
+          const $d = html.closest(".app.dialog");
+          $d.css("background","#1c1c1c");
+          $d.find(".window-content").css("background","#1c1c1c");
+          $d.find(".dialog-button").css({ background:"#2a2a2a", border:"1px solid #3a3a3a", "border-radius":"4px", color:"#b8b0a4", "font-family":"'Jost',sans-serif", "font-size":"0.85em", padding:"5px 14px", cursor:"pointer" });
+          $d.find(".dialog-button[data-button='overcast']").css({ "border-color":"#c4a44a", color:"#c4a44a" });
+        }
+      }, { width: 320 }).render(true);
+    });
+
+    if (!proceed) return;
+
+    // Списываем всю оставшуюся энергию
+    await actor.update({ "system.energy.value": 0 });
+
+    // Бросок Духа >= 6
+    const spiritDie = actor.system.attributes?.spirit?.die || 4;
+    const isWCSpirit = actor.type === "character";
+    const spiritFormula = isWCSpirit ? `{1d${spiritDie}x, 1d6x}kh` : `1d${spiritDie}x`;
+    const spiritRoll = new Roll(spiritFormula);
+    await spiritRoll.evaluate();
+    await spiritRoll.toMessage({
+      speaker: ChatMessage.getSpeaker({ actor }),
+      flavor: `${actor.name} — Дух (превозмогание)`,
+      flags: { kk9: { isRoll: true, actorId: actor.id } }
+    });
+
+    if (spiritRoll.total < 6) spellBlocked = true;
+    else spellOvercast = true;
+
+    // Урон от перерасхода 2:1 → тип заклинания → другая шкала → оверкап
+    const overcostPipsHealth = Math.ceil(overcostPips / 2);
+    let remaining = overcostPipsHealth;
+    const physVal = actor.system.health?.physical?.value ?? 0;
+    const mentVal = actor.system.health?.mental?.value   ?? 0;
+    const CAP = 5;
+    const update = {};
+
+    if (damType === "mental") {
+      // Ментал → физ → оверкап
+      const mentDmg = Math.min(remaining, CAP - mentVal);
+      remaining -= mentDmg;
+      if (mentDmg > 0) update["system.health.mental.value"] = mentVal + mentDmg;
+      if (remaining > 0) {
+        const physDmg = Math.min(remaining, CAP - physVal);
+        remaining -= physDmg;
+        if (physDmg > 0) update["system.health.physical.value"] = physVal + physDmg;
+      }
+    } else {
+      // Физ → ментал → оверкап
+      const physDmg = Math.min(remaining, CAP - physVal);
+      remaining -= physDmg;
+      if (physDmg > 0) update["system.health.physical.value"] = physVal + physDmg;
+      if (remaining > 0) {
+        const mentDmg = Math.min(remaining, CAP - mentVal);
+        remaining -= mentDmg;
+        if (mentDmg > 0) update["system.health.mental.value"] = mentVal + mentDmg;
+      }
+    }
+    if (remaining > 0) update["system.overflow_damage"] = (actor.system.overflow_damage ?? 0) + remaining;
+    if (Object.keys(update).length) await actor.update(update);
+
+    ChatMessage.create({
+      content: `<div class="kk9-chat-roll" style="--accent:#a855f7">
+        <div class="kk9-chat-header"><div class="kk9-chat-header-text" style="padding:5px 10px">
+          <span class="kk9-chat-name">${actor.name}</span>
+          <span class="kk9-chat-label">превозмогание · −${overcostPipsHealth} пип${spellBlocked ? " · провал духа" : ""}</span>
+        </div></div>
+      </div>`,
+      speaker: ChatMessage.getSpeaker({ alias: "Система" }),
+      flags: { kk9: { isRoll: true } }
+    });
+
+    if (spellBlocked) return;
+  } else {
+    // Достаточно энергии — списываем нормально
+    await actor.update({ "system.energy.value": curEnergy - cost });
   }
-  allReasons.push(...artReasons);
 
-  const diceHtml   = _atkBuildDiceHtml(roll, allReasons);
-  const dmgInfo    = success
-    ? `${DAMAGE_LABELS[effectiveDamageLevel] || effectiveDamageLevel} · ${weapon.damage_type === "mental" ? "Ментальный" : "Физический"}`
-    : "";
-  const damageHtml = success
-    ? _atkDamageButtons(weaponItem, weapon, effectiveDamageLevel, extraDamagePip,
-        hasStatus, targetOptions, itemBroken, conditionNoArtifactDamage)
-    : `<div class="kk9-atk-nodmg">Атака не прошла.</div>`;
+  const hasStatus = spell.has_status && spell.status_uuid;
+  const dmgLabel  = DAMAGE_LABELS[spell.damage_level] || spell.damage_level;
+  const typeLabel = spell.damage_type === "mental" ? "Ментальный" : "Физический";
 
-  const msgContent = _atkBuildMessage(actor, weaponItem.name, degree, diceHtml, dmgInfo, damageHtml);
+  const targetOptions = _getTargetCandidates(actor?.id)
+    .map(c => `<option value="${c.id}">${c.name}</option>`)
+    .join("");
 
-  const msg = await ChatMessage.create({
-    speaker: ChatMessage.getSpeaker({ actor }),
-    content: msgContent,
-    flags: { kk9: { isRoll: true, actorId: actor?.id } }
-  });
+  if (skillItem && actor) {
+    let interceptedContent = null;
+    let interceptedSpeaker = null;
+    const hookId = Hooks.once("preCreateChatMessage", (doc, data) => {
+      interceptedContent = data.content ?? doc.content;
+      interceptedSpeaker = data.speaker ?? doc.speaker;
+      return false;
+    });
 
-  return msg;
+    let result;
+    if (spellOvercast) {
+      // При превозмогании — _doRoll напрямую без проверки здоровья (attrKey: null)
+      const die     = skillItem.system.die || 4;
+      const baseMod = skillItem.system.modifier || 0;
+      const modStr  = baseMod !== 0 ? (baseMod > 0 ? `+${baseMod}` : `${baseMod}`) : "";
+      const isWC    = actor.type === "character";
+      const formula = actor._rollFormula(die, modStr, isWC);
+      result = await actor._doRoll(formula, skillItem.name, {
+        attrKey: null, skillUuid: skillItem.uuid, itemType: "spell",
+      });
+    } else {
+      result = await actor.rollSkillItem(skillItem.id);
+    }
+    if (!result) { Hooks.off("preCreateChatMessage", hookId); return; }
+
+    const { roll, degree } = result;
+    const success = degree.type === "success";
+
+    // Вычисляем урон из cost
+    const isAoe = spell.is_aoe || false;
+    const { level: damageLevel, extraPips } = calcSpellDamage(cost, isAoe);
+
+    const attackBlock = success ? (isAoe ? `
+<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid var(--border,#2a2a2a);display:flex;gap:5px;flex-wrap:wrap">
+  <button class="kk9-apply-damage" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${damageLevel}" data-damage-type="${spell.damage_type}" data-extra-pip="${extraPips}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" data-is-gear="1" data-is-spell="1" style="background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.4);border-radius:3px;color:#a855f7;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Засчитать урон (все цели)</button>
+  <button class="kk9-miss" style="background:rgba(100,100,100,0.1);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text-dim,#6a6560);padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Промах</button>
+</div>` : `
+<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid var(--border,#2a2a2a);display:flex;gap:5px;flex-wrap:wrap">
+  <select id="kk9-target-select-${spellItem.id}" style="flex:1;min-width:120px;background:var(--bg3,#2a2a2a);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text,#b8b0a4);padding:2px 6px;font-size:0.8em;font-family:'Jost',sans-serif">
+    <option value="">— выбери цель —</option>${targetOptions}
+  </select>
+  <button class="kk9-apply-damage" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${damageLevel}" data-damage-type="${spell.damage_type}" data-extra-pip="${extraPips}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" data-is-spell="1" style="background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.4);border-radius:3px;color:#a855f7;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Засчитать урон${extraPips ? ` +${extraPips} пип` : ""}</button>
+  <button class="kk9-resist-roll" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${damageLevel}" data-damage-type="${spell.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:3px;color:#4ade80;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Стойкость</button>
+  <button class="kk9-miss" style="background:rgba(100,100,100,0.1);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text-dim,#6a6560);padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Промах</button>
+</div>`) : `<div style="font-size:0.78em;color:var(--text-dim,#6a6560);font-style:italic;padding:4px 10px;border-top:1px solid var(--border,#2a2a2a)">Заклинание не попало. Энергия потрачена.</div>`;
+
+    const baseContent  = interceptedContent ?? "";
+    // Вставляем кнопки атаки внутрь kk9-chat-roll перед последним закрывающим тегом
+    const lastClose = baseContent.lastIndexOf("</div>");
+    const finalContent = lastClose >= 0
+      ? baseContent.slice(0, lastClose) + attackBlock + baseContent.slice(lastClose)
+      : baseContent + attackBlock;
+
+    await ChatMessage.create({
+      speaker: interceptedSpeaker ?? ChatMessage.getSpeaker({ actor }),
+      content: finalContent,
+      flags:   { kk9: { isRoll: true, actorId: actor?.id } }
+    });
+
+  } else {
+    const stMods = actor ? collectStatusModifiers(actor, {
+      attributeKey: null, itemType: "spell",
+      skillUuid: null, isToughness: false, isInitiative: false,
+    }) : { dieMod:0, numericMod:0, successMod:0, extraDice:[], reasons:[], usedIds:[] };
+
+    const itemMod  = spell.modifier || 0;
+    const totalMod = itemMod + stMods.numericMod;
+    const modStr   = totalMod !== 0 ? (totalMod > 0 ? `+${totalMod}` : `${totalMod}`) : "";
+    const isWC     = actor?.type === "character";
+
+    let baseDie = 4;
+    if (stMods.dieMod !== 0) baseDie = shiftDie(baseDie, stMods.dieMod);
+    const formula = isWC ? `{1d${baseDie}x-2${modStr}, 1d6x-2${modStr}}kh` : `1d${baseDie}x-2${modStr}`;
+    const roll    = new Roll(formula);
+    await roll.evaluate();
+    if (actor && stMods.usedIds.length) await consumeStatusCharges(actor, stMods.usedIds);
+
+    // Доп. кубики от статусов
+    let extraDieTotal = 0;
+    const allReasons  = [];
+    if (itemMod !== 0) allReasons.push(`${spellItem.name}: ${itemMod > 0 ? "+" : ""}${itemMod}`);
+    allReasons.push(...stMods.reasons.filter(r => !r.includes("доп.")));
+    for (const ed of (stMods.extraDice ?? [])) {
+      const sign      = ed.mode === "add" ? 1 : -1;
+      const extraRoll = new Roll(`1d${ed.faces}`);
+      await extraRoll.evaluate();
+      extraDieTotal += sign * extraRoll.total;
+      const signStr  = sign > 0 ? `+1d${ed.faces} = +${extraRoll.total}` : `-1d${ed.faces} = −${extraRoll.total}`;
+      allReasons.push(`${ed.name ?? "Статус"}: ${signStr}`);
+    }
+
+    const rollTotal = roll.total + extraDieTotal;
+    const degree    = (() => {
+      if (rollTotal <= 0) return { type:"snake_eyes", label:"Глаза змеи", successes: 0 };
+      if (rollTotal < 4)  return { type:"failure",    label:"Неудача",     successes: 0 };
+      const s = 1 + Math.floor((rollTotal - 4) / 4);
+      return { type:"success", label: s===1?"1 успех":s<=4?`${s} успеха`:`${s} успехов`, successes: s };
+    })();
+
+    if (stMods.successMod !== 0 && degree.type === "success") {
+      degree.successes = Math.max(0, degree.successes + stMods.successMod);
+      const s = degree.successes;
+      degree.label = s===1?"1 успех":s<=4?`${s} успеха`:`${s} успехов`;
+    }
+    const success = degree.type === "success";
+
+    const resultClass = {snake_eyes:"kk9-result-snake",failure:"kk9-result-failure",success:"kk9-result-success"}[degree.type];
+    const portrait    = actor?.img || "icons/svg/mystery-man.svg";
+    const fColors     = {white:"#e8e8e8",black:"#888888",blue:"#3b82f6",green:"#22c55e",purple:"#a855f7",red:"#ef4444",brown:"#92400e",mercury:"#94a3b8",invisible:"#6b7280"};
+    const fKey        = actor?.system?.faculty_key || actor?.system?.faculty;
+    const accent      = (fKey && fKey!=="none") ? (fColors[fKey]||"#a855f7") : "#a855f7";
+    const diceHtml    = _renderAttackDiceHtmlWithTotal(roll, allReasons, rollTotal);
+
+    const content = `<div class="kk9-chat-roll kk9-attack-roll" data-result-type="${degree.type}" style="--accent:${accent}">
+  <div class="kk9-chat-header">
+    <img class="kk9-chat-portrait" src="${portrait}" alt="${actor?.name??""}">
+    <div class="kk9-chat-header-text">
+      <span class="kk9-chat-name">${actor?.name??""}</span>
+      <span class="kk9-chat-label">${spellItem.name} — заклинание</span>
+    </div>
+  </div>
+  <div class="kk9-attack-meta" style="font-size:0.76em;color:var(--text-dim,#6a6560);padding:0 10px 4px">без навыка · ${dmgLabel} · ${typeLabel} · −${cost} энергии</div>
+  <details class="kk9-result-details">
+    <summary class="kk9-result-summary ${resultClass}"><span class="kk9-result-text">${degree.label}</span></summary>
+    ${diceHtml}
+  </details>
+  ${success ? `<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid var(--border,#2a2a2a);display:flex;gap:5px;flex-wrap:wrap">
+    <select id="kk9-target-select-${spellItem.id}" style="flex:1;min-width:120px;background:var(--bg3,#2a2a2a);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text,#b8b0a4);padding:2px 6px;font-size:0.8em;font-family:'Jost',sans-serif"><option value="">— выбери цель —</option>${targetOptions}</select>
+    <button class="kk9-apply-damage" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${spell.damage_level}" data-damage-type="${spell.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" style="background:rgba(160,41,30,0.2);border:1px solid rgba(160,41,30,0.4);border-radius:3px;color:#c0392b;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Засчитать урон</button>
+    <button class="kk9-resist-roll" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${spell.damage_level}" data-damage-type="${spell.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:3px;color:#4ade80;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Стойкость</button>
+    <button class="kk9-miss" style="background:rgba(100,100,100,0.1);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text-dim,#6a6560);padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Промах</button>
+  </div>` : `<div style="font-size:0.78em;color:var(--text-dim,#6a6560);font-style:italic;padding:4px 10px;border-top:1px solid var(--border,#2a2a2a)">Заклинание не попало. Энергия потрачена.</div>`}
+</div>`;
+
+    await roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ actor }),
+      flavor:  `${spellItem.name} — заклинание`,
+      content,
+      flags:   { kk9: { isRoll: true, actorId: actor?.id } }
+    });
+  }
 }
 
-// ── Обработчики кнопок в чате ───────────────────────────────
-export function registerChatListeners() {
-  // Делегируем на document чтобы ловить динамически созданные сообщения
-  $(document).on("click", ".kk9-apply-damage", async function() {
-    await _handleApplyDamage($(this));
-  });
 
-  $(document).on("click", ".kk9-resist-roll", async function() {
-    await _handleResistRoll($(this));
-  });
 
-  $(document).on("click", ".kk9-miss", function() {
-    const $roll = $(this).closest(".kk9-chat-roll, .kk9-attack-msg, .message-content");
-    $roll.find("select, button").prop("disabled", true).css("opacity", "0.4");
-    $(this).closest(".kk9-chat-roll-bar").after(
-      `<div style="font-size:0.78em;color:rgba(255,255,255,0.35);font-style:italic;padding:4px 14px">Промах — урон не засчитан.</div>`
-    );
-  });
-}
 
-async function _getTargetActor(btn) {
-  const weaponId = btn.data("weapon-id");
-  const $msg     = btn.closest(".kk9-chat-roll, .kk9-attack-msg, .message-content");
-  const targetId = $msg.find(`#kk9-target-select-${weaponId}`).val();
-  if (!targetId) { ui.notifications.warn("Выбери цель."); return null; }
-  return game.actors.get(targetId);
-}
-
-// ── Диалог мультиселекта целей для gear/площадного заклинания ──
-// ── Список кандидатов для выбора цели: combat → сцена → мир ──
+// ── Список кандидатов: combat → сцена → мир ────────────────
 function _getTargetCandidates(excludeActorId = null) {
-  const NPC_TYPES = ["character","npc-light","npc-hard","npc-boss","container"];
+  const TYPES = ["character","npc-light","npc-hard","npc-boss","container","daemon","companion"];
 
-  // 1. Участники активного боя
+  // Фильтр: даймон-шарик не является целью
+  const _isValidTarget = (actor) => {
+    if (!actor) return false;
+    if (actor.type === "daemon" && actor.system.is_orb === true) return false;
+    return true;
+  };
+
+  // 1. Активный бой
   if (game.combat?.combatants?.size) {
     const seen = new Set();
     const list = [];
     for (const cb of game.combat.combatants) {
       if (!cb.actor) continue;
       if (cb.actor.id === excludeActorId) continue;
-      if (!NPC_TYPES.includes(cb.actor.type)) continue;
+      if (!TYPES.includes(cb.actor.type)) continue;
+      if (!_isValidTarget(cb.actor)) continue;
       if (seen.has(cb.actor.id)) continue;
       seen.add(cb.actor.id);
       list.push({ id: cb.actor.id, name: `${cb.name} (бой)` });
@@ -563,7 +1165,7 @@ function _getTargetCandidates(excludeActorId = null) {
     if (list.length) return list;
   }
 
-  // 2. Токены на активной сцене
+  // 2. Токены на сцене
   const scene = game.scenes?.active;
   if (scene?.tokens?.size) {
     const seen = new Set();
@@ -571,7 +1173,8 @@ function _getTargetCandidates(excludeActorId = null) {
     for (const t of scene.tokens) {
       if (!t.actor) continue;
       if (t.actor.id === excludeActorId) continue;
-      if (!NPC_TYPES.includes(t.actor.type)) continue;
+      if (!TYPES.includes(t.actor.type)) continue;
+      if (!_isValidTarget(t.actor)) continue;
       if (seen.has(t.actor.id)) continue;
       seen.add(t.actor.id);
       list.push({ id: t.actor.id, name: `${t.name} (сцена)` });
@@ -581,246 +1184,194 @@ function _getTargetCandidates(excludeActorId = null) {
 
   // 3. Все акторы мира
   return game.actors
-    .filter(a => a.id !== excludeActorId && NPC_TYPES.includes(a.type))
+    .filter(a => TYPES.includes(a.type) && a.id !== excludeActorId && _isValidTarget(a))
     .map(a => ({ id: a.id, name: a.name }));
 }
 
-async function _showGearTargetDialog(damageLevel, damageType, extraPip, hasStatus, statusUuid, isSpell = false) {
-  const candidates = _getTargetCandidates();
+// ── Модалка выбора целей (площадные / gear) — только GM ────
+async function _showAoeTargetDialog(damageLevel, damageType, extraPip, hasStatus, statusUuid, actorId) {
+  if (!game.user.isGM) { ui.notifications.warn("Выбор целей доступен только ГМ."); return false; }
 
-  const rows = candidates.map(c => `
-    <div class="kk9-gear-target-row" data-id="${c.id}" style="
-      display:flex;align-items:center;gap:10px;padding:8px 12px;
-      background:#2a2a2a;border:1px solid #3a3a3a;border-radius:4px;cursor:pointer;user-select:none;">
-      <div class="kk9-gear-cb-box" style="
-        width:16px;height:16px;flex-shrink:0;border:2px solid #4a4a4a;border-radius:3px;
-        background:#1c1c1c;display:flex;align-items:center;justify-content:center;
-        font-size:11px;color:transparent;transition:all 0.1s;">✓</div>
-      <span style="font-family:'Jost',sans-serif;font-size:0.88em;color:#b8b0a4;flex:1">${c.name}</span>
-      <input type="checkbox" name="target" value="${c.id}" style="display:none" />
-    </div>`).join("");
+  const all = _getTargetCandidates(null);
+  if (!all.length) { ui.notifications.warn("Нет доступных целей."); return false; }
 
-  const dialogContent = `
-    <style>
-      .kk9-gear-target-row.selected { background:rgba(196,164,74,0.15)!important;border-color:#c4a44a!important; }
-      .kk9-gear-target-row.selected .kk9-gear-cb-box { background:#c4a44a!important;border-color:#c4a44a!important;color:#1c1c1c!important; }
-      .kk9-gear-target-row:not(.selected):hover { background:#313131!important;border-color:#4a4a4a!important; }
-      .kk9-gear-list::-webkit-scrollbar { width:4px; }
-      .kk9-gear-list::-webkit-scrollbar-thumb { background:#3a3a3a;border-radius:2px; }
-    </style>
-    <div style="background:#1c1c1c;padding:8px 4px 4px;margin:-8px -8px -4px">
-      <p style="font-family:'Jost',sans-serif;font-size:0.73em;color:#6a6560;margin:0 8px 10px;letter-spacing:0.06em;text-transform:uppercase">
-        Выбери всех кто получает урон
-      </p>
-      <div class="kk9-gear-list" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;padding:0 8px 4px">
-        ${rows}
-      </div>
-    </div>`;
+  const dmgLabel  = { light:"Лёгкий", heavy:"Тяжёлый", lethal:"Летальный" }[damageLevel] || damageLevel;
+  const typeLabel = damageType === "mental" ? "Ментальный" : "Физический";
+
+  // Строим строки — все отмечены кроме кастующего
+  const rows = all.map(c => `
+    <div class="kk9-aoe-row" data-id="${c.id}" style="
+      display:flex;align-items:center;gap:10px;padding:7px 10px;
+      background:#2a2a2a;border:1px solid #3a3a3a;border-radius:4px;
+      cursor:pointer;user-select:none;margin-bottom:4px;transition:border-color 0.1s,background 0.1s;">
+      <input type="checkbox" name="target" value="${c.id}"
+        ${c.id !== actorId ? "checked" : ""}
+        style="display:none">
+      <span style="font-size:0.85em;color:#b8b0a4">${c.name}</span>
+    </div>`
+  ).join("");
 
   return new Promise(resolve => {
     new Dialog({
-      title: isSpell ? "✦ Площадное заклинание" : "⚔ Площадная атака",
-      content: dialogContent,
+      title: "Площадной урон — выбор целей",
+      content: `<div style="font-family:'Jost',sans-serif;padding:4px 2px">
+        <div style="font-size:0.78em;color:#6a6560;margin-bottom:10px;padding:4px 8px;background:#1e1e1e;border-radius:3px">
+          ${dmgLabel} · ${typeLabel}${extraPip ? ` · +${extraPip} пип` : ""}${hasStatus ? " · статус" : ""}
+        </div>
+        <div style="display:flex;flex-direction:column;max-height:280px;overflow-y:auto">
+          ${rows}
+        </div>
+      </div>`,
       buttons: {
         apply: {
-          icon: '<i class="fas fa-check"></i>',
-          label: "Применить урон",
-          callback: async html => {
-            const selected = html.find("input[name=target]:checked").map((_, el) => el.value).get();
-            if (!selected.length) { ui.notifications.warn("Выбери хотя бы одну цель."); resolve(false); return; }
-            for (const actorId of selected) {
-              const target = game.actors.get(actorId);
-              if (!target) continue;
-
-              // Контейнер — урон внутрь через _applyDamageToContainer (без btn)
-              if (target.type === "container") {
-                await _applyDamageToContainer(target, damageLevel, damageType, parseInt(extraPip) || 0, isSpell, hasStatus, statusUuid, null);
-                continue;
-              }
-
-              let resultMsg = "";
-              if (isSpell) {
-                const { newPhys, newMent, overflow } = await applySpellDamageToActor(target, damageLevel, damageType, parseInt(extraPip) || 0);
-                resultMsg = `Физ: ${newPhys}/5 · Мент: ${newMent}/5${overflow ? ` · Overflow: +${overflow}` : ""}`;
-              } else {
-                const { newVal } = await applyDamageToActor(target, damageLevel, damageType, parseInt(extraPip) || 0);
-                resultMsg = `${damageType === "mental" ? "Ментальное" : "Физическое"} состояние: ${newVal}/5`;
-              }
+          label: "Засчитать урон",
+          callback: async (html) => {
+            // Foundry v13 — читаем через native querySelectorAll
+            const checked = html[0].querySelectorAll("input[name=target]:checked");
+            const selected = [...checked].map(el => el.value);
+            if (!selected.length) { ui.notifications.warn("Не выбрано ни одной цели."); resolve(false); return; }
+            for (const id of selected) {
+              const t = game.actors.get(id);
+              if (!t) continue;
+              const res = await applyDamageToActor(t, damageLevel, damageType, true);
+              const { newVal } = res;
+              for (let p = 0; p < extraPip; p++) await applyDamageToActor(t, "light", damageType, false);
               if (hasStatus && statusUuid) {
-                const statusItem = await fromUuid(statusUuid);
-                if (statusItem) await applyStatusToActor(target, statusItem);
+                const si = await fromUuid(statusUuid);
+                if (si) await applyStatusToActor(t, si);
               }
-              const gearDmgText = `${target.name} получает урон (площадная${isSpell ? " магия" : " атака"}).` +
-                `<br><span style="font-size:0.85em;color:rgba(255,255,255,0.45)">${resultMsg}${hasStatus && statusUuid ? " · статус применён" : ""}</span>`;
               ChatMessage.create({
-                content: _sysMsg(target, gearDmgText, "", isSpell ? "#a855f7" : "#c0392b"),
-                flags: { kk9: { isCombatMsg: true } }
+                content: `<div class="kk9-chat-roll" style="--accent:#a855f7">
+                  <div class="kk9-chat-header">
+                    <div class="kk9-chat-header-text" style="padding:5px 10px">
+                      <span class="kk9-chat-name">${t.name}</span>
+                      <span class="kk9-chat-label">${_damageResultLabel(t, newVal, damageType, res?.isBoss, hasStatus, statusUuid)}</span>
+                    </div>
+                  </div>
+                </div>`,
+                speaker: ChatMessage.getSpeaker({ alias: "Система" }),
+                flags: { kk9: { isRoll: true } }
               });
             }
             resolve(true);
           }
         },
-        cancel: { icon: '<i class="fas fa-times"></i>', label: "Отмена", callback: () => resolve(false) }
+        cancel: { label: "Отмена", callback: () => resolve(false) }
       },
       default: "apply",
-      render: html => {
-        const $d = html.closest(".app.dialog");
-        $d.css("background", "#1c1c1c");
-        $d.find(".window-content").css("background", "#1c1c1c");
-        $d.find(".dialog-button").css({ background:"#2a2a2a", border:"1px solid #3a3a3a", color:"#b8b0a4", fontFamily:"'Jost',sans-serif", fontSize:"0.85em" });
-        $d.find(".dialog-button[data-button='apply']").css({ borderColor: isSpell ? "#a855f7" : "#c4a44a", color: isSpell ? "#a855f7" : "#c4a44a" });
-        $d.find(".dialog-button").on("mouseenter", function() { $(this).css("background","#313131"); }).on("mouseleave", function() { $(this).css("background","#2a2a2a"); });
-        html.find(".kk9-gear-target-row").on("click", function() {
-          const $row = $(this), $cb = $row.find("input[type=checkbox]");
-          const checked = !$cb.prop("checked");
-          $cb.prop("checked", checked);
-          $row.toggleClass("selected", checked);
+      render: (html) => {
+        const $dialog = html.closest(".app.dialog");
+        $dialog.css("background", "#1c1c1c");
+        $dialog.find(".window-content").css("background", "#1c1c1c");
+        // Стили кнопок
+        $dialog.find(".dialog-button").css({
+          background:"#2a2a2a", border:"1px solid #3a3a3a",
+          "border-radius":"4px", color:"#b8b0a4",
+          "font-family":"'Jost',sans-serif", "font-size":"0.85em",
+          padding:"6px 14px", cursor:"pointer"
+        });
+        $dialog.find(".dialog-button[data-button='apply']").css({ "border-color":"#c4a44a", color:"#c4a44a" });
+        // Клик по строке — тогл чекбокса
+        html.find(".kk9-aoe-row").on("click", function(e) {
+          if (e.target.type === "checkbox") return;
+          const $cb = $(this).find("input[type=checkbox]");
+          $cb.prop("checked", !$cb.prop("checked"));
+          $(this).css("border-color", $cb.prop("checked") ? "#c4a44a" : "#3a3a3a");
+        });
+        // Инит подсветки уже отмеченных
+        html.find(".kk9-aoe-row").each(function() {
+          const $cb = $(this).find("input[type=checkbox]");
+          if ($cb.prop("checked")) $(this).css("border-color", "#c4a44a");
         });
       }
-    }, { width: 340, classes: ["dialog","kk9-dialog"] }).render(true);
+    }, { width: 340, classes: ["dialog", "kk9-dialog"] }).render(true);
   });
 }
 
-async function _applyDamageToContainer(container, damageLevel, damageType, extraPip, isSpell, hasStatus, statusUuid, btn) {
-  // Собираем доступных: даймоны (не в шарике) + спутники
-  const candidates = [];
-  for (const uuid of (container.system.daemon_refs || [])) {
-    const doc = await fromUuid(uuid);
-    if (doc && !doc.system.is_orb) candidates.push({ doc, type: "daemon", label: `${doc.name} (Даймон)` });
-  }
-  for (const uuid of (container.system.companion_refs || [])) {
-    const doc = await fromUuid(uuid);
-    if (doc) candidates.push({ doc, type: "companion", label: `${doc.name} (Спутник)` });
-  }
 
-  if (!candidates.length) {
-    ui.notifications.warn(`${container.name}: нет доступных целей внутри контейнера.`);
-    return;
-  }
+// ============================================================
+// ОБРАБОТЧИКИ КНОПОК В ЧАТЕ
+// ============================================================
+export function registerChatListeners() {
+  $(document).on("click", ".kk9-apply-damage", async function() {
+    await _handleApplyDamage($(this));
+  });
+  $(document).on("click", ".kk9-resist-roll", async function() {
+    await _handleResistRoll($(this));
+  });
+  $(document).on("click", ".kk9-miss", function() {
+    const $msg = $(this).closest(".kk9-attack-msg");
+    $msg.find("select, button").prop("disabled", true).css("opacity", "0.4");
+    $(this).closest("div").after(
+      `<div style="font-size:0.78em;color:var(--text-dim,#6a6560);font-style:italic;margin-top:4px">Промах — урон не засчитан.</div>`
+    );
+  });
+}
 
-  // Выбор цели
-  let chosen;
-  if (candidates.length === 1) {
-    chosen = candidates[0];
-  } else {
-    const options = candidates.map((c, i) => `<option value="${i}">${c.label}</option>`).join("");
-    let idx = null;
-    try {
-      idx = await Dialog.prompt({
-        title: "Выбери цель внутри контейнера",
-        content: `<div style="padding:8px">
-          <p style="margin-bottom:8px">Кто получает урон?</p>
-          <select id="container-target-sel" style="width:100%">${options}</select>
-        </div>`,
-        label: "Применить",
-        callback: html => html.find("#container-target-sel").val()
-      });
-    } catch(e) { return; }
-    if (idx === null) return;
-    chosen = candidates[parseInt(idx)];
-  }
-
-  // Применяем урон или оглушение
-  if (chosen.type === "daemon") {
-    // Даймон — урон в шкалы здоровья Item'а (совместим с applyDamageToActor)
-    let resultMsg = "";
-    if (isSpell) {
-      const { newPhys, newMent, overflow } = await applySpellDamageToActor(chosen.doc, damageLevel, damageType, extraPip);
-      resultMsg = `Физ: ${newPhys}/5 · Мент: ${newMent}/5${overflow ? ` · Overflow: +${overflow}` : ""}`;
-    } else {
-      const { newVal } = await applyDamageToActor(chosen.doc, damageLevel, damageType, extraPip);
-      resultMsg = `${damageType === "mental" ? "Ментальное" : "Физическое"} состояние: ${newVal}/5`;
-    }
-    if (hasStatus && statusUuid) {
-      const statusItem = await fromUuid(statusUuid);
-      if (statusItem) await applyStatusToActor(chosen.doc, statusItem);
-    }
-    const dmgText = `${chosen.doc.name} (даймон) получает урон${isSpell ? " (заклинание)" : ""}.`
-      + `<br><span style="font-size:0.85em;color:rgba(255,255,255,0.45)">${resultMsg}</span>`;
-    ChatMessage.create({
-      content: _sysMsg(container, dmgText, "", isSpell ? "#a855f7" : "#c0392b"),
-      flags: { kk9: { isCombatMsg: true } }
-    });
-
-  } else {
-    // Спутник — оглушение контейнера + сообщение
-    await container.toggleStatusEffect("stun", { active: true });
-    const stunText = `${chosen.doc.name} (спутник) оглушён и пропускает следующий ход.`;
-    ChatMessage.create({
-      content: _sysMsg(container, stunText, "", "#f59e0b"),
-      flags: { kk9: { isCombatMsg: true } }
-    });
-  }
-
-  if (btn) btn.closest(".kk9-chat-roll-bar, div").find("button, select").prop("disabled", true).css("opacity", "0.4");
+async function _getTargetActor(btn) {
+  const weaponId = btn.data("weapon-id");
+  const $msg     = btn.closest(".kk9-attack-msg, .kk9-chat-roll, .kk9-attack-roll, .chat-message");
+  const targetId = $msg.find(`#kk9-target-select-${weaponId}`).val();
+  if (!targetId) { ui.notifications.warn("Выбери цель."); return null; }
+  return game.actors.get(targetId);
 }
 
 async function _handleApplyDamage(btn) {
-  const isGear  = btn.data("is-gear")  === "1" || btn.data("is-gear")  === 1;
-  const isSpell = btn.data("is-spell") === "1" || btn.data("is-spell") === 1;
   const damageLevel = btn.data("damage-level");
   const damageType  = btn.data("damage-type");
-  const extraPip    = parseInt(btn.data("extra-pip")) || 0;
+  const extraPip    = parseInt(btn.data("extra-pip") || 0);
   const hasStatus   = btn.data("has-status") === "1" || btn.data("has-status") === 1;
   const statusUuid  = btn.data("status-uuid");
+  const isAoe       = btn.data("is-gear") === "1" || btn.data("is-gear") === 1;
 
-  // Gear или площадное заклинание — GM-диалог
-  if (isGear) {
-    if (!game.user.isGM) { ui.notifications.info("Попроси мастера засчитать урон."); return; }
-    const applied = await _showGearTargetDialog(damageLevel, damageType, extraPip, hasStatus, statusUuid, isSpell);
-    if (applied) btn.closest("div").find("button, select").prop("disabled", true).css("opacity", "0.4");
+  if (isAoe) {
+    const actorId = btn.data("actor-id") ?? "";
+    await _showAoeTargetDialog(damageLevel, damageType, extraPip, hasStatus, statusUuid, actorId);
+    btn.closest("div").find("button, select").prop("disabled", true).css("opacity", "0.4");
     return;
   }
 
-  // Обычная атака — одна цель
   const target = await _getTargetActor(btn);
   if (!target) return;
 
-  // Контейнер — урон внутрь
-  if (target.type === "container") {
-    await _applyDamageToContainer(target, damageLevel, damageType, extraPip, isSpell, hasStatus, statusUuid, btn);
-    return;
-  }
-
-  let resultMsg = "";
-  if (isSpell) {
-    const { newPhys, newMent, overflow } = await applySpellDamageToActor(target, damageLevel, damageType, extraPip);
-    resultMsg = `Физ: ${newPhys}/5 · Мент: ${newMent}/5${overflow ? ` · Overflow: +${overflow}` : ""}`;
-  } else {
-    const { newVal } = await applyDamageToActor(target, damageLevel, damageType, extraPip);
-    resultMsg = `${damageType === "mental" ? "Ментальное" : "Физическое"} состояние: ${newVal}/5`;
-  }
+  const result = await applyDamageToActor(target, damageLevel, damageType, false);
+  const { newVal } = result;
+  for (let p = 0; p < extraPip; p++) await applyDamageToActor(target, "light", damageType, false);
 
   if (hasStatus && statusUuid) {
     const statusItem = await fromUuid(statusUuid);
     if (statusItem) await applyStatusToActor(target, statusItem);
   }
 
-  const dmgText = `${target.name} получает урон${isSpell ? " (заклинание)" : ""}.` +
-    `<br><span style="font-size:0.85em;color:rgba(255,255,255,0.45)">${resultMsg}${hasStatus && statusUuid ? " · статус применён" : ""}</span>`;
   ChatMessage.create({
-    content: _sysMsg(target, dmgText, "", isSpell ? "#a855f7" : "#c0392b"),
-    flags: { kk9: { isCombatMsg: true } }
+    content: `<div class="kk9-chat-roll" style="--accent:#c0392b">
+      <div class="kk9-chat-header">
+        <div class="kk9-chat-header-text" style="padding:5px 10px">
+          <span class="kk9-chat-name">${target.name}</span>
+          <span class="kk9-chat-label">урон · ${damageType === "mental" ? "Ментал." : "Физич."}: ${newVal}/5${hasStatus && statusUuid ? " · статус" : ""}</span>
+        </div>
+      </div>
+    </div>`,
+    speaker: ChatMessage.getSpeaker({ alias: "Система" }),
+    flags: { kk9: { isRoll: true } }
   });
 
-  btn.closest(".kk9-chat-roll-bar, div").find("button, select").prop("disabled", true).css("opacity", "0.4");
+  btn.closest("div").find("button, select").prop("disabled", true).css("opacity", "0.4");
 }
 
 async function _handleResistRoll(btn) {
   const target = await _getTargetActor(btn);
   if (!target) return;
 
-  // Бросок стойкости цели
   const spiritDie = target.system.attributes?.spirit?.die || 4;
-  const isWC = target.type === "character";
-  const formula = isWC ? `{1d${spiritDie}, 1d6}kh` : `1d${spiritDie}`;
-  const roll = new Roll(formula);
+  const isWC      = target.type === "character";
+  const formula   = isWC ? `{1d${spiritDie}, 1d6}kh` : `1d${spiritDie}`;
+  const roll      = new Roll(formula);
   await roll.evaluate();
 
-  const success     = roll.total >= 6;
+  const success     = roll.total >= 4;
   const damageLevel = btn.data("damage-level");
   const damageType  = btn.data("damage-type");
-  const extraPip    = btn.data("extra-pip") === "1" || btn.data("extra-pip") === 1;
   const hasStatus   = btn.data("has-status") === "1" || btn.data("has-status") === 1;
   const statusUuid  = btn.data("status-uuid");
 
@@ -830,341 +1381,38 @@ async function _handleResistRoll(btn) {
   });
 
   if (!success) {
-    const isSpellResist = btn.data("is-spell") === "1" || btn.data("is-spell") === 1;
-    let resultMsg = "";
-    if (isSpellResist) {
-      const { newPhys, newMent, overflow } = await applySpellDamageToActor(target, damageLevel, damageType, parseInt(extraPip) || 0);
-      resultMsg = `Физ: ${newPhys}/5 · Мент: ${newMent}/5${overflow ? ` · Overflow: +${overflow}` : ""}`;
-    } else {
-      const { newVal } = await applyDamageToActor(target, damageLevel, damageType, parseInt(extraPip) || 0);
-      resultMsg = `${damageType === "mental" ? "Ментальное" : "Физическое"} состояние: ${newVal}/5`;
-    }
+    const resistResult = await applyDamageToActor(target, damageLevel, damageType, false);
+    const { newVal } = resistResult;
     if (hasStatus && statusUuid) {
       const statusItem = await fromUuid(statusUuid);
       if (statusItem) await applyStatusToActor(target, statusItem);
     }
-    const failText = `${target.name} провалил стойкость — урон засчитан.` +
-      `<br><span style="font-size:0.85em;color:rgba(255,255,255,0.45)">${resultMsg}${hasStatus && statusUuid ? " · статус применён" : ""}</span>`;
     ChatMessage.create({
-      content: _sysMsg(target, failText, "Стойкость", "#c0392b"),
-      flags: { kk9: { isCombatMsg: true } }
+      content: `<div class="kk9-chat-roll" style="--accent:#c0392b">
+        <div class="kk9-chat-header">
+          <div class="kk9-chat-header-text" style="padding:5px 10px">
+            <span class="kk9-chat-name">${target.name}</span>
+            <span class="kk9-chat-label">провалил стойкость · ${_damageResultLabel(target, newVal, damageType, resistResult?.isBoss, hasStatus, statusUuid)}</span>
+          </div>
+        </div>
+      </div>`,
+      speaker: ChatMessage.getSpeaker({ alias: "Система" }),
+      flags: { kk9: { isRoll: true } }
     });
   } else {
     ChatMessage.create({
-      content: _sysMsg(target, `${target.name} устоял — урон не засчитан.`, "Стойкость", "#4a7a5a"),
-      flags: { kk9: { isCombatMsg: true } }
+      content: `<div class="kk9-chat-roll" style="--accent:#4ade80">
+        <div class="kk9-chat-header">
+          <div class="kk9-chat-header-text" style="padding:5px 10px">
+            <span class="kk9-chat-name">${target.name}</span>
+            <span class="kk9-chat-label">устоял — урон не засчитан</span>
+          </div>
+        </div>
+      </div>`,
+      speaker: ChatMessage.getSpeaker({ alias: "Система" }),
+      flags: { kk9: { isRoll: true } }
     });
   }
 
   btn.closest("div").find("button, select").prop("disabled", true).css("opacity", "0.4");
-}
-
-// ── Вычислить урон заклинания из стоимости ─────────────────
-// is_aoe = true → пороги сдвинуты на +2 к каждому, +1 пип каждые 8 сверх 14
-// is_aoe = false → обычные пороги, +1 пип каждые 6 сверх 12
-function calcSpellDamage(cost, isAoe) {
-  if (isAoe) {
-    // 1-4 light, 5-8 heavy, 9-14 lethal, 15+ lethal+pips(каждые 8)
-    if (cost <= 4)  return { level: "light",  pips: 0 };
-    if (cost <= 8)  return { level: "heavy",  pips: 0 };
-    if (cost <= 14) return { level: "lethal", pips: 0 };
-    return { level: "lethal", pips: Math.floor((cost - 14) / 8) };
-  } else {
-    // 1-2 light, 3-6 heavy, 7-12 lethal, 13+ lethal+pips(каждые 6)
-    if (cost <= 2)  return { level: "light",  pips: 0 };
-    if (cost <= 6)  return { level: "heavy",  pips: 0 };
-    if (cost <= 12) return { level: "lethal", pips: 0 };
-    return { level: "lethal", pips: Math.floor((cost - 12) / 6) };
-  }
-}
-
-// ── Бросок заклинания ────────────────────────────────────────
-export async function rollSpellAttack(spellItem, actor) {
-  const spell = spellItem.system;
-  if (!actor) { ui.notifications.warn("Заклинание должно быть на карточке персонажа."); return; }
-
-  // ── 1. Проверка палочки ──
-  if (!spell.no_wand_needed) {
-    const hasWand = (actor.system.artifact_refs || []).some(uuid => {
-      const art = fromUuidSync(uuid);
-      return art && art.system.artifact_type === "ring" && art.system.equipped === "equipped";
-    });
-    if (!hasWand) {
-      ui.notifications.warn(`${spellItem.name}: требуется экипированная палочка-артефакт.`);
-      return;
-    }
-  }
-
-  // ── 2. Проверка и списание энергии ──
-  const cost        = spell.cost || 0;
-  const currentEnergy = actor.system.energy?.value ?? 0;
-  const maxEnergy   = actor.system.energy?.max ?? 0;
-  let   overcast    = false; // флаг превозмогания
-  let   overcostPips = 0;   // сколько коста сверх запаса
-
-  if (cost > currentEnergy) {
-    // Не хватает энергии — диалог превозмогания
-    const deficit = cost - currentEnergy;
-    const proceed = await new Promise(resolve => {
-      new Dialog({
-        title: "⚡ Превозмогание",
-        content: `
-          <style>
-            .kk9-overcast-wrap { background:#1c1c1c;padding:8px 4px 4px;margin:-8px -8px -4px;font-family:'Jost',sans-serif; }
-            .kk9-overcast-wrap p { color:#b8b0a4;font-size:0.88em;margin:0 8px 10px; }
-            .kk9-overcast-warn { color:#c0392b;font-size:0.82em;margin:0 8px 6px; }
-          </style>
-          <div class="kk9-overcast-wrap">
-            <p>Не хватает <strong>${deficit}</strong> ед. энергии для <strong>${spellItem.name}</strong>.</p>
-            <p class="kk9-overcast-warn">⚠ При превозмогании бросается Дух (≥6). Провал или успех — нехватка коста съедает пипы состояния.</p>
-            <p>Продолжить?</p>
-          </div>`,
-        buttons: {
-          yes: {
-            icon: '<i class="fas fa-bolt"></i>',
-            label: "Превозмочь",
-            callback: () => resolve(true)
-          },
-          no: {
-            icon: '<i class="fas fa-times"></i>',
-            label: "Отмена",
-            callback: () => resolve(false)
-          }
-        },
-        default: "yes",
-        render: html => {
-          const $d = html.closest(".app.dialog");
-          $d.css("background", "#1c1c1c");
-          $d.find(".window-content").css("background", "#1c1c1c");
-          $d.find(".dialog-button").css({ background:"#2a2a2a", border:"1px solid #3a3a3a", color:"#b8b0a4", fontFamily:"'Jost',sans-serif", fontSize:"0.85em" });
-          $d.find(".dialog-button[data-button='yes']").css({ borderColor:"#c0392b", color:"#c0392b" });
-        }
-      }, { width: 340 }).render(true);
-    });
-    if (!proceed) return;
-
-    overcast    = true;
-    overcostPips = deficit; // сколько коста не хватило → уйдёт в пипы
-    // Списываем всю оставшуюся энергию (до 0)
-    await actor.update({ "system.energy.value": 0 });
-  } else {
-    // Хватает — просто списываем
-    await actor.update({ "system.energy.value": currentEnergy - cost });
-  }
-
-  // ── 3. Если превозмогание — бросок духа ──
-  let spellBlocked = false;
-  if (overcast) {
-    const spiritDie = actor.system.attributes?.spirit?.die || 4;
-    const isWC = actor.type === "character";
-    const formula = isWC ? `{1d${spiritDie}, 1d6}kh` : `1d${spiritDie}`;
-    const spiritRoll = new Roll(formula);
-    await spiritRoll.evaluate();
-    // Бросок духа в стиле системы
-    const spiritDegree = _atkSuccessDegree(spiritRoll.total);
-    const spiritDiceHtml = _atkBuildDiceHtml(spiritRoll, []);
-    const spiritContent = _atkBuildMessage(actor, "Дух (превозмогание)", spiritDegree, spiritDiceHtml, "", "");
-    await ChatMessage.create({
-      speaker: ChatMessage.getSpeaker({ actor }),
-      content: spiritContent,
-      flags: { kk9: { isRoll: true, actorId: actor?.id } }
-    });
-    if (spiritRoll.total < 6) {
-      spellBlocked = true; // провал — спелл не работает
-    }
-    // В любом случае применяем пипы от перерасхода (с overflow между шкалами)
-    const { level: overcostLevel, pips: overcostPipCount } = calcSpellDamage(overcostPips, false);
-    const damType = spell.damage_type || "physical";
-    const { newPhys: op, newMent: om, overflow: oo } = await applySpellDamageToActor(actor, overcostLevel, damType, overcostPipCount);
-    const overcostText = `Превозмогание — ${overcostPips} ед. перерасхода → ${DAMAGE_LABELS[overcostLevel]}${overcostPipCount ? ` +${overcostPipCount} пип` : ""} (${damType === "mental" ? "ментально" : "физически"})` +
-      `<br><span style="font-size:0.85em;color:rgba(255,255,255,0.45)">Физ: ${op}/5 · Мент: ${om}/5${oo ? ` · Overflow: +${oo}` : ""}` +
-      `${spellBlocked ? " · <span style=\"color:#c0392b\">Провал духа</span>" : ""}</span>`;
-    ChatMessage.create({
-      content: _sysMsg(actor, overcostText, "Дух (превозмогание)", "#a855f7"),
-      flags: { kk9: { isCombatMsg: true } }
-    });
-    if (spellBlocked) return;
-  }
-
-  // ── 4. Вычисляем урон из cost ──
-  const isAoe = spell.is_aoe || false;
-  const { level: damageLevel, pips: extraPips } = calcSpellDamage(cost, isAoe);
-  const damageType = spell.damage_type || "physical";
-  const hasStatus  = spell.has_status && spell.status_uuid;
-
-  // ── 5. Бросок атаки (через навык) ──
-  let skillItem = null;
-  if (spell.skill_uuid && actor) {
-    const worldItem = fromUuidSync(spell.skill_uuid);
-    skillItem = actor.items.find(i =>
-      i.uuid === spell.skill_uuid ||
-      i.id  === spell.skill_uuid ||
-      (worldItem && i.name === worldItem.name && i.type === worldItem.type)
-    ) ?? null;
-  }
-
-  // Бонус от палочки
-  let wandBonus = 0;
-  let wandReasons = [];
-  if (!spell.no_wand_needed && skillItem) {
-    for (const uuid of (actor.system.artifact_refs || [])) {
-      const art = fromUuidSync(uuid);
-      if (!art || art.system.artifact_type !== "ring") continue;
-      if (art.system.equipped !== "equipped") continue;
-      if (!art.system.skill_uuid || !skillItem) continue;
-      const wandSkill = fromUuidSync(art.system.skill_uuid);
-      if (!wandSkill) continue;
-      if (wandSkill.name !== skillItem.name) continue;
-      const cond = actor._getItemConditionMod(art);
-      if (cond.blocked || !cond.buffActive) continue;
-      const raw = art.system.attack_modifier || 0;
-      const b   = actor._calcArtifactBonus(raw, cond.buffTier);
-      if (b !== 0) { wandBonus += b; wandReasons.push(`${art.name} (кольцо): ${b > 0 ? "+" : ""}${b}`); }
-    }
-  }
-
-  // Формула броска
-  const isWC = actor.type === "character";
-  let formula, skillLabel;
-  if (skillItem) {
-    const die = skillItem.system.die || 4;
-    const mod = skillItem.system.modifier || 0;
-    const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-    formula    = isWC ? `{1d${die}${modStr}, 1d6${modStr}}kh` : `1d${die}${modStr}`;
-    skillLabel = skillItem.name;
-  } else {
-    formula    = isWC ? `{1d4, 1d6}kh` : `1d4`;
-    skillLabel = "без навыка";
-  }
-  const finalFormula = wandBonus !== 0
-    ? `(${formula})${wandBonus > 0 ? "+" : ""}${wandBonus}`
-    : formula;
-
-  const roll = new Roll(finalFormula);
-  await roll.evaluate();
-  const total   = roll.total;
-  const success = total >= 6;
-
-  // ── 6. Чат-сообщение ──
-  const dmgLabel  = DAMAGE_LABELS[damageLevel] || damageLevel;
-  const typeLabel = damageType === "mental" ? "🧠 Ментальный" : "⚔ Физический";
-  const aoeLabel  = isAoe ? " · <span style='color:#c084fc'>Площадное</span>" : "";
-
-  const targetOptions = _getTargetCandidates(actor.id)
-    .map(c => `<option value="${c.id}">${c.name}</option>`)
-    .join("");
-
-  const reasons = [...wandReasons];
-  if (skillItem?.system?.modifier) {
-    const m = skillItem.system.modifier;
-    reasons.unshift(`модификатор: ${m > 0 ? "+" : ""}${m}`);
-  }
-
-  // Степени успеха
-  const spellDegree = _atkSuccessDegree(total);
-
-  const spellWeapon = {
-    ...spell,
-    damage_level:     damageLevel,
-    damage_type:      damageType,
-    status_uuid:      spell.status_uuid || "",
-    status_name:      spell.status_name || "",
-    condition_chance: 0,
-    _actorId:         actor.id
-  };
-
-  const spellReasons = [...wandReasons];
-  if (skillItem?.system?.modifier) {
-    const m = skillItem.system.modifier;
-    spellReasons.unshift(`модификатор: ${m > 0 ? "+" : ""}${m}`);
-  }
-  spellReasons.push(`стоимость: ${cost}`);
-  if (isAoe) spellReasons.push("площадное");
-
-  const spellDiceHtml = _atkBuildDiceHtml(roll, spellReasons);
-  const spellDmgInfo  = success
-    ? `${DAMAGE_LABELS[damageLevel] || damageLevel}${extraPips ? ` +${extraPips} пип` : ""} · ${damageType === "mental" ? "Ментальный" : "Физический"} · ${cost} э.`
-    : "";
-  const spellDmgHtml  = success
-    ? _atkDamageButtons(
-        { ...spellItem, type: isAoe ? "gear" : spellItem.type },
-        spellWeapon, damageLevel, extraPips, hasStatus, targetOptions, false, false,
-        isAoe, true
-      )
-    : `<div class="kk9-atk-nodmg">Атака не прошла.</div>`;
-
-  const spellMsgContent = _atkBuildMessage(actor, spellItem.name, spellDegree, spellDiceHtml, spellDmgInfo, spellDmgHtml);
-
-  await ChatMessage.create({
-    speaker: ChatMessage.getSpeaker({ actor }),
-    content: spellMsgContent,
-    flags: { kk9: { isRoll: true, actorId: actor?.id } }
-  });
-}
-
-// ── Combat Turn Hook — применяем частотные статусы ──────────
-export function registerCombatHooks() {
-  // Срабатывает при смене хода
-  Hooks.on("combatTurn", async (combat, updateData, updateOptions) => {
-    const combatant = combat.combatant;
-    if (!combatant?.actor) return;
-    const actor = combatant.actor;
-    await _processTurnStatuses(actor, "per_turn");
-  });
-
-  // Срабатывает при начале нового боя (раз в бой)
-  Hooks.on("combatStart", async (combat) => {
-    for (const c of combat.combatants) {
-      if (!c.actor) continue;
-      await _processTurnStatuses(c.actor, "per_combat");
-    }
-  });
-}
-
-async function _processTurnStatuses(actor, frequency) {
-  const statuses = foundry.utils.deepClone(actor.system.active_statuses || []);
-  if (!statuses.length) return;
-
-  let changed = false;
-  const toRemove = [];
-
-  for (let i = 0; i < statuses.length; i++) {
-    const st = statuses[i];
-    if (st.frequency !== frequency) continue;
-
-    // Применяем урон если есть
-    if (st.damage && st.damage !== "none") {
-      await applyDamageToActor(actor, st.damage, st.damage_type);
-      ChatMessage.create({
-        content: `<div style="font-family:'Jost',sans-serif;padding:5px 8px;border-left:3px solid #a855f7;background:var(--bg2,#232323)">
-          ${STATUS_ICONS[st.status_type] || "⚡"} <strong>${attackerName}</strong>: статус «${st.statusName}» срабатывает
-          (${DAMAGE_LABELS[st.damage]}, ${st.damage_type === "mental" ? "ментально" : "физически"})
-        </div>`,
-        speaker: ChatMessage.getSpeaker({ alias: "Статус" })
-      });
-    }
-
-    // Уменьшаем счётчик применений
-    if (st.uses !== -1) {
-      statuses[i].uses -= 1;
-      changed = true;
-      if (statuses[i].uses <= 0) {
-        toRemove.push(i);
-        ChatMessage.create({
-          content: `<div style="font-family:'Jost',sans-serif;padding:5px 8px;border-left:3px solid #6a6560;background:var(--bg2,#232323)">
-            Статус «${st.statusName}» у <strong>${attackerName}</strong> снят (исчерпан).
-          </div>`,
-          speaker: ChatMessage.getSpeaker({ alias: "Статус" })
-        });
-      }
-    }
-  }
-
-  // Удаляем исчерпанные статусы (в обратном порядке)
-  for (let i = toRemove.length - 1; i >= 0; i--) {
-    statuses.splice(toRemove[i], 1);
-    changed = true;
-  }
-
-  if (changed) await actor.update({ "system.active_statuses": statuses });
 }

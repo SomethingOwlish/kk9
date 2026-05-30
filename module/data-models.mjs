@@ -18,15 +18,15 @@ function npcAttributeField() {
 }
 
 function activeStatusesField() {
+  // Display-cache для быстрого рендера в карточке актора.
+  // Полные данные статуса живут в actor.items (embedded Item type="status").
   return new fields.ArrayField(
     new fields.SchemaField({
-      uuid:        new fields.StringField({ required: true, initial: "" }),
-      statusName:  new fields.StringField({ initial: "" }),
-      status_type: new fields.StringField({ initial: "shock" }),
-      damage:      new fields.StringField({ initial: "none" }),
-      damage_type: new fields.StringField({ initial: "physical" }),
-      frequency:   new fields.StringField({ initial: "per_turn" }),
-      uses:        new fields.NumberField({ initial: -1, integer: true })
+      itemId:         new fields.StringField({ required: true, initial: "" }),
+      statusName:     new fields.StringField({ initial: "" }),
+      status_types:   new fields.ArrayField(new fields.StringField({ initial: "" })),
+      duration_mode:  new fields.StringField({ initial: "time" }),
+      duration_value: new fields.NumberField({ initial: 1, integer: true }),
     })
   );
 }
@@ -186,6 +186,15 @@ export class CharacterDataModel extends foundry.abstract.TypeDataModel {
   prepareDerivedData() {
     this.health.physical.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
     this.energy.max = this.age + this.attributes.spirit.die;
+    // Постоянный модификатор max энергии от статусов (type=energy, mode=max)
+    if (this.parent?.items) {
+      const mod = this.parent.items
+        .filter(i => i.type === "status")
+        .flatMap(i => i.system?.effects ?? [])
+        .filter(e => e.enabled && e.type === "energy" && e.energy?.mode === "max")
+        .reduce((s, e) => s + (e.energy?.amount ?? 0), 0);
+      if (mod !== 0) this.energy.max = Math.max(0, this.energy.max + mod);
+    }
   }
 }
 
@@ -211,6 +220,15 @@ export class NpcLightDataModel extends foundry.abstract.TypeDataModel {
     this.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
     const ageNum = parseInt(this.age) || 0;
     this.energy.max = ageNum + this.attributes.spirit.die;
+    // Постоянный модификатор max энергии от статусов (type=energy, mode=max)
+    if (this.parent?.items) {
+      const mod = this.parent.items
+        .filter(i => i.type === "status")
+        .flatMap(i => i.system?.effects ?? [])
+        .filter(e => e.enabled && e.type === "energy" && e.energy?.mode === "max")
+        .reduce((s, e) => s + (e.energy?.amount ?? 0), 0);
+      if (mod !== 0) this.energy.max = Math.max(0, this.energy.max + mod);
+    }
   }
 }
 
@@ -235,6 +253,15 @@ export class NpcHardDataModel extends foundry.abstract.TypeDataModel {
     this.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
     const ageNum = parseInt(this.age) || 0;
     this.energy.max = ageNum + this.attributes.spirit.die;
+    // Постоянный модификатор max энергии от статусов (type=energy, mode=max)
+    if (this.parent?.items) {
+      const mod = this.parent.items
+        .filter(i => i.type === "status")
+        .flatMap(i => i.system?.effects ?? [])
+        .filter(e => e.enabled && e.type === "energy" && e.energy?.mode === "max")
+        .reduce((s, e) => s + (e.energy?.amount ?? 0), 0);
+      if (mod !== 0) this.energy.max = Math.max(0, this.energy.max + mod);
+    }
   }
 }
 
@@ -253,6 +280,15 @@ export class NpcBossDataModel extends foundry.abstract.TypeDataModel {
     this.toughness = 2 + Math.floor(this.attributes.spirit.die / 2);
     const ageNum = parseInt(this.age) || 0;
     this.energy.max = ageNum + this.attributes.spirit.die;
+    // Постоянный модификатор max энергии от статусов (type=energy, mode=max)
+    if (this.parent?.items) {
+      const mod = this.parent.items
+        .filter(i => i.type === "status")
+        .flatMap(i => i.system?.effects ?? [])
+        .filter(e => e.enabled && e.type === "energy" && e.energy?.mode === "max")
+        .reduce((s, e) => s + (e.energy?.amount ?? 0), 0);
+      if (mod !== 0) this.energy.max = Math.max(0, this.energy.max + mod);
+    }
   }
 }
 
@@ -558,7 +594,10 @@ export class SpellDataModel extends foundry.abstract.TypeDataModel {
   }
 }
 
-export class DaemonDataModel extends foundry.abstract.TypeDataModel {
+// ============================================================
+// ДАЙМОН — Actor (был Item)
+// ============================================================
+export class DaemonActorDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     const { fields } = foundry.data;
     return {
@@ -576,9 +615,7 @@ export class DaemonDataModel extends foundry.abstract.TypeDataModel {
         choices: ["taro", "rainbow", "new"]
       }),
 
-      // Класс — зависит от корпорации
-      // Таро: "1"-"10", "page", "queen", "knight", "king", "major"
-      // Радуга: "junior", "middle", "senior", "elder", "great"
+      // Класс
       daemon_class: new fields.StringField({ initial: "1" }),
 
       // Масть (только Таро)
@@ -593,20 +630,17 @@ export class DaemonDataModel extends foundry.abstract.TypeDataModel {
         choices: ["black","white","gold","silver","red","orange","green","blue","purple","yellow","pink","pearl","grey"]
       }),
 
-      // Внешний вид
       appearance: new fields.StringField({ initial: "" }),
+      dream:      new fields.StringField({ initial: "" }),
+      fear:       new fields.StringField({ initial: "" }),
+      desire:     new fields.StringField({ initial: "" }),
 
-      // Психологические поля
-      dream:   new fields.StringField({ initial: "" }),
-      fear:    new fields.StringField({ initial: "" }),
-      desire:  new fields.StringField({ initial: "" }),
+      // Режим шарик
+      captor: new fields.StringField({ initial: "" }),
+      used:   new fields.BooleanField({ initial: false }),
 
-      // ── РЕЖИМ ШАРИК ──
-      captor:  new fields.StringField({ initial: "" }),   // пленитель
-      used:    new fields.BooleanField({ initial: false }),// использован
-
-      // ── РЕЖИМ СВОБОДНЫЙ ──
-      gone:    new fields.BooleanField({ initial: false }), // ушёл
+      // Режим свободный
+      gone: new fields.BooleanField({ initial: false }),
 
       // Здоровье (5+5 пипов как у сложного НПС)
       health: new fields.SchemaField({
@@ -618,31 +652,16 @@ export class DaemonDataModel extends foundry.abstract.TypeDataModel {
         })
       }),
 
-      // Атрибуты даймона
+      // Атрибуты
       attributes: new fields.SchemaField({
-        agility:  new fields.SchemaField({
-          die:      new fields.NumberField({ initial: 6, integer: true }),
-          modifier: new fields.NumberField({ initial: 0, integer: true })
-        }),
-        smarts:   new fields.SchemaField({
-          die:      new fields.NumberField({ initial: 6, integer: true }),
-          modifier: new fields.NumberField({ initial: 0, integer: true })
-        }),
-        spirit:   new fields.SchemaField({
-          die:      new fields.NumberField({ initial: 6, integer: true }),
-          modifier: new fields.NumberField({ initial: 0, integer: true })
-        }),
-        endurance: new fields.SchemaField({
-          die:      new fields.NumberField({ initial: 6, integer: true }),
-          modifier: new fields.NumberField({ initial: 0, integer: true })
-        }),
-        magic:    new fields.SchemaField({
-          die:      new fields.NumberField({ initial: 6, integer: true }),
-          modifier: new fields.NumberField({ initial: 0, integer: true })
-        }),
+        agility:   new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        smarts:    new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        spirit:    new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        endurance: new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        magic:     new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
       }),
 
-      // Навыки и способности (хранятся внутри item как массив)
+      // Навыки (массив, как было)
       skills: new fields.ArrayField(
         new fields.SchemaField({
           uuid:     new fields.StringField({ initial: "" }),
@@ -652,34 +671,61 @@ export class DaemonDataModel extends foundry.abstract.TypeDataModel {
           modifier: new fields.NumberField({ initial: 0, integer: true }),
         })
       ),
-      condition: new fields.StringField({ initial: "good", choices: ["broken","worn","good","perfect"] })
+
+      condition: new fields.StringField({ initial: "good", choices: ["broken","worn","good","perfect"] }),
+
+      // Кто владелец (UUID актора-персонажа или контейнера)
+      owner_id: new fields.StringField({ initial: "" }),
+
+      // Стойкость — вычисляется из spirit
+      toughness: new fields.NumberField({ initial: 5, integer: true }),
+
+      // Статусы — embedded Items типа status (как у акторов)
+      active_statuses: activeStatusesField(),
     };
+  }
+
+  prepareDerivedData() {
+    this.toughness = 2 + Math.floor((this.attributes.spirit.die ?? 6) / 2);
   }
 }
 
-export class CompanionDataModel extends foundry.abstract.TypeDataModel {
+// ============================================================
+// СПУТНИК — Actor (был Item)
+// ============================================================
+export class CompanionActorDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
     const { fields } = foundry.data;
     return {
       description: new fields.HTMLField({ initial: "" }),
       species:     new fields.StringField({ initial: "" }),
       age:         new fields.NumberField({ initial: 0, min: 0, integer: true }),
-      // Атрибуты спутника
+
+      // Атрибуты
       attributes: new fields.SchemaField({
-        agility:  new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
-        smarts:   new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
-        spirit:   new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        agility:   new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        smarts:    new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        spirit:    new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
         endurance: new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
-        magic:    new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
+        magic:     new fields.SchemaField({ die: new fields.NumberField({ initial: 6, integer: true }), modifier: new fields.NumberField({ initial: 0, integer: true }) }),
       }),
-      bond:        new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
-      character:   new fields.StringField({ initial: "" }),
-      owner:       new fields.StringField({ initial: "" }),
-      condition:   new fields.StringField({ initial: "good", choices: ["broken","worn","good","perfect"] })
+
+      bond:      new fields.NumberField({ initial: 1, min: 1, max: 5, integer: true }),
+      character: new fields.StringField({ initial: "" }),
+      owner:     new fields.StringField({ initial: "" }),
+      condition: new fields.StringField({ initial: "good", choices: ["broken","worn","good","perfect"] }),
+
+      // Кто владелец (UUID актора-персонажа или контейнера)
+      owner_id: new fields.StringField({ initial: "" }),
+
+      // Стан
+      is_stunned: new fields.BooleanField({ initial: false }),
+
+      // Статусы — embedded Items типа status (как у акторов)
+      active_statuses: activeStatusesField(),
     };
   }
 }
-
 
 export class VehicleDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
@@ -827,18 +873,87 @@ export class ContainerDataModel extends foundry.abstract.TypeDataModel {
 }
 
 // ============================================================
-// СТАТУС (новый тип v0.9.0)
+// СТАТУС v2.0
 // ============================================================
 export class StatusDataModel extends foundry.abstract.TypeDataModel {
   static defineSchema() {
+    const { fields } = foundry.data;
+
+    function skillTargetField() {
+      return new fields.SchemaField({
+        uuid: new fields.StringField({ initial: "" }),
+        name: new fields.StringField({ initial: "" }),
+      });
+    }
+
+    function rollModifierField() {
+      return new fields.SchemaField({
+        target_all:       new fields.BooleanField({ initial: false }),
+        target_agility:   new fields.BooleanField({ initial: false }),
+        target_smarts:    new fields.BooleanField({ initial: false }),
+        target_spirit:    new fields.BooleanField({ initial: false }),
+        target_endurance: new fields.BooleanField({ initial: false }),
+        target_magic:     new fields.BooleanField({ initial: false }),
+        target_toughness: new fields.BooleanField({ initial: false }),
+        target_initiative:new fields.BooleanField({ initial: false }),
+        target_weapon:    new fields.BooleanField({ initial: false }),
+        target_spell:     new fields.BooleanField({ initial: false }),
+        target_device:    new fields.BooleanField({ initial: false }),
+        target_gear:      new fields.BooleanField({ initial: false }),
+        target_artifact:  new fields.BooleanField({ initial: false }),
+        target_all_items: new fields.BooleanField({ initial: false }),
+        target_skills:    new fields.ArrayField(skillTargetField()),
+        die_change:         new fields.NumberField({ initial: 0, integer: true }),
+        extra_die_enabled:  new fields.BooleanField({ initial: false }),
+        extra_die_faces:    new fields.NumberField({ initial: 6, integer: true }),
+        extra_die_mode:     new fields.StringField({ initial: "add", choices: ["add","subtract"] }),
+        modifier:           new fields.NumberField({ initial: 0, integer: true }),
+        success_modifier:   new fields.NumberField({ initial: 0, integer: true }),
+      });
+    }
+
+    function healthEffectField() {
+      return new fields.SchemaField({
+        track:    new fields.StringField({ initial: "physical", choices: ["physical","mental"] }),
+        mode:     new fields.StringField({ initial: "damage",   choices: ["damage","heal"] }),
+        amount:   new fields.NumberField({ initial: 1, integer: true, min: 0 }),
+        overflow: new fields.BooleanField({ initial: false }),
+      });
+    }
+
+    function energyEffectField() {
+      return new fields.SchemaField({
+        mode:          new fields.StringField({ initial: "current", choices: ["current","max","restore","roll_mod"] }),
+        amount:        new fields.NumberField({ initial: 0, integer: true }),
+        roll_modifier: new fields.NumberField({ initial: 0, integer: true }),
+      });
+    }
+
+    function effectEntryField() {
+      return new fields.SchemaField({
+        id:            new fields.StringField({ initial: "" }),
+        enabled:       new fields.BooleanField({ initial: true }),
+        type:          new fields.StringField({ initial: "roll_modifier", choices: ["roll_modifier","health","energy"] }),
+        roll_modifier: rollModifierField(),
+        health:        healthEffectField(),
+        energy:        energyEffectField(),
+      });
+    }
+
     return {
-      description:  new fields.HTMLField({ initial: "" }),
-      status_type:  new fields.StringField({ initial: "shock", choices: ["poison","shock","magic","bleed","acid"] }),
-      effect:       new fields.StringField({ initial: "" }),
-      damage:       new fields.StringField({ initial: "none", choices: ["none","light","heavy","lethal"] }),
-      damage_type:  new fields.StringField({ initial: "physical", choices: ["physical","mental"] }),
-      frequency:    new fields.StringField({ initial: "per_turn", choices: ["per_turn","per_combat","per_hour","per_day","rare"] }),
-      uses:         new fields.NumberField({ initial: -1, integer: true })
+      description:         new fields.HTMLField({ initial: "" }),
+      removal_instruction: new fields.StringField({ initial: "" }),
+      // Типы-теги: poison, bleed, acid, burn, cold, electric,
+      // infection, disease, shock_mental, fear, madness, blindness,
+      // magic_effect, curse, debt_fate, debt
+      status_types: new fields.ArrayField(new fields.StringField({ initial: "" })),
+      apply_stun:   new fields.BooleanField({ initial: false }),
+      duration: new fields.SchemaField({
+        mode:        new fields.StringField({ initial: "time", choices: ["time","charges","counter"] }),
+        value:       new fields.NumberField({ initial: 1, integer: true, min: 0 }),
+        auto_reduce: new fields.BooleanField({ initial: true }),
+      }),
+      effects: new fields.ArrayField(effectEntryField()),
     };
   }
 }

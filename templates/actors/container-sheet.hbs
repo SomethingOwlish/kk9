@@ -30,19 +30,16 @@
   </div>
 
   {{!-- Инициатива --}}
-  {{#if hasInitiativeItems}}
   <div class="container-initiative-block">
     <span class="section-title" style="margin:0;flex-shrink:0">Инициатива</span>
-    {{#if multipleInitiativeItems}}
     <select class="kk9-select container-initiative-select" style="flex:1;min-width:0">
+      <option value="__container__">{{actor.name}} (d6+d6)</option>
       {{#each initiativeItems as |it|}}
       <option value="{{it.uuid}}">{{it.name}}</option>
       {{/each}}
     </select>
-    {{/if}}
     <button type="button" class="btn-container-initiative" style="flex-shrink:0;margin-left:auto">Бросить</button>
   </div>
-  {{/if}}
 
   {{!-- Содержимое --}}
   <div class="container-items-section container-drop-zone">

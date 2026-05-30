@@ -96,6 +96,19 @@ export class KK9CharacterSheet extends ActorSheet {
     context.daemons    = _resolveRefs("daemon_refs");
     context.companions = _resolveRefs("companion_refs");
     context.contacts   = _resolveRefs("contact_refs");
+
+    // Статусы — embedded Items на акторе
+    context.activeStatuses = this.actor.items
+      .filter(i => i.type === "status")
+      .map(i => ({
+        id:             i.id,
+        name:           i.name,
+        status_types:   i.system.status_types ?? [],
+        apply_stun:     i.system.apply_stun ?? false,
+        duration_mode:  i.system.duration?.mode  ?? "time",
+        duration_value: i.system.duration?.value ?? 1,
+      }));
+
     return context;
   }
 
@@ -107,6 +120,16 @@ export class KK9CharacterSheet extends ActorSheet {
     if (data.type === "Actor") {
       const actor = await fromUuid(data.uuid);
       if (!actor || actor.id === this.actor.id) return;
+      // Даймон/спутник — в refs, не в relations
+      if (actor.type === "daemon" || actor.type === "companion") {
+        const fieldMap = { daemon:"daemon_refs", companion:"companion_refs" };
+        const field = fieldMap[actor.type];
+        const refs  = [...(this.actor.system[field] || [])];
+        if (refs.includes(actor.uuid)) { ui.notifications.warn(`«${actor.name}» уже привязан к карточке.`); return; }
+        refs.push(actor.uuid);
+        await this.actor.update({ [`system.${field}`]: refs });
+        return;
+      }
       const relations = this.actor.system.relations || [];
       if (!relations.find(r => r.name === actor.name)) {
         await this.actor.update({ "system.relations": [...relations, {
@@ -512,10 +535,31 @@ export class KK9CharacterSheet extends ActorSheet {
 
     // Удалить активный статус
     html.find(".actor-remove-status").click(async e => {
-      const idx = parseInt(e.currentTarget.dataset.index);
-      const statuses = foundry.utils.deepClone(this.actor.system.active_statuses || []);
-      statuses.splice(idx, 1);
-      await this.actor.update({ "system.active_statuses": statuses });
+      if (!game.user.isGM) return;
+      const itemId = e.currentTarget.dataset.itemId;
+      if (!itemId) { console.warn("KK9: actor-remove-status — нет itemId"); return; }
+      try {
+        const { removeStatusFromActor } = await import("./weapon-combat.mjs");
+        await removeStatusFromActor(this.actor, itemId);
+      } catch(err) {
+        // Fallback: удаляем embedded item напрямую
+        console.warn("KK9: removeStatusFromActor недоступен, fallback", err);
+        const item = this.actor.items.get(itemId);
+        if (item) await item.delete();
+        const cache = foundry.utils.deepClone(this.actor.system.active_statuses || []);
+        const idx   = cache.findIndex(s => s.itemId === itemId);
+        if (idx >= 0) { cache.splice(idx, 1); await this.actor.update({ "system.active_statuses": cache }); }
+      }
+    });
+
+    // Применить эффект статуса вручную (debt / debt_fate — только ГМ)
+    html.find(".actor-apply-status").click(async e => {
+      if (!game.user.isGM) return;
+      const itemId     = e.currentTarget.dataset.itemId;
+      const statusItem = this.actor.items.get(itemId);
+      if (!statusItem) return;
+      const { _applyStatusEffectsManual } = await import("./weapon-combat.mjs");
+      if (_applyStatusEffectsManual) await _applyStatusEffectsManual(this.actor, statusItem);
     });
   }
 
@@ -724,10 +768,6 @@ export class KK9ItemSheet extends ItemSheet {
       {value:"corporate",label:"Корпоративная"},{value:"underground",label:"Подпольная"},
       {value:"other",label:"Прочая"}
     ];
-    if (this.item.type === "daemon") {
-      context.daemonItems = this.item.system.skills ?? [];
-    }
-
     // Вычисляем справочный урон заклинания из cost для отображения в hbs
     if (this.item.type === "spell") {
       const cost  = this.item.system.cost || 0;
@@ -758,6 +798,30 @@ export class KK9ItemSheet extends ItemSheet {
         magic:    abilities.filter(a => a.category === "magic").length,
       };
     }
+
+    // ── Статус: данные для шаблона ──────────────────────────
+    if (this.item.type === "status") {
+      context.statusTypeOptions = [
+        { value: "poison",       label: "Яд" },
+        { value: "bleed",        label: "Кровотечение" },
+        { value: "acid",         label: "Кислота" },
+        { value: "burn",         label: "Ожог" },
+        { value: "cold",         label: "Холод" },
+        { value: "electric",     label: "Электричество" },
+        { value: "infection",    label: "Заражение" },
+        { value: "disease",      label: "Болезнь" },
+        { value: "shock_mental", label: "Шок (ментал.)" },
+        { value: "fear",         label: "Страх" },
+        { value: "madness",      label: "Безумие" },
+        { value: "blindness",    label: "Слепота" },
+        { value: "magic_effect", label: "Маг. эффект" },
+        { value: "curse",        label: "Проклятие" },
+        { value: "debt_fate",    label: "Долг судьбы" },
+        { value: "debt",         label: "Долг" },
+      ];
+      context.dieFaceOptions = [4, 6, 8, 10, 12, 20, 100];
+    }
+
     return context;
   }
 
@@ -834,22 +898,6 @@ export class KK9ItemSheet extends ItemSheet {
             await this.item.update({ "system.skill_bonuses": bonuses });
           }
           return;
-        }
-        return;
-      }
-    }
-
-    // ── Даймон: drag-drop навыков и способностей ──
-    if (this.item.type === "daemon") {
-      const target = event.target.closest(".daemon-items-drop");
-      if (target && data.type === "Item") {
-        const item = await fromUuid(data.uuid);
-        if (!item || !["ability"].includes(item.type)) return;
-        const skills = foundry.utils.deepClone(this.item.system.skills || []);
-        if (!skills.find(sk => sk.uuid === item.uuid || sk.name === item.name)) {
-          skills.push({ uuid: item.uuid, name: item.name, type: item.type,
-            die: item.system?.die || 6, modifier: item.system?.modifier || 0 });
-          await this.item.update({ "system.skills": skills });
         }
         return;
       }
@@ -1206,290 +1254,151 @@ export class KK9ItemSheet extends ItemSheet {
       });
     }
 
-    // ── Спутник: пипы привязанности, здоровья и инициатива ──
-    if (this.item.type === "companion") {
-      // Атрибут спутника
-      html.find(".cp-attr-roll").click(async e => {
-        e.stopPropagation();
-        const attrKey = e.currentTarget.dataset.attr;
-        const attr    = this.item.system.attributes?.[attrKey];
-        if (!attr) return;
-        const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
-        const die    = attr.die || 6;
-        const mod    = attr.modifier || 0;
-        const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
-        const roll   = new Roll(`1d${die}x${modStr}`);
-        await roll.evaluate();
-        const total  = roll.total;
-        let deg;
-        if (total <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи" };
-        else if (total < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача" };
-        else { const sc = 1+Math.floor((total-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
-        const portrait = this.item.img || "icons/svg/mystery-man.svg";
-        const results  = roll.terms[0]?.results ?? [];
-        const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
-        const modRow   = mod ? `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ мод.: ${modStr}</span></div>` : "";
-        const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${this.item.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${this.item.name}</span><span class="kk9-chat-label">${LABELS[attrKey]||attrKey}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceRows}${modRow}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div></div></details></div>`;
-        await ChatMessage.create({ speaker: { alias: this.item.name }, content, flags: { kk9: { isRoll: true } } });
+    // ── Статус: интерактивная карточка ──────────────────────
+    if (this.item.type === "status") {
+      const DIE_SCALE = [4, 6, 8, 10, 12, 20, 100];
+
+      // Восстанавливаем значения числовых селектов после рендера
+      // (Handlebars не может надёжно сравнить число с числом в блочных хелперах)
+      html.find(".st-die-faces-select").each(function() {
+        const val = $(this).data("value");
+        if (val !== undefined) $(this).val(String(val));
       });
 
-      // Bond pips
-      html.find(".cp-bond-pip").click(async e => {
-        const val     = parseInt(e.currentTarget.dataset.value);
-        const cur     = this.item.system.bond ?? 1;
-        const newBond = cur === val ? Math.max(1, val - 1) : val;
-        await this.item.update({ "system.bond": newBond });
-      });
-      html.find(".companion-hp-pip").click(async e => {
-        const val = parseInt(e.currentTarget.dataset.value);
-        const cur = this.item.system.health?.value ?? 0;
-        await this.item.update({ "system.health.value": cur === val ? Math.max(1, val - 1) : val });
-      });
-      html.find(".companion-roll-initiative").click(async () => {
-        const attrs  = this.item.system.attributes || {};
-        const agDie  = attrs.agility?.die || 6;
-        const smDie  = attrs.smarts?.die  || 6;
-        const mod    = (attrs.agility?.modifier||0) + (attrs.smarts?.modifier||0);
-        const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
-        const formula = `1d${agDie}x + 1d${smDie}x${modStr}`;
-        const roll    = new Roll(formula);
-        await roll.evaluate();
-        const portrait = this.item.img || "icons/svg/mystery-man.svg";
-        const total    = roll.total;
-        // Build dice HTML — formula is additive (no pool), iterate terms
-        let diceRows = "";
-        for (const term of roll.terms) {
-          if (typeof term.faces !== "number") continue;
-          const results = term.results ?? [];
-          const vals = results.map(rv => `<span class="kk9-rv dk">${rv.exploded?"💥":""}${rv.result}</span>`).join("");
-          const sum  = results.reduce((a, v) => a + v.result, 0);
-          diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
-        }
-        if (mod) diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ мод.: ${modStr}</span></div>`;
-        diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div>`;
-        const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${this.item.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${this.item.name}</span><span class="kk9-chat-label">Инициатива</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${total}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`;
-        const actor = this.item.actor;
-        if (actor && game?.combat) {
-          const cb = game.combat.combatants.find(c => c.actorId === actor.id);
-          if (cb) await game.combat.setInitiative(cb.id, total);
-        }
-        await ChatMessage.create({ speaker: { alias: this.item.name }, content, flags: { kk9: { isRoll: true } } });
-      });
-    }
-
-    // ── Даймон: инициатива и стойкость ──
-    if (this.item.type === "daemon") {
-      const _dmRoll = async (formula, label, isInit = false, reasons = []) => {
-        const roll = new Roll(formula);
-        await roll.evaluate();
-        const portrait = this.item.img || "icons/svg/mystery-man.svg";
-        const name     = this.item.name;
-        const total    = roll.total;
-        // Dice rows
-        const buildDice = (r) => {
-          const pool = r.terms.find(t => Array.isArray(t.rolls));
-          const rows = [];
-          if (pool) {
-            pool.rolls.forEach((pr, i) => {
-              const disc = pool.results?.[i]?.active === false;
-              const die  = pr.terms?.find(t => typeof t.faces === "number");
-              if (!die) return;
-              const vals = (die.results||[]).map(rv => `<span class="kk9-rv ${disc?"dr":"dk"}">${rv.exploded?"💥":""}${rv.result}</span>`).join("");
-              const sum  = disc ? "" : `<span class="kk9-dsum">= ${(die.results||[]).reduce((a,v)=>a+v.result,0)}</span>`;
-              rows.push(`<div class="kk9-drow ${disc?"discarded":"kept"}"><span class="kk9-dlabel">d${die.faces}</span><span class="kk9-dvals">${vals}</span>${sum}</div>`);
-            });
-          } else {
-            r.terms.filter(t => typeof t.faces === "number").forEach(die => {
-              const vals = (die.results||[]).map(rv => `<span class="kk9-rv dk">${rv.exploded?"💥":""}${rv.result}</span>`).join("");
-              rows.push(`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${(die.results||[]).reduce((a,v)=>a+v.result,0)}</span></div>`);
-            });
-          }
-          if (reasons.length) {
-            rows.push(`<div class="kk9-dsep"></div>`);
-            reasons.forEach(r => rows.push(`<div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ ${r}</span></div>`));
-          }
-          rows.push(`<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div>`);
-          return rows.join("");
-        };
-        const diceBody = buildDice(roll);
-        let resultBar;
-        if (isInit) {
-          resultBar = `<details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${total}</span></summary><div class="kk9-dice-body">${diceBody}</div></details>`;
-        } else {
-          const t = total; let deg;
-          if (t <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи" };
-          else if (t < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача" };
-          else { const sc = 1+Math.floor((t-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
-          resultBar = `<details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceBody}</div></details>`;
-        }
-        const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${name}</span><span class="kk9-chat-label">${label}</span></div></div>${resultBar}</div>`;
-        // Combat tracker
-        const actor = this.item.actor;
-        if (isInit && actor && game?.combat) {
-          const cb = game.combat.combatants.find(c => c.actorId === actor.id);
-          if (cb) await game.combat.setInitiative(cb.id, total);
-        }
-        await ChatMessage.create({ speaker: { alias: name }, content, flags: { kk9: { isRoll: true } } });
+      // Вспомогалка: сохранить поле в эффекте
+      const saveEffectField = async (idx, fieldPath, value) => {
+        const effects = foundry.utils.deepClone(this.item.system.effects || []);
+        if (!effects[idx]) return;
+        const parts = fieldPath.split(".");
+        let obj = effects[idx];
+        for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+        obj[parts[parts.length - 1]] = value;
+        await this.item.update({ "system.effects": effects });
       };
 
-      html.find(".daemon-roll-initiative").click(async () => {
-        const attrs  = this.item.system.attributes || {};
-        const agDie  = attrs.agility?.die || 6;
-        const smDie  = attrs.smarts?.die  || 6;
-        const mod    = (attrs.agility?.modifier||0) + (attrs.smarts?.modifier||0);
-        const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
-        const initReasons = mod ? [`мод.: ${modStr}`] : [];
-        await _dmRoll(`1d${agDie}x + 1d${smDie}x${modStr}`, "Инициатива", true, initReasons);
+      // ── Чекбоксы типов статуса ──
+      html.find(".st-type-checkbox").click(async e => {
+        const type   = e.currentTarget.dataset.type;
+        const types  = foundry.utils.deepClone(this.item.system.status_types || []);
+        const idx    = types.indexOf(type);
+        if (idx >= 0) types.splice(idx, 1);
+        else types.push(type);
+        await this.item.update({ "system.status_types": types });
       });
 
-      html.find(".daemon-roll-toughness").click(async () => {
-        const attrs  = this.item.system.attributes || {};
-        const spDie  = attrs.spirit?.die || 6;
-        const spMod  = attrs.spirit?.modifier || 0;
-
-        // Навыки сопротивления — те же имена что у персонажа
-        const resistNames = ["Сопротивление боли","Сопротивление магии","Сопротивление ментальному давлению","Самоконтроль","Выживание"];
-        const available   = (this.item.system.skills || []).filter(sk => resistNames.includes(sk.name));
-        const options     = available.map((sk, i) =>
-          `<option value="${i}">${sk.name} (d${sk.die || 6})</option>`
-        ).join("");
-
-        let chosen = null;
-        try {
-          chosen = await Dialog.prompt({
-            title: "Бросок Стойкости",
-            content: `<div style="padding:8px">
-              <p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>
-              ${available.length
-                ? `<select id="resist-skill" style="width:100%">
-                     <option value="">— только Дух —</option>${options}
-                   </select>`
-                : "<em>Нет доступных навыков сопротивления</em>"}
-            </div>`,
-            label: "Бросить",
-            callback: html => html.find("#resist-skill").val() || null
-          });
-        } catch(e) { return; }
-
-        let formula, labelExtra = "", toughReasons = [];
-
-        if (chosen !== null && chosen !== "") {
-          const sk       = available[parseInt(chosen)];
-          const skillDie = sk.die || 6;
-          const skillMod = sk.modifier || 0;
-          labelExtra     = ` + ${sk.name}`;
-          const totalMod = spMod + skillMod;
-          const spModStr = spMod !== 0 ? (spMod > 0 ? `+${spMod}` : `${spMod}`) : "";
-          const skModStr = skillMod !== 0 ? (skillMod > 0 ? `+${skillMod}` : `${skillMod}`) : "";
-          formula = `1d${spDie}x${spModStr} + 1d${skillDie}x${skModStr}`;
-          if (totalMod) toughReasons.push(`мод. итого: ${totalMod > 0 ? "+" + totalMod : totalMod}`);
-        } else {
-          const modStr = spMod !== 0 ? (spMod > 0 ? `+${spMod}` : `${spMod}`) : "";
-          formula = `1d${spDie}x${modStr}`;
-          if (spMod) toughReasons.push(`мод.: ${modStr}`);
-        }
-
-        await _dmRoll(formula, `Стойкость${labelExtra}`, false, toughReasons);
-      });
-    }
-
-    // ── Даймон: клик по навыку/способности для броска ──
-    if (this.item.type === "daemon") {
-      // Health pips
-      // Health pips — используем делегирование по data-track
-      html.find(".health-pip").click(async e => {
-        const track = e.currentTarget.dataset.track;
-        const val   = parseInt(e.currentTarget.dataset.value);
-        if (track === "daemon-physical") {
-          const cur = this.item.system.health?.physical?.value ?? 0;
-          await this.item.update({ "system.health.physical.value": cur === val ? Math.max(0, val-1) : val });
-        } else if (track === "daemon-mental") {
-          const cur = this.item.system.health?.mental?.value ?? 0;
-          await this.item.update({ "system.health.mental.value": cur === val ? Math.max(0, val-1) : val });
-        }
-      });
-      // Бросок атрибута даймона
-      html.find(".dm-attr-roll").click(async e => {
-        e.stopPropagation();
-        const attrKey = e.currentTarget.dataset.attr;
-        const attr    = this.item.system.attributes?.[attrKey];
-        if (!attr) return;
-        const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
-        const die    = attr.die || 6;
-        const mod    = attr.modifier || 0;
-        const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
-        const formula = `1d${die}x${modStr}`;
-        const roll = new Roll(formula);
-        await roll.evaluate();
-        const total = roll.total;
-        let deg;
-        if (total <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи" };
-        else if (total < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача" };
-        else { const sc = 1+Math.floor((total-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
-        const portrait = this.item.img || "icons/svg/mystery-man.svg";
-        const results  = roll.terms[0]?.results ?? [];
-        const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
-        const modRows  = mod ? `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ мод.: ${modStr}</span></div>` : "";
-        const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${this.item.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${this.item.name}</span><span class="kk9-chat-label">${LABELS[attrKey]||attrKey}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceRows}${modRows}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div></div></details></div>`;
-        await ChatMessage.create({ speaker: { alias: this.item.name }, content, flags: { kk9: { isRoll: true } } });
+      // ── Добавить эффект ──
+      html.find(".st-add-effect").click(async e => {
+        const type    = e.currentTarget.dataset.type;
+        const effects = foundry.utils.deepClone(this.item.system.effects || []);
+        effects.push({
+          id:      foundry.utils.randomID(8),
+          enabled: true,
+          type,
+          roll_modifier: {
+            target_all: false,
+            target_agility: false, target_smarts: false, target_spirit: false,
+            target_endurance: false, target_magic: false,
+            target_toughness: false, target_initiative: false,
+            target_weapon: false, target_spell: false, target_device: false,
+            target_gear: false, target_artifact: false, target_all_items: false,
+            target_skills: [],
+            die_change: 0, extra_die_enabled: false, extra_die_faces: 6,
+            extra_die_mode: "add", modifier: 0, success_modifier: 0,
+          },
+          health: { track: "physical", mode: "damage", amount: 1, overflow: false },
+          energy: { mode: "current", amount: 0, roll_modifier: 0 },
+        });
+        await this.item.update({ "system.effects": effects });
       });
 
-      // Бросок навыка/способности — standalone, без actor
-      html.find(".dm-rollable").click(async e => {
-        const idx  = parseInt(e.currentTarget.dataset.index);
-        const sk   = this.item.system.skills?.[idx];
-        if (!sk) return;
-        const die    = sk.die || 6;
-        const mod    = sk.modifier || 0;
-        const modStr = mod !== 0 ? (mod > 0 ? `+${mod}` : `${mod}`) : "";
-        const roll   = new Roll(`1d${die}x${modStr}`);
-        await roll.evaluate();
-        // Строим сообщение как у НПС (успехи)
-        const THRESH = 6;
-        const total  = roll.total;
-        let degree;
-        if (total <= 1) degree = { type:"snake_eyes", label:"Глаза змеи" };
-        else if (total < THRESH) degree = { type:"failure", label:"Неудача" };
-        else { const s = 1 + Math.floor((total - THRESH) / 4); degree = { type:"success", label: s===1?"1 успех":s<=4?`${s} успеха`:`${s} успехов` }; }
-        const portrait = this.item.img || "icons/svg/mystery-man.svg";
-        const nameClr  = "#c4a44a";
-        const cls = degree.type === "success" ? "kk9-result-success" : degree.type === "snake_eyes" ? "kk9-result-snake" : "kk9-result-failure";
-        // Dice HTML
-        const results = roll.terms[0]?.results ?? [];
-        let diceRows = results.map(r => `<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
-        if (mod) diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ мод.: ${modStr}</span></div>`;
-        const content = [
-          `<div class="kk9-chat-roll" style="--accent:#c4a44a">`,
-          `  <div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${this.item.name}">`,
-          `  <div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:${nameClr}">${this.item.name}</span>`,
-          `  <span class="kk9-chat-label">${sk.name}</span></div></div>`,
-          `  <details class="kk9-result-details"><summary class="kk9-result-summary ${cls}">`,
-          `    <span class="kk9-result-text">${degree.label}</span></summary>`,
-          `    <div class="kk9-dice-body">${diceRows}<div class="kk9-dsep"></div>`,
-          `    <div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div></div>`,
-          `  </details></div>`
-        ].join("\n");
-        await ChatMessage.create({ speaker: { alias: this.item.name }, content,
-          flags: { kk9: { isRoll: true } } });
+      // ── Удалить эффект ──
+      html.find(".st-effect-delete").click(async e => {
+        const idx     = parseInt(e.currentTarget.dataset.idx);
+        const effects = foundry.utils.deepClone(this.item.system.effects || []);
+        effects.splice(idx, 1);
+        await this.item.update({ "system.effects": effects });
       });
-      // Удалить навык
-      html.find(".dm-skill-del").click(async e => {
-        const idx = parseInt(e.currentTarget.dataset.index);
-        const skills = [...(this.item.system.skills || [])];
-        skills.splice(idx, 1);
-        await this.item.update({ "system.skills": skills });
+
+      // ── Переключить enabled эффекта ──
+      html.find(".st-effect-enabled").click(async e => {
+        const idx     = parseInt(e.currentTarget.dataset.idx);
+        const effects = foundry.utils.deepClone(this.item.system.effects || []);
+        if (!effects[idx]) return;
+        effects[idx].enabled = e.currentTarget.checked;
+        await this.item.update({ "system.effects": effects });
       });
-      // Изменить die
-      html.find(".dm-skill-die").change(async e => {
-        const idx = parseInt(e.currentTarget.dataset.index);
-        const skills = foundry.utils.deepClone(this.item.system.skills || []);
-        if (skills[idx]) { skills[idx].die = parseInt(e.currentTarget.value); await this.item.update({ "system.skills": skills }); }
+
+      // ── Чекбоксы полей эффекта (roll_modifier, health.overflow и т.д.) ──
+      html.find(".st-rm-field").click(async e => {
+        const idx   = parseInt(e.currentTarget.dataset.idx);
+        const field = e.currentTarget.dataset.field;
+        await saveEffectField(idx, field, e.currentTarget.checked);
       });
-      // Изменить modifier
-      html.find(".dm-skill-mod").change(async e => {
-        const idx = parseInt(e.currentTarget.dataset.index);
-        const skills = foundry.utils.deepClone(this.item.system.skills || []);
-        if (skills[idx]) { skills[idx].modifier = parseInt(e.currentTarget.value)||0; await this.item.update({ "system.skills": skills }); }
+
+      // ── Числовые поля эффекта ──
+      html.find(".st-rm-number").on("change", async e => {
+        const idx   = parseInt(e.currentTarget.dataset.idx);
+        const field = e.currentTarget.dataset.field;
+        const val   = parseInt(e.currentTarget.value) || 0;
+        await saveEffectField(idx, field, val);
+      });
+
+      // ── Select-поля эффекта ──
+      // extra_die_faces — NumberField, остальные — StringField
+      const NUMERIC_SELECT_FIELDS = new Set(["roll_modifier.extra_die_faces"]);
+      html.find(".st-rm-select").on("change", async e => {
+        const idx   = parseInt(e.currentTarget.dataset.idx);
+        const field = e.currentTarget.dataset.field;
+        const raw   = e.currentTarget.value;
+        const val   = NUMERIC_SELECT_FIELDS.has(field) ? (parseInt(raw) || 6) : raw;
+        await saveEffectField(idx, field, val);
+      });
+
+      // ── Степпер die_change ──
+      html.find(".st-die-step").click(async e => {
+        const idx = parseInt(e.currentTarget.dataset.idx);
+        const dir = parseInt(e.currentTarget.dataset.dir);
+        const effects = foundry.utils.deepClone(this.item.system.effects || []);
+        if (!effects[idx]) return;
+        const cur = effects[idx].roll_modifier.die_change || 0;
+        // Ограничиваем: базовый индекс d6=1, диапазон [-1..-6, +1..+5]
+        const newVal = Math.max(-6, Math.min(5, cur + dir));
+        effects[idx].roll_modifier.die_change = newVal;
+        await this.item.update({ "system.effects": effects });
+      });
+
+      // ── Drag-drop навыков в target_skills ──
+      html.find(".st-skill-drop-zone")
+        .on("dragover", e => { e.preventDefault(); $(e.currentTarget).addClass("st-drop-hover"); })
+        .on("dragleave", e => { $(e.currentTarget).removeClass("st-drop-hover"); })
+        .on("drop", async e => {
+          e.preventDefault();
+          $(e.currentTarget).removeClass("st-drop-hover");
+          const idx = parseInt(e.currentTarget.dataset.idx);
+          let data;
+          try { data = JSON.parse(e.originalEvent.dataTransfer.getData("text/plain")); } catch { return; }
+          if (!data.uuid) return;
+          const item = await fromUuid(data.uuid);
+          if (!item || !["ability","skill"].includes(item.type)) {
+            ui.notifications.warn("Перетащи навык или способность."); return;
+          }
+          const effects = foundry.utils.deepClone(this.item.system.effects || []);
+          if (!effects[idx]) return;
+          const skills = effects[idx].roll_modifier.target_skills || [];
+          if (skills.find(s => s.uuid === item.uuid)) return; // уже есть
+          skills.push({ uuid: item.uuid, name: item.name });
+          effects[idx].roll_modifier.target_skills = skills;
+          await this.item.update({ "system.effects": effects });
+        });
+
+      // ── Удалить навык из target_skills ──
+      html.find(".st-skill-remove").click(async e => {
+        const effIdx = parseInt(e.currentTarget.dataset.effIdx);
+        const skIdx  = parseInt(e.currentTarget.dataset.skIdx);
+        const effects = foundry.utils.deepClone(this.item.system.effects || []);
+        if (!effects[effIdx]) return;
+        effects[effIdx].roll_modifier.target_skills.splice(skIdx, 1);
+        await this.item.update({ "system.effects": effects });
       });
     }
 
@@ -1996,4 +1905,510 @@ async function _startChargen(actor) {
     };
     app.render(true);
   });
+}
+
+// ============================================================
+// KK9DaemonSheet — ActorSheet для даймона
+// ============================================================
+export class KK9DaemonSheet extends ActorSheet {
+  // Вспомогалка — применить сдвиг грани
+  _applyDieShift(die, shift) {
+    const scale = [4,6,8,10,12,20,100];
+    const idx = scale.indexOf(die);
+    if (idx < 0) return die;
+    return scale[Math.max(0, Math.min(scale.length-1, idx + shift))] ?? die;
+  }
+
+  // Вспомогалка — бросить extraDice и вернуть { extraTotal, extraReasons }
+  async _rollExtraDice(extraDice) {
+    let extraTotal = 0;
+    const extraReasons = [];
+    for (const ed of (extraDice ?? [])) {
+      const sign      = ed.mode === "add" ? 1 : -1;
+      const extraRoll = new Roll(`1d${ed.faces}`);
+      await extraRoll.evaluate();
+      extraTotal += sign * extraRoll.total;
+      const signStr = sign > 0 ? `+1d${ed.faces} = +${extraRoll.total}` : `-1d${ed.faces} = −${extraRoll.total}`;
+      extraReasons.push(`${ed.name ?? "Статус"}: ${signStr}`);
+    }
+    return { extraTotal, extraReasons };
+  }
+
+  // Вспомогалка — применить successMod к degree
+  _applySuccessMod(deg, successMod) {
+    if (!successMod || deg.cls !== "kk9-result-success") return deg;
+    const s = Math.max(0, (deg.sc ?? 1) + successMod);
+    return {
+      ...deg,
+      sc:  s,
+      lbl: s === 1 ? "1 успех" : s <= 4 ? `${s} успеха` : `${s} успехов`
+    };
+  }
+
+
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      classes: ["kk9", "sheet", "daemon-sheet"],
+      template: "systems/kk9/templates/actors/daemon-sheet.hbs",
+      width: 560, height: 680, resizable: true,
+      tabs: [{ navSelector: ".sheet-tabs", contentSelector: ".sheet-body", initial: "main" }]
+    });
+  }
+
+  async getData() {
+    const context = await super.getData();
+    const actor   = this.actor;
+    context.system = actor.system;
+    context.isGM   = game.user.isGM;
+    context.isOrb  = actor.system.is_orb ?? true;
+    // Статусы из embedded Items
+    context.activeStatuses = actor.items
+      .filter(i => i.type === "status")
+      .map(i => ({
+        id:            i.id,
+        name:          i.name,
+        status_types:  i.system.status_types ?? [],
+        duration_mode: i.system.duration?.mode  ?? "time",
+        duration_value:i.system.duration?.value ?? 1,
+        apply_stun:    i.system.apply_stun ?? false,
+      }));
+    return context;
+  }
+
+  async _onDrop(event) {
+    let data;
+    try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+    if (data.type !== "Item") return super._onDrop(event);
+    const item = await fromUuid(data.uuid);
+    if (!item) return;
+    if (item.type === "status") {
+      const { applyStatusToActor } = await import("./weapon-combat.mjs");
+      await applyStatusToActor(this.actor, item);
+      return;
+    }
+    return super._onDrop(event);
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    const actor = this.actor;
+
+    // is_orb toggle
+    html.find(".daemon-orb-toggle").click(async () => {
+      await actor.update({ "system.is_orb": !actor.system.is_orb });
+    });
+
+    // Health pips
+    html.find(".health-pip").click(async e => {
+      const track = e.currentTarget.dataset.track;
+      const val   = parseInt(e.currentTarget.dataset.value);
+      if (track === "daemon-physical") {
+        const cur = actor.system.health?.physical?.value ?? 0;
+        await actor.update({ "system.health.physical.value": cur === val ? Math.max(0, val-1) : val });
+      } else if (track === "daemon-mental") {
+        const cur = actor.system.health?.mental?.value ?? 0;
+        await actor.update({ "system.health.mental.value": cur === val ? Math.max(0, val-1) : val });
+      }
+    });
+
+    // Бросок атрибута
+    html.find(".dm-attr-roll").click(async e => {
+      if (actor.system.is_orb) return;
+      e.stopPropagation();
+      const attrKey = e.currentTarget.dataset.attr;
+      const attr    = actor.system.attributes?.[attrKey];
+      if (!attr) return;
+      const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
+      // Статусные модификаторы
+      const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+      const stMods = collectStatusModifiers(actor, { attributeKey: attrKey });
+      let die = this._applyDieShift(attr.die || 6, stMods.dieMod);
+      const mod    = (attr.modifier || 0) + stMods.numericMod;
+      const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
+      const roll   = new Roll(`1d${die}x${modStr}`);
+      await roll.evaluate();
+      const total  = roll.total;
+      let deg;
+      if (total <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи" };
+      else if (total < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача" };
+      else { const sc = 1+Math.floor((total-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
+      const portrait = actor.img || "icons/svg/mystery-man.svg";
+      const { extraTotal: attrExtra, extraReasons: attrExtraR } = await this._rollExtraDice(stMods.extraDice);
+      const finalTotal = total + attrExtra;
+      deg = this._applySuccessMod(deg, stMods.successMod);
+      const results  = roll.terms[0]?.results ?? [];
+      const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
+      const allReasons = [...stMods.reasons.filter(r=>!r.includes("доп.")), ...attrExtraR];
+      const reasonRows = allReasons.length ? `<div class="kk9-dsep"></div>${allReasons.map(r=>`<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`).join("")}` : "";
+      const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">${LABELS[attrKey]||attrKey}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceRows}${reasonRows}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${finalTotal}</span></div></div></details></div>`;
+      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content, flags: { kk9: { isRoll: true } } });
+      if (stMods.usedIds.length) await consumeStatusCharges(actor, stMods.usedIds);
+    });
+
+    // Инициатива
+    html.find(".daemon-roll-initiative").click(async () => {
+      if (actor.system.is_orb) return;
+      const attrs  = actor.system.attributes || {};
+      const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+      const stMods = collectStatusModifiers(actor, { isInitiative: true, attributeKey: null });
+      const agDie  = this._applyDieShift(attrs.agility?.die || 6, stMods.dieMod);
+      const smDie  = this._applyDieShift(attrs.smarts?.die  || 6, stMods.dieMod);
+      const mod    = (attrs.agility?.modifier||0) + (attrs.smarts?.modifier||0) + stMods.numericMod;
+      const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
+      const formula = `1d${agDie}x + 1d${smDie}x${modStr}`;
+      const roll    = new Roll(formula);
+      await roll.evaluate();
+      const total   = roll.total;
+      const portrait = actor.img || "icons/svg/mystery-man.svg";
+      let diceRows = "";
+      for (const term of roll.terms) {
+        if (typeof term.faces !== "number") continue;
+        const results = term.results ?? [];
+        const vals = results.map(rv => `<span class="kk9-rv dk">${rv.exploded?"💥":""}${rv.result}</span>`).join("");
+        const sum  = results.reduce((a, v) => a + v.result, 0);
+        diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
+      }
+      const { extraTotal: initExtra, extraReasons: initExtraR } = await this._rollExtraDice(stMods.extraDice);
+      const initFinalTotal = total + initExtra;
+      const allInitReasons = [...stMods.reasons.filter(r=>!r.includes("доп.")), ...initExtraR];
+      if (allInitReasons.length) { diceRows += `<div class="kk9-dsep"></div>`; allInitReasons.forEach(r => { diceRows += `<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`; }); }
+      diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${initFinalTotal}</span></div>`;
+      const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">Инициатива</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${initFinalTotal}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`;
+      if (game?.combat) {
+        const cb = game.combat.combatants.find(c => c.actorId === actor.id);
+        if (cb) await game.combat.setInitiative(cb.id, initFinalTotal);
+      }
+      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content, flags: { kk9: { isRoll: true } } });
+      if (stMods.usedIds.length) await consumeStatusCharges(actor, stMods.usedIds);
+    });
+
+    // Стойкость
+    html.find(".daemon-roll-toughness").click(async () => {
+      if (actor.system.is_orb) return;
+      const attrs = actor.system.attributes || {};
+      const spDie = attrs.spirit?.die || 6;
+      const spMod = attrs.spirit?.modifier || 0;
+      const resistNames = ["Сопротивление боли","Сопротивление магии","Сопротивление ментальному давлению","Самоконтроль","Выживание"];
+      const available   = (actor.system.skills || []).filter(sk => resistNames.includes(sk.name));
+      const options     = available.map((sk, i) => `<option value="${i}">${sk.name} (d${sk.die||6})</option>`).join("");
+      let chosen = null;
+      try {
+        chosen = await Dialog.prompt({
+          title: "Бросок Стойкости",
+          content: `<div style="padding:8px"><p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>${available.length ? `<select id="resist-skill" style="width:100%"><option value="">— только Дух —</option>${options}</select>` : "<em>Нет доступных навыков</em>"}</div>`,
+          label: "Бросить",
+          callback: html => html.find("#resist-skill").val() || null
+        });
+      } catch(e) { return; }
+      const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+      const stMods = collectStatusModifiers(actor, { isToughness: true, attributeKey: "spirit" });
+      let formula, label = "Стойкость", reasons = [...stMods.reasons];
+      if (chosen !== null && chosen !== "") {
+        const sk = available[parseInt(chosen)];
+        const skillDie = this._applyDieShift(sk.die || 6, stMods.dieMod);
+        const skillMod = sk.modifier || 0;
+        const totalMod = spMod + skillMod + stMods.numericMod;
+        const effSpDie = this._applyDieShift(spDie, stMods.dieMod);
+        const spModStr = spMod !== 0 ? (spMod>0?`+${spMod}`:`${spMod}`) : "";
+        const skModStr = skillMod !== 0 ? (skillMod>0?`+${skillMod}`:`${skillMod}`) : "";
+        const numStr   = stMods.numericMod !== 0 ? (stMods.numericMod>0?`+${stMods.numericMod}`:`${stMods.numericMod}`) : "";
+        formula = `1d${effSpDie}x${spModStr} + 1d${skillDie}x${skModStr}${numStr}`;
+        label   = `Стойкость + ${sk.name}`;
+        if (totalMod) reasons.push(`мод. итого: ${totalMod>0?"+"+totalMod:totalMod}`);
+      } else {
+        const effSpDie = this._applyDieShift(spDie, stMods.dieMod);
+        const totalMod = spMod + stMods.numericMod;
+        const modStr   = totalMod !== 0 ? (totalMod>0?`+${totalMod}`:`${totalMod}`) : "";
+        formula = `1d${effSpDie}x${modStr}`;
+        if (totalMod) reasons.push(`мод.: ${totalMod>0?"+"+totalMod:totalMod}`);
+      }
+      const roll = new Roll(formula);
+      await roll.evaluate();
+      const total   = roll.total;
+      const portrait = actor.img || "icons/svg/mystery-man.svg";
+      let diceRows = "";
+      for (const term of roll.terms) {
+        if (typeof term.faces !== "number") continue;
+        const results = term.results ?? [];
+        const vals = results.map(rv=>`<span class="kk9-rv dk">${rv.exploded?"💥":""}${rv.result}</span>`).join("");
+        const sum  = results.reduce((a,v)=>a+v.result,0);
+        diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
+      }
+      const { extraTotal: toughExtra, extraReasons: toughExtraR } = await this._rollExtraDice(stMods.extraDice);
+      const toughFinalTotal = total + toughExtra;
+      const allToughReasons = [...reasons, ...toughExtraR];
+      if (allToughReasons.length) { diceRows += `<div class="kk9-dsep"></div>`; allToughReasons.forEach(r => { diceRows += `<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`; }); }
+      diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${toughFinalTotal}</span></div>`;
+      let deg;
+      if (toughFinalTotal <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи", sc:0 };
+      else if (toughFinalTotal < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача", sc:0 };
+      else { const sc = 1+Math.floor((toughFinalTotal-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов`, sc }; }
+      deg = this._applySuccessMod(deg, stMods.successMod);
+      const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">${label}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`;
+      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content, flags: { kk9: { isRoll: true } } });
+      if (stMods.usedIds.length) await consumeStatusCharges(actor, stMods.usedIds);
+    });
+
+    // Бросок навыка/способности
+    html.find(".dm-rollable").click(async e => {
+      if (actor.system.is_orb) return;
+      const idx = parseInt(e.currentTarget.dataset.index);
+      const sk  = actor.system.skills?.[idx];
+      if (!sk) return;
+      const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+      const stMods = collectStatusModifiers(actor, { skillUuid: sk.uuid || "" });
+      const die    = this._applyDieShift(sk.die || 6, stMods.dieMod);
+      const mod    = (sk.modifier || 0) + stMods.numericMod;
+      const modStr = mod !== 0 ? (mod>0?`+${mod}`:`${mod}`) : "";
+      const roll   = new Roll(`1d${die}x${modStr}`);
+      await roll.evaluate();
+      const total  = roll.total;
+      let degree;
+      if (total <= 1) degree = { type:"snake_eyes", label:"Глаза змеи" };
+      else if (total < 6) degree = { type:"failure", label:"Неудача" };
+      else { const sc = 1+Math.floor((total-6)/4); degree = { type:"success", label: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
+      const portrait = actor.img || "icons/svg/mystery-man.svg";
+      const results  = roll.terms[0]?.results ?? [];
+      const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
+      const modRow   = mod ? `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ мод.: ${modStr}</span></div>` : "";
+      const { extraTotal: skExtra, extraReasons: skExtraR } = await this._rollExtraDice(stMods.extraDice);
+      const skFinalTotal = total + skExtra;
+      degree = this._applySuccessMod(degree, stMods.successMod);
+      const allSkReasons = [...stMods.reasons.filter(r=>!r.includes("доп.")), ...skExtraR];
+      const reasonRows = allSkReasons.length ? `<div class="kk9-dsep"></div>${allSkReasons.map(r=>`<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`).join("")}` : "";
+      const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${actor.img}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">${sk.name}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-${degree.type}"><span class="kk9-result-text">${degree.lbl ?? degree.label}</span></summary><div class="kk9-dice-body">${diceRows}${reasonRows}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${skFinalTotal}</span></div></div></details></div>`;
+      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content, flags: { kk9: { isRoll: true } } });
+      if (stMods.usedIds.length) await consumeStatusCharges(actor, stMods.usedIds);
+    });
+
+    // Статусы — drag-drop через _onDrop (обрабатывается там)
+    html.find(".daemon-status-drop")
+      .on("dragover", e => { e.preventDefault(); $(e.currentTarget).addClass("dm-drop-hover"); })
+      .on("dragleave", e => $(e.currentTarget).removeClass("dm-drop-hover"));
+
+    // Статусы — удаление
+    html.find(".actor-remove-status").click(async e => {
+      if (!game.user.isGM) return;
+      const itemId = e.currentTarget.dataset.itemId;
+      if (!itemId) return;
+      const { removeStatusFromActor } = await import("./weapon-combat.mjs");
+      await removeStatusFromActor(actor, itemId);
+    });
+
+    // Статусы — применить вручную (time)
+    html.find(".actor-apply-status").click(async e => {
+      const itemId     = e.currentTarget.dataset.itemId;
+      const statusItem = actor.items.get(itemId);
+      if (!statusItem) return;
+      const { _applyStatusEffectsManual } = await import("./weapon-combat.mjs");
+      if (_applyStatusEffectsManual) await _applyStatusEffectsManual(actor, statusItem);
+    });
+
+    // Открыть статус для редактирования
+    html.find(".item-name-click").click(e => {
+      const itemId = e.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      if (!itemId) return;
+      actor.items.get(itemId)?.sheet?.render(true);
+    });
+  }
+}
+
+// ============================================================
+// KK9CompanionSheet — ActorSheet для спутника
+// ============================================================
+export class KK9CompanionSheet extends ActorSheet {
+  // Вспомогалка — применить сдвиг грани
+  _applyDieShift(die, shift) {
+    const scale = [4,6,8,10,12,20,100];
+    const idx = scale.indexOf(die);
+    if (idx < 0) return die;
+    return scale[Math.max(0, Math.min(scale.length-1, idx + shift))] ?? die;
+  }
+
+  // Вспомогалка — бросить extraDice и вернуть { extraTotal, extraReasons }
+  async _rollExtraDice(extraDice) {
+    let extraTotal = 0;
+    const extraReasons = [];
+    for (const ed of (extraDice ?? [])) {
+      const sign      = ed.mode === "add" ? 1 : -1;
+      const extraRoll = new Roll(`1d${ed.faces}`);
+      await extraRoll.evaluate();
+      extraTotal += sign * extraRoll.total;
+      const signStr = sign > 0 ? `+1d${ed.faces} = +${extraRoll.total}` : `-1d${ed.faces} = −${extraRoll.total}`;
+      extraReasons.push(`${ed.name ?? "Статус"}: ${signStr}`);
+    }
+    return { extraTotal, extraReasons };
+  }
+
+  // Вспомогалка — применить successMod к degree
+  _applySuccessMod(deg, successMod) {
+    if (!successMod || deg.cls !== "kk9-result-success") return deg;
+    const s = Math.max(0, (deg.sc ?? 1) + successMod);
+    return {
+      ...deg,
+      sc:  s,
+      lbl: s === 1 ? "1 успех" : s <= 4 ? `${s} успеха` : `${s} успехов`
+    };
+  }
+
+
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      classes: ["kk9", "sheet", "companion-sheet"],
+      template: "systems/kk9/templates/actors/companion-sheet.hbs",
+      width: 480, height: 560, resizable: true,
+    });
+  }
+
+  async getData() {
+    const context = await super.getData();
+    const actor   = this.actor;
+    context.system = actor.system;
+    context.isGM   = game.user.isGM;
+    context.isStunned = actor.system.is_stunned ?? false;
+    // Статусы из embedded Items
+    context.activeStatuses = actor.items
+      .filter(i => i.type === "status")
+      .map(i => ({
+        id:            i.id,
+        name:          i.name,
+        status_types:  i.system.status_types ?? [],
+        duration_mode: i.system.duration?.mode  ?? "time",
+        duration_value:i.system.duration?.value ?? 1,
+        apply_stun:    i.system.apply_stun ?? false,
+      }));
+    return context;
+  }
+
+  async _onDrop(event) {
+    let data;
+    try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+    if (data.type !== "Item") return super._onDrop(event);
+    const item = await fromUuid(data.uuid);
+    if (!item) return;
+    if (item.type === "status") {
+      const { applyStatusToActor } = await import("./weapon-combat.mjs");
+      await applyStatusToActor(this.actor, item);
+      return;
+    }
+    return super._onDrop(event);
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    const actor = this.actor;
+
+    // Снять стан
+    html.find(".companion-remove-stun").click(async () => {
+      await actor.update({ "system.is_stunned": false });
+      // Снимаем token effect stun
+      await actor.toggleStatusEffect("stun", { active: false }).catch(() => {});
+    });
+
+    // Bond pips
+    html.find(".cp-bond-pip").click(async e => {
+      const val     = parseInt(e.currentTarget.dataset.value);
+      const cur     = actor.system.bond ?? 1;
+      const newBond = cur === val ? Math.max(1, val-1) : val;
+      await actor.update({ "system.bond": newBond });
+    });
+
+    // Бросок атрибута
+    html.find(".cp-attr-roll").click(async e => {
+      e.stopPropagation();
+      const attrKey = e.currentTarget.dataset.attr;
+      const attr    = actor.system.attributes?.[attrKey];
+      if (!attr) return;
+      const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
+      const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+      const stMods = collectStatusModifiers(actor, { attributeKey: attrKey });
+      const die    = this._applyDieShift(attr.die || 6, stMods.dieMod);
+      const mod    = (attr.modifier || 0) + stMods.numericMod;
+      const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
+      const roll   = new Roll(`1d${die}x${modStr}`);
+      await roll.evaluate();
+      const total  = roll.total;
+      let deg;
+      if (total <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи" };
+      else if (total < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача" };
+      else { const sc = 1+Math.floor((total-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
+      const portrait = actor.img || "icons/svg/mystery-man.svg";
+      const results  = roll.terms[0]?.results ?? [];
+      const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
+      const { extraTotal: cpExtra, extraReasons: cpExtraR } = await this._rollExtraDice(stMods.extraDice);
+      const cpFinalTotal = total + cpExtra;
+      deg = this._applySuccessMod(deg, stMods.successMod);
+      const cpAllReasons = [...stMods.reasons.filter(r=>!r.includes("доп.")), ...cpExtraR];
+      const reasonRows = cpAllReasons.length ? `<div class="kk9-dsep"></div>${cpAllReasons.map(r=>`<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`).join("")}` : "";
+      const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">${LABELS[attrKey]||attrKey}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceRows}${reasonRows}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${cpFinalTotal}</span></div></div></details></div>`;
+      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content, flags: { kk9: { isRoll: true } } });
+      if (stMods.usedIds.length) await consumeStatusCharges(actor, stMods.usedIds);
+    });
+
+    // Инициатива
+    html.find(".companion-roll-initiative").click(async () => {
+      const attrs  = actor.system.attributes || {};
+      const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+      const stMods = collectStatusModifiers(actor, { isInitiative: true, attributeKey: null });
+      const agDie  = this._applyDieShift(attrs.agility?.die || 6, stMods.dieMod);
+      const smDie  = this._applyDieShift(attrs.smarts?.die  || 6, stMods.dieMod);
+      const mod    = (attrs.agility?.modifier||0) + (attrs.smarts?.modifier||0) + stMods.numericMod;
+      const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
+      const formula = `1d${agDie}x + 1d${smDie}x${modStr}`;
+      const roll    = new Roll(formula);
+      await roll.evaluate();
+      const total   = roll.total;
+      const portrait = actor.img || "icons/svg/mystery-man.svg";
+      let diceRows = "";
+      for (const term of roll.terms) {
+        if (typeof term.faces !== "number") continue;
+        const results = term.results ?? [];
+        const vals = results.map(rv=>`<span class="kk9-rv dk">${rv.exploded?"💥":""}${rv.result}</span>`).join("");
+        const sum  = results.reduce((a,v)=>a+v.result,0);
+        diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
+      }
+      const { extraTotal: cpInitExtra, extraReasons: cpInitExtraR } = await this._rollExtraDice(stMods.extraDice);
+      const cpInitFinalTotal = total + cpInitExtra;
+      const allCpInitReasons = [...stMods.reasons.filter(r=>!r.includes("доп.")), ...cpInitExtraR];
+      if (allCpInitReasons.length) { diceRows += `<div class="kk9-dsep"></div>`; allCpInitReasons.forEach(r => { diceRows += `<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`; }); }
+      diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${cpInitFinalTotal}</span></div>`;
+      const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">Инициатива</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${cpInitFinalTotal}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`;
+      if (game?.combat) {
+        const cb = game.combat.combatants.find(c => c.actorId === actor.id);
+        if (cb) await game.combat.setInitiative(cb.id, cpInitFinalTotal);
+      }
+      await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content, flags: { kk9: { isRoll: true } } });
+      if (stMods.usedIds.length) await consumeStatusCharges(actor, stMods.usedIds);
+    });
+
+    // Статусы — drag-drop через _onDrop (обрабатывается там)
+    html.find(".companion-status-drop")
+      .on("dragover", e => { e.preventDefault(); $(e.currentTarget).addClass("cp-drop-hover"); })
+      .on("dragleave", e => $(e.currentTarget).removeClass("cp-drop-hover"));
+
+    // Статусы — удаление
+    html.find(".actor-remove-status").click(async e => {
+      if (!game.user.isGM) return;
+      const itemId = e.currentTarget.dataset.itemId;
+      if (!itemId) return;
+      const { removeStatusFromActor } = await import("./weapon-combat.mjs");
+      await removeStatusFromActor(actor, itemId);
+    });
+
+    // Статусы — применить вручную (time)
+    html.find(".actor-apply-status").click(async e => {
+      const itemId     = e.currentTarget.dataset.itemId;
+      const statusItem = actor.items.get(itemId);
+      if (!statusItem) return;
+      const { _applyStatusEffectsManual } = await import("./weapon-combat.mjs");
+      if (_applyStatusEffectsManual) await _applyStatusEffectsManual(actor, statusItem);
+    });
+
+    // Открыть статус для редактирования
+    html.find(".item-name-click").click(e => {
+      const itemId = e.currentTarget.closest("[data-item-id]")?.dataset.itemId;
+      if (!itemId) return;
+      actor.items.get(itemId)?.sheet?.render(true);
+    });
+  }
 }

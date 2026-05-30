@@ -2,7 +2,7 @@
   "id": "kk9",
   "title": "КК9 — Кризисный Комитет №9",
   "description": "Система для игры в мире двух реальностей.",
-  "version": "0.9.10",
+  "version": "0.9.12",
   "compatibility": {
     "minimum": "12",
     "verified": "13"
@@ -52,7 +52,17 @@
           "system.biography"
         ]
       },
-      "container": {}
+      "container": {},
+      "daemon": {
+        "htmlFields": [
+          "system.description"
+        ]
+      },
+      "companion": {
+        "htmlFields": [
+          "system.description"
+        ]
+      }
     },
     "Item": {
       "faculty": {
@@ -81,16 +91,6 @@
         ]
       },
       "spell": {
-        "htmlFields": [
-          "system.description"
-        ]
-      },
-      "daemon": {
-        "htmlFields": [
-          "system.description"
-        ]
-      },
-      "companion": {
         "htmlFields": [
           "system.description"
         ]
@@ -176,13 +176,13 @@
     {
       "name": "kk9-daemons",
       "label": "КК9 — Даймоны",
-      "type": "Item",
+      "type": "Actor",
       "system": "kk9"
     },
     {
       "name": "kk9-companions",
       "label": "КК9 — Спутники",
-      "type": "Item",
+      "type": "Actor",
       "system": "kk9"
     },
     {
