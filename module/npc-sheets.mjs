@@ -14,7 +14,7 @@ const NPC_ITEM_TYPE_LABELS = {
 // ============================================================
 // Базовый класс для всех НПС
 // ============================================================
-class KK9NpcBaseSheet extends ActorSheet {
+class KK9NpcBaseSheet extends foundry.appv1.sheets.ActorSheet {
 
   getData() {
     const c = super.getData();
@@ -74,12 +74,25 @@ class KK9NpcBaseSheet extends ActorSheet {
                 ?? html.find("form.kk9-sheet")[0]
                 ?? html[0];
       if (form) {
+        form.classList.add("has-faculty");
+        form.style.setProperty("--accent", facultyColor);
         form.style.setProperty("--faculty-accent", facultyColor);
         form.style.setProperty("--faculty-accent-dim", facultyColor + "99");
         html.find(".relation-level-range").each(function() {
           this.style.accentColor = facultyColor;
         });
       }
+      // Применяем напрямую к элементам статусов
+      html.find(".actor-status-tag").css({ "background": facultyColor + "15", "border-color": facultyColor + "40", "color": facultyColor });
+      html.find(".actor-status-dur").css("color", facultyColor);
+      html.find(".actor-status-row").css("border-bottom-color", facultyColor + "30");
+      html.find(".actor-statuses-section").css("border-color", facultyColor + "40");
+      html.find(".actor-statuses-title").css("color", facultyColor + "99");
+      html.find(".actor-status-apply-btn").css("color", facultyColor);
+      html.find(".actor-status-del-btn").hover(
+        function() { this.style.color = facultyColor; this.style.borderColor = facultyColor + "60"; },
+        function() { this.style.color = ""; this.style.borderColor = ""; }
+      );
     }
 
     // Удалить язык
@@ -563,7 +576,7 @@ const REF_TYPES = new Set(["artifact","daemon","companion"]);
 // Типы хранимые как embedded copies
 const EMBED_TYPES = new Set(["weapon","gear","spell","device"]);
 
-export class KK9ContainerSheet extends ActorSheet {
+export class KK9ContainerSheet extends foundry.appv1.sheets.ActorSheet {
 
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {

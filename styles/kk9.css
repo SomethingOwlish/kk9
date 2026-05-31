@@ -3223,10 +3223,10 @@ input[type="radio"][style*="display:none"] { display: none !important; }
 }
 .btn-delete-xs:hover, .btn-delete-sm:hover,
 .item-delete:hover, .fac-del:hover { color: #c0392b !important; }
-form.kk9-sheet[style*="--faculty-accent"] .btn-delete-xs:hover,
-form.kk9-sheet[style*="--faculty-accent"] .btn-delete-sm:hover,
-form.kk9-sheet[style*="--faculty-accent"] .item-delete:hover,
-form.kk9-sheet[style*="--faculty-accent"] .fac-del:hover {
+form.kk9-sheet.has-faculty .btn-delete-xs:hover,
+form.kk9-sheet.has-faculty .btn-delete-sm:hover,
+form.kk9-sheet.has-faculty .item-delete:hover,
+form.kk9-sheet.has-faculty .fac-del:hover {
   color: var(--faculty-accent) !important;
 }
 .kk9-sheet .item-row .btn-delete-xs:hover {
@@ -3594,7 +3594,7 @@ form.kk9-sheet[style*="--faculty-accent"] .fac-del:hover {
 }
 /* die-badge в attribute-row — SVG кубик, отображаем */
 /* attr-label кликабелен — hover подсветка */
-form.kk9-sheet[style*="--faculty-accent"] .attr-label.rollable-attribute:hover {
+form.kk9-sheet.has-faculty .attr-label.rollable-attribute:hover {
   color: var(--faculty-accent) !important;
 }
 .attr-label.rollable-attribute:hover {
@@ -3670,111 +3670,111 @@ form.kk9-sheet[style*="--faculty-accent"] .attr-label.rollable-attribute:hover {
    ============================================================ */
 
 /* Переопределяем системные переменные Foundry для крестиков и hover */
-form.kk9-sheet[style*="--faculty-accent"] {
+form.kk9-sheet.has-faculty {
   --color-shadow-highlight: var(--faculty-accent) !important;
   --color-shadow-primary: var(--faculty-accent-dim) !important;
 }
 
 /* Вкладки — активная */
-form.kk9-sheet[style*="--faculty-accent"] .sheet-tabs .item.active {
+form.kk9-sheet.has-faculty .sheet-tabs .item.active {
   color: var(--faculty-accent) !important;
   border-bottom-color: var(--faculty-accent) !important;
 }
 
 /* Заголовки секций — кроме magic-title */
-form.kk9-sheet[style*="--faculty-accent"] .section-title:not(.magic-title) {
+form.kk9-sheet.has-faculty .section-title:not(.magic-title) {
   color: var(--faculty-accent-dim) !important;
   border-bottom-color: var(--faculty-accent-dim) !important;
 }
 
 /* Заголовки групп снаряжения */
-form.kk9-sheet[style*="--faculty-accent"] .item-group-title {
+form.kk9-sheet.has-faculty .item-group-title {
   color: var(--faculty-accent-dim) !important;
 }
-form.kk9-sheet[style*="--faculty-accent"] .item-group-header {
+form.kk9-sheet.has-faculty .item-group-header {
   border-bottom-color: var(--faculty-accent-dim) !important;
 }
 
 /* Имя персонажа */
-form.kk9-sheet[style*="--faculty-accent"] .name-input {
+form.kk9-sheet.has-faculty .name-input {
   border-bottom-color: var(--faculty-accent) !important;
 }
 
 /* Подсветка фокуса */
-form.kk9-sheet[style*="--faculty-accent"] input:not([type="range"]):not([type="hidden"]):not([type="checkbox"]):focus,
-form.kk9-sheet[style*="--faculty-accent"] select:focus,
-form.kk9-sheet[style*="--faculty-accent"] textarea:focus {
+form.kk9-sheet.has-faculty input:not([type="range"]):not([type="hidden"]):not([type="checkbox"]):focus,
+form.kk9-sheet.has-faculty select:focus,
+form.kk9-sheet.has-faculty textarea:focus {
   border-color: var(--faculty-accent) !important;
   box-shadow: 0 0 0 1px var(--faculty-accent-dim) !important;
   outline: none !important;
 }
 /* Кнопки — никакого box-shadow при focus */
-form.kk9-sheet[style*="--faculty-accent"] button:focus {
+form.kk9-sheet.has-faculty button:focus {
   outline: none !important;
   box-shadow: none !important;
 }
 
 /* Жетоны судьбы */
-form.kk9-sheet[style*="--faculty-accent"] .bennie-on {
+form.kk9-sheet.has-faculty .bennie-on {
   color: var(--faculty-accent) !important;
   text-shadow: 0 0 6px var(--faculty-accent-dim) !important;
 }
 
 /* Связи — значение уровня */
-form.kk9-sheet[style*="--faculty-accent"] .relation-level-val {
+form.kk9-sheet.has-faculty .relation-level-val {
   color: var(--faculty-accent) !important;
 }
 
 /* Активные статусы — все в цвет факультета */
-form.kk9-sheet[style*="--faculty-accent"] .active-status-row {
+form.kk9-sheet.has-faculty .active-status-row {
   border-left-color: var(--faculty-accent) !important;
 }
 
 /* Кнопки действий снаряжения — только базовый цвет, без hover */
-form.kk9-sheet[style*="--faculty-accent"] .btn-ref-action {
+form.kk9-sheet.has-faculty .btn-ref-action {
   color: var(--faculty-accent) !important;
   border: none !important;
   background: transparent !important;
 }
-form.kk9-sheet[style*="--faculty-accent"] .btn-ref-action:hover {
+form.kk9-sheet.has-faculty .btn-ref-action:hover {
   color: var(--faculty-accent) !important;
   border: none !important;
   background: transparent !important;
 }
 /* btn-ref-icon (щит, молния) — НЕ меняем цвет при hover */
-form.kk9-sheet[style*="--faculty-accent"] .btn-ref-icon:hover {
+form.kk9-sheet.has-faculty .btn-ref-icon:hover {
   color: var(--text-dim) !important;
 }
 
 /* Hover имён */
-form.kk9-sheet[style*="--faculty-accent"] .item-name-click:hover,
-form.kk9-sheet[style*="--faculty-accent"] .item-row .item-name:hover,
-form.kk9-sheet[style*="--faculty-accent"] .skill-name:hover {
+form.kk9-sheet.has-faculty .item-name-click:hover,
+form.kk9-sheet.has-faculty .item-row .item-name:hover,
+form.kk9-sheet.has-faculty .skill-name:hover {
   color: var(--faculty-accent) !important;
 }
 
 /* Крестики — цвет берётся из --color-shadow-highlight выше */
 
 /* Die badge */
-form.kk9-sheet[style*="--faculty-accent"] .die-badge:hover {
+form.kk9-sheet.has-faculty .die-badge:hover {
   color: var(--faculty-accent) !important;
 }
 
 /* Кнопки + */
-form.kk9-sheet[style*="--faculty-accent"] .btn-add:hover,
-form.kk9-sheet[style*="--faculty-accent"] .btn-add-sm:hover {
+form.kk9-sheet.has-faculty .btn-add:hover,
+form.kk9-sheet.has-faculty .btn-add-sm:hover {
   border-color: var(--faculty-accent) !important;
   color: var(--faculty-accent) !important;
 }
 
 /* Derived buttons */
-form.kk9-sheet[style*="--faculty-accent"] .derived-btn:hover {
+form.kk9-sheet.has-faculty .derived-btn:hover {
   border-color: var(--faculty-accent-dim) !important;
 }
 
 
 /* Слайдер связей — webkit override (accent-color не работает в старом Electron) */
-form.kk9-sheet[style*="--faculty-accent"] .relation-level-range::-webkit-slider-thumb {
+form.kk9-sheet.has-faculty .relation-level-range::-webkit-slider-thumb {
   -webkit-appearance: none !important;
   width: 14px !important;
   height: 14px !important;
@@ -3782,7 +3782,7 @@ form.kk9-sheet[style*="--faculty-accent"] .relation-level-range::-webkit-slider-
   background: var(--faculty-accent) !important;
   cursor: pointer !important;
 }
-form.kk9-sheet[style*="--faculty-accent"] .relation-level-range::-webkit-slider-runnable-track {
+form.kk9-sheet.has-faculty .relation-level-range::-webkit-slider-runnable-track {
   background: var(--border2) !important;
   height: 4px !important;
   border-radius: 2px !important;

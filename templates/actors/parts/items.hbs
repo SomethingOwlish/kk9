@@ -114,8 +114,13 @@
     <div class="item-row" data-uuid="{{this.uuid}}" data-ref-type="daemon">
       <img src="{{this.img}}" class="item-img" />
       <span class="item-name item-name-click">{{this.name}}</span>
-      <div class="skill-controls" style="gap:10px">
-        {{#if this.system.summoned}}<span class="item-badge badge-summoned">Призван</span>{{/if}}
+      <div class="skill-controls" style="gap:6px;align-items:center">
+        {{#if this.system.is_orb}}
+          <span class="kk9-dm-badge kk9-dm-orb">Шарик</span>
+        {{else}}
+          <span class="kk9-dm-badge kk9-dm-free">Свободен</span>
+        {{/if}}
+        <span class="kk9-dm-dot" style="background:{{colorHex this.system.color}}" title="{{this.system.color}}"></span>
         <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="daemon">✕</button>
       </div>
     </div>
@@ -157,11 +162,49 @@
       <button type="button" class="item-create btn-add-sm" data-type="companion">+</button>
     </div>
     {{#each companions}}
-    <div class="item-row" data-uuid="{{this.uuid}}" data-ref-type="companion">
-      <img src="{{this.img}}" class="item-img" />
-      <span class="item-name item-name-click">{{this.name}}</span>
-      <div class="skill-controls" style="gap:10px">
-        <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="companion">✕</button>
+    <div class="kk9-companion-card" data-uuid="{{this.uuid}}" data-ref-type="companion">
+      {{!-- Закрытая строка: клик по строке (кроме имени) — toggle, клик по имени — карточка --}}
+      <div class="kk9-companion-header item-row kk9-companion-toggle" data-uuid="{{this.uuid}}">
+        <img src="{{this.img}}" class="item-img" />
+        <span class="item-name item-name-click" style="pointer-events:auto">{{this.name}}</span>
+        <div class="skill-controls" style="gap:6px;align-items:center">
+          <span class="kk9-cp-bond" title="Привязанность">
+            {{#if (eq this.system.bond 1)}}♡
+            {{else if (eq this.system.bond 2)}}♡♡
+            {{else if (eq this.system.bond 3)}}♥
+            {{else if (eq this.system.bond 4)}}♥♥
+            {{else}}♥♥♥{{/if}}
+          </span>
+          {{#if this.system.is_stunned}}
+          <span class="kk9-cp-stun-badge">⚡Стан</span>
+          {{/if}}
+          <span class="kk9-companion-arrow">▸</span>
+          <button type="button" class="item-delete btn-delete-xs" data-uuid="{{this.uuid}}" data-ref-type="companion">✕</button>
+        </div>
+      </div>
+      {{!-- Раскрытая часть --}}
+      <div class="kk9-companion-body" style="display:none">
+        <div class="kk9-cp-attrs">
+          {{#each this.system.attributes as |attr key|}}
+          <div class="kk9-cp-attr-box kk9-cp-attr-roll" data-uuid="{{../uuid}}" data-attr="{{key}}" title="Бросить">
+            <span class="kk9-cp-attr-label">
+              {{#if (eq key "agility")}}Лов
+              {{else if (eq key "smarts")}}Смек
+              {{else if (eq key "spirit")}}Дух
+              {{else if (eq key "endurance")}}Вын
+              {{else if (eq key "magic")}}Маг
+              {{else}}{{key}}{{/if}}
+            </span>
+            <span class="kk9-cp-attr-die">d{{attr.die}}{{#if attr.modifier}}{{#if (gt attr.modifier 0)}}+{{attr.modifier}}{{else}}{{attr.modifier}}{{/if}}{{/if}}</span>
+          </div>
+          {{/each}}
+        </div>
+        <div class="kk9-cp-actions">
+          <button type="button" class="kk9-cp-roll-init btn-sm" data-uuid="{{this.uuid}}">Инициатива</button>
+          {{#if ../isGM}}{{#if this.system.is_stunned}}
+          <button type="button" class="kk9-cp-remove-stun btn-sm btn-sm-danger" data-uuid="{{this.uuid}}">Снять стан</button>
+          {{/if}}{{/if}}
+        </div>
       </div>
     </div>
     {{else}}<p class="empty-hint">Нет спутников</p>{{/each}}
@@ -203,3 +246,77 @@
   </div>
 
 </section>
+
+<style>
+/* ── Даймон: бейдж режима ── */
+.kk9-dm-badge {
+  font-size: 0.68em; padding: 1px 7px; border-radius: 8px;
+  font-family: 'Jost', sans-serif; letter-spacing: 0.04em; flex-shrink: 0; white-space: nowrap;
+}
+.kk9-dm-orb  { background: rgba(30,30,30,0.8);   color: #94a3b8; border: 1px solid #444; }
+.kk9-dm-free { background: rgba(196,164,74,0.12); color: #c4a44a; border: 1px solid rgba(196,164,74,0.3); }
+.kk9-dm-dot  { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0; }
+
+/* ── Спутник: карточка ── */
+.kk9-companion-card {
+  border: 1px solid var(--border, #2a2a2a); border-radius: 4px;
+  margin-bottom: 3px; overflow: hidden; background: var(--bg2, #1e1e1e);
+}
+.kk9-companion-card > .item-row {
+  border-bottom: none; margin-bottom: 0; border-radius: 0;
+  background: transparent; cursor: pointer;
+}
+.kk9-companion-card > .item-row:hover { background: rgba(255,255,255,0.03); }
+
+/* Имя — клик открывает карточку, не bubbles toggle */
+.kk9-companion-card .item-name { cursor: pointer; }
+
+/* Bond */
+.kk9-cp-bond { font-size: 0.78em; color: #ec4899; flex-shrink: 0; letter-spacing: -1px; }
+
+/* Стан-бейдж */
+.kk9-cp-stun-badge {
+  font-size: 0.68em; padding: 1px 6px; border-radius: 8px; flex-shrink: 0; white-space: nowrap;
+  background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3);
+}
+
+/* Стрелка */
+.kk9-companion-arrow {
+  font-size: 0.75em; color: var(--text-dim, #6a6560);
+  flex-shrink: 0; cursor: pointer; padding: 0 2px; transition: color 0.15s;
+}
+
+/* Раскрытая часть */
+.kk9-companion-body {
+  padding: 6px 10px 8px; border-top: 1px solid var(--border, #2a2a2a);
+  background: var(--bg, #181818);
+}
+
+/* Атрибуты — flex, равномерно заполняют строку */
+.kk9-cp-attrs {
+  display: flex; gap: 4px; margin-bottom: 6px;
+}
+.kk9-cp-attr-box {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  background: var(--bg2, #1e1e1e); border: 1px solid var(--border, #2a2a2a);
+  border-radius: 3px; padding: 3px 4px; cursor: pointer; min-width: 0;
+  transition: border-color 0.15s;
+}
+.kk9-cp-attr-box:hover { border-color: rgba(196,164,74,0.4); }
+.kk9-cp-attr-label {
+  font-size: 0.58em; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim, #6a6560); white-space: nowrap;
+}
+.kk9-cp-attr-die { font-size: 0.8em; color: var(--text-head, #d8d0c8); font-family: 'Jost', sans-serif; }
+
+/* Кнопки действий */
+.kk9-cp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-sm {
+  padding: 3px 10px; font-size: 0.75em; font-family: 'Jost', sans-serif;
+  border-radius: 3px; cursor: pointer; transition: all 0.15s;
+  border: 1px solid rgba(196,164,74,0.3); background: rgba(196,164,74,0.08); color: #c4a44a;
+}
+.btn-sm:hover { background: rgba(196,164,74,0.18); border-color: rgba(196,164,74,0.5); }
+.btn-sm-danger { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.08); color: #f87171; }
+.btn-sm-danger:hover { background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.5); }
+</style>

@@ -32,12 +32,16 @@
         </span>
         <span class="dm-class-tag">{{system.daemon_class}}</span>
         {{#if (eq system.corporation "taro")}}
+        {{#if isMajor}}
+        <span class="dm-suit-tag">{{system.major_arcana}}</span>
+        {{else}}
         <span class="dm-suit-tag">
           {{#if (eq system.suit "cups")}}Кубки
           {{else if (eq system.suit "wands")}}Жезлы
           {{else if (eq system.suit "swords")}}Мечи
           {{else}}Пентакли{{/if}}
         </span>
+        {{/if}}
         {{/if}}
         <span class="dm-color-dot" style="background:{{colorHex system.color}}" title="{{system.color}}"></span>
       </div>
@@ -101,7 +105,7 @@
             {{#if (eq key "agility")}}Ловкость
             {{else if (eq key "smarts")}}Смекалка
             {{else if (eq key "spirit")}}Дух
-            {{else if (eq key "strength")}}Сила
+            {{else if (eq key "endurance")}}Выносливость
             {{else if (eq key "magic")}}Магия
             {{else}}{{key}}{{/if}}
           </span>
@@ -278,6 +282,35 @@
       <option value="major" {{#if (eq system.daemon_class "major")}}selected{{/if}}>Старшая карта</option>
     </select>
   </div>
+  {{#if isMajor}}
+  <div class="dm-param-block">
+    <span class="dm-param-label">Аркан</span>
+    <select name="system.major_arcana" class="kk9-select">
+      <option value="Дурак" {{#if (eq system.major_arcana "Дурак")}}selected{{/if}}>Дурак</option>
+      <option value="Маг" {{#if (eq system.major_arcana "Маг")}}selected{{/if}}>Маг</option>
+      <option value="Жрица" {{#if (eq system.major_arcana "Жрица")}}selected{{/if}}>Жрица</option>
+      <option value="Императрица" {{#if (eq system.major_arcana "Императрица")}}selected{{/if}}>Императрица</option>
+      <option value="Император" {{#if (eq system.major_arcana "Император")}}selected{{/if}}>Император</option>
+      <option value="Иерофант" {{#if (eq system.major_arcana "Иерофант")}}selected{{/if}}>Иерофант</option>
+      <option value="Влюблённые" {{#if (eq system.major_arcana "Влюблённые")}}selected{{/if}}>Влюблённые</option>
+      <option value="Колесница" {{#if (eq system.major_arcana "Колесница")}}selected{{/if}}>Колесница</option>
+      <option value="Справедливость" {{#if (eq system.major_arcana "Справедливость")}}selected{{/if}}>Справедливость</option>
+      <option value="Отшельник" {{#if (eq system.major_arcana "Отшельник")}}selected{{/if}}>Отшельник</option>
+      <option value="Колесо Фортуны" {{#if (eq system.major_arcana "Колесо Фортуны")}}selected{{/if}}>Колесо Фортуны</option>
+      <option value="Сила" {{#if (eq system.major_arcana "Сила")}}selected{{/if}}>Сила</option>
+      <option value="Повешенный" {{#if (eq system.major_arcana "Повешенный")}}selected{{/if}}>Повешенный</option>
+      <option value="Смерть" {{#if (eq system.major_arcana "Смерть")}}selected{{/if}}>Смерть</option>
+      <option value="Умеренность" {{#if (eq system.major_arcana "Умеренность")}}selected{{/if}}>Умеренность</option>
+      <option value="Дьявол" {{#if (eq system.major_arcana "Дьявол")}}selected{{/if}}>Дьявол</option>
+      <option value="Башня" {{#if (eq system.major_arcana "Башня")}}selected{{/if}}>Башня</option>
+      <option value="Звезда" {{#if (eq system.major_arcana "Звезда")}}selected{{/if}}>Звезда</option>
+      <option value="Луна" {{#if (eq system.major_arcana "Луна")}}selected{{/if}}>Луна</option>
+      <option value="Солнце" {{#if (eq system.major_arcana "Солнце")}}selected{{/if}}>Солнце</option>
+      <option value="Суд" {{#if (eq system.major_arcana "Суд")}}selected{{/if}}>Суд</option>
+      <option value="Мир" {{#if (eq system.major_arcana "Мир")}}selected{{/if}}>Мир</option>
+    </select>
+  </div>
+  {{else}}
   <div class="dm-param-block">
     <span class="dm-param-label">Масть</span>
     <select name="system.suit" class="kk9-select">
@@ -287,6 +320,7 @@
       <option value="pentacles" {{#if (eq system.suit "pentacles")}}selected{{/if}}>Пентакли</option>
     </select>
   </div>
+  {{/if}}
   {{/if}}
 
   {{!-- Класс для Радуги --}}

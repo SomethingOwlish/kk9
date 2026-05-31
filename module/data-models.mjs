@@ -616,7 +616,8 @@ export class DaemonActorDataModel extends foundry.abstract.TypeDataModel {
       }),
 
       // Класс
-      daemon_class: new fields.StringField({ initial: "1" }),
+      daemon_class:   new fields.StringField({ initial: "1" }),
+      major_arcana:   new fields.StringField({ initial: "Дурак" }),
 
       // Масть (только Таро)
       suit: new fields.StringField({

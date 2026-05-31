@@ -6,7 +6,7 @@
 // ============================================================
 // ПЕРСОНАЖ
 // ============================================================
-export class KK9CharacterSheet extends ActorSheet {
+export class KK9CharacterSheet extends foundry.appv1.sheets.ActorSheet {
 
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
@@ -93,9 +93,31 @@ export class KK9CharacterSheet extends ActorSheet {
     const _resolveRefs = (field) =>
       (this.actor.system[field] || []).map(uuid => fromUuidSync(uuid)).filter(Boolean);
     context.artifacts  = _resolveRefs("artifact_refs");
-    context.daemons    = _resolveRefs("daemon_refs");
-    context.companions = _resolveRefs("companion_refs");
     context.contacts   = _resolveRefs("contact_refs");
+
+    // Даймоны — обогащаем данными актора
+    context.daemons = (this.actor.system.daemon_refs || [])
+      .map(uuid => fromUuidSync(uuid))
+      .filter(Boolean)
+      .map(doc => ({
+        uuid:   doc.uuid,
+        name:   doc.name,
+        img:    doc.img,
+        type:   doc.type,
+        system: doc.system,
+      }));
+
+    // Спутники — обогащаем данными актора
+    context.companions = (this.actor.system.companion_refs || [])
+      .map(uuid => fromUuidSync(uuid))
+      .filter(Boolean)
+      .map(doc => ({
+        uuid:   doc.uuid,
+        name:   doc.name,
+        img:    doc.img,
+        type:   doc.type,
+        system: doc.system,
+      }));
 
     // Статусы — embedded Items на акторе
     context.activeStatuses = this.actor.items
@@ -271,19 +293,57 @@ export class KK9CharacterSheet extends ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Цвет акцентов из факультета
-    const facultyColor = this.actor.system?.faculty_color;
-    if (facultyColor) {
-      const form = (html[0]?.tagName === "FORM" ? html[0] : null) ?? html.find("form.kk9-sheet")[0] ?? html[0];
+    // Цвет акцентов из факультета — напрямую через JS как у НПС
+    const facultyColor = this.actor.system?.faculty_color || this.actor._getFacultyColor?.();
+    if (facultyColor && facultyColor !== "#888888") {
+      // Форма — для CSS-переменных и класса
+      const form = html.closest("form.kk9-sheet").add(html.filter("form.kk9-sheet")).get(0) ?? html[0];
       if (form) {
+        form.classList.add("has-faculty");
         form.style.setProperty("--faculty-accent", facultyColor);
         form.style.setProperty("--faculty-accent-dim", facultyColor + "99");
-        // Слайдеры связей — красим напрямую и через CSS var
-        html.find(".relation-level-range").each(function() {
-          this.style.accentColor = facultyColor;
-          this.style.setProperty("accent-color", facultyColor);
-        });
       }
+      // Применяем напрямую к элементам — не зависим от CSS-каскада
+      html.find(".bennie-on").css("color", facultyColor);
+      html.find(".relation-level-range").each(function() {
+        this.style.accentColor = facultyColor;
+      });
+      html.find(".relation-level-val").css("color", facultyColor);
+      html.find(".sheet-tabs .item.active:not(.gm-tab)").css({ "color": facultyColor, "border-bottom-color": facultyColor });
+      html.find(".sheet-tabs .item").on("click", function() {
+        html.find(".sheet-tabs .item").css({ "color": "", "border-bottom-color": "" });
+        if (!$(this).hasClass("gm-tab")) {
+          $(this).css({ "color": facultyColor, "border-bottom-color": facultyColor });
+        }
+      });
+      html.find(".section-title:not(.magic-title)").css({ "color": facultyColor + "99", "border-bottom-color": facultyColor + "40" });
+      html.find(".name-input").css("border-bottom-color", facultyColor);
+      html.find(".energy-cur").css("color", facultyColor);
+      // Теги статусов
+      html.find(".actor-status-tag").css({ "background": facultyColor + "15", "border-color": facultyColor + "40", "color": facultyColor });
+      // Надпись длительности (время/раунды/заряды)
+      html.find(".actor-status-dur").css("color", facultyColor);
+      // Рамки строк статусов
+      html.find(".actor-status-row").css("border-bottom-color", facultyColor + "30");
+      // Рамка блока статусов
+      html.find(".actor-statuses-section").css("border-color", facultyColor + "40");
+      // Заголовок статусов
+      html.find(".actor-statuses-title").css("color", facultyColor + "99");
+      // Кнопка применить
+      html.find(".actor-status-apply-btn").css("color", facultyColor);
+      // Кнопка удалить статус
+      html.find(".actor-status-del-btn").hover(
+        function() { this.style.color = facultyColor; this.style.borderColor = facultyColor + "60"; },
+        function() { this.style.color = ""; this.style.borderColor = ""; }
+      );
+      html.find(".btn-delete-xs, .item-delete, .fac-del").hover(
+        function() { this.style.color = facultyColor; },
+        function() { this.style.color = ""; }
+      );
+      html.find(".attr-label.rollable-attribute").hover(
+        function() { this.style.color = facultyColor; },
+        function() { this.style.color = ""; }
+      );
     }
 
     html.find(".rollable-attribute").click(e => { e.stopPropagation(); this.actor.rollAttribute(e.currentTarget.dataset.attribute); });
@@ -561,6 +621,98 @@ export class KK9CharacterSheet extends ActorSheet {
       const { _applyStatusEffectsManual } = await import("./weapon-combat.mjs");
       if (_applyStatusEffectsManual) await _applyStatusEffectsManual(this.actor, statusItem);
     });
+
+    // ── Мини-карточка спутника: toggle раскрытия по строке, имя — карточка ──
+    // Вся строка-header — toggle, кроме .item-name-click и .item-delete
+    html.find(".kk9-companion-toggle").click(e => {
+      // Если кликнули по имени или кнопке удаления — не togglem
+      if ($(e.target).hasClass("item-name-click") || $(e.target).hasClass("item-delete") || $(e.target).hasClass("btn-delete-xs")) return;
+      e.stopPropagation();
+      const uuid  = e.currentTarget.dataset.uuid;
+      const card  = html.find(`.kk9-companion-card[data-uuid="${uuid}"]`);
+      const body  = card.find(".kk9-companion-body");
+      const arrow = card.find(".kk9-companion-arrow");
+      const isOpen = body.is(":visible");
+      body.toggle(!isOpen);
+      arrow.text(isOpen ? "▸" : "▾");
+    });
+
+    // ── Мини-карточка спутника: бросок атрибута ──
+    html.find(".kk9-cp-attr-roll").click(async e => {
+      e.stopPropagation();
+      const uuid    = e.currentTarget.dataset.uuid
+        || $(e.currentTarget).closest(".kk9-companion-card").data("uuid");
+      const attrKey = e.currentTarget.dataset.attr;
+      const companion = await fromUuid(uuid);
+      if (!companion) return;
+      // rollAttribute на KK9Actor — уже учитывает статусы, здоровье, halfResult
+      await companion.rollAttribute(attrKey);
+    });
+
+    // ── Мини-карточка спутника: бросок инициативы ──
+    // Используем rollCompanionInitiative() — правильная формула 1dAgx + 1dSmx
+    html.find(".kk9-cp-roll-init").click(async e => {
+      e.stopPropagation();
+      const uuid = e.currentTarget.dataset.uuid
+        || $(e.currentTarget).closest(".kk9-companion-card").data("uuid");
+      if (!uuid) { console.error("KK9: kk9-cp-roll-init — uuid не найден"); return; }
+      const companion = await fromUuid(uuid);
+      if (!companion) { console.error("KK9: kk9-cp-roll-init — актор не найден для uuid:", uuid); return; }
+      if (typeof companion.rollCompanionInitiative !== "function") {
+        console.error("KK9: rollCompanionInitiative не найден на акторе", companion);
+        return;
+      }
+      const { roll, total } = await companion.rollCompanionInitiative();
+      // rollCompanionInitiative не создаёт чат-сообщение — делаем сами
+      const portrait = companion.img || "icons/svg/mystery-man.svg";
+      let diceRows = "";
+      for (const term of roll.terms) {
+        if (typeof term.faces !== "number") continue;
+        const results = term.results ?? [];
+        const vals = results.map(rv => `<span class="kk9-rv dk">${rv.exploded ? "!" : ""}${rv.result}</span>`).join("");
+        const sum  = results.reduce((a, v) => a + v.result, 0);
+        diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
+      }
+      diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${total}</span></div>`;
+      await ChatMessage.create({
+        speaker: ChatMessage.getSpeaker({ actor: companion }),
+        content: `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${companion.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${companion.name}</span><span class="kk9-chat-label">Инициатива</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${total}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`,
+        flags: { kk9: { isRoll: true } }
+      });
+    });
+
+    // ── Мини-карточка спутника: снять стан (только ГМ) ──
+    html.find(".kk9-cp-remove-stun").click(async e => {
+      e.stopPropagation();
+      if (!game.user.isGM) return;
+      const uuid = e.currentTarget.dataset.uuid
+        || $(e.currentTarget).closest(".kk9-companion-card").data("uuid");
+      if (!uuid) return;
+      const companion = await fromUuid(uuid);
+      if (!companion) return;
+      await companion.update({ "system.is_stunned": false });
+      await companion.toggleStatusEffect("stun", { active: false }).catch(() => {});
+      ChatMessage.create({
+        content: `<div class="kk9-chat-roll" style="--accent:#4ade80"><div class="kk9-chat-header"><div class="kk9-chat-header-text" style="padding:5px 10px"><span class="kk9-chat-name">${companion.name}</span><span class="kk9-chat-label">стан снят</span></div></div></div>`,
+        speaker: ChatMessage.getSpeaker({ alias: "Система" }),
+        flags: { kk9: { isRoll: true } }
+      });
+    });
+
+    // ── Авто-обновление листа при изменении связанных акторов (спутники/даймоны) ──
+    const _linkedUuids = new Set([
+      ...(this.actor.system.daemon_refs    || []),
+      ...(this.actor.system.companion_refs || []),
+    ]);
+    if (_linkedUuids.size) {
+      const _hookId = Hooks.on("updateActor", (updated) => {
+        if (_linkedUuids.has(updated.uuid)) this.render(false);
+      });
+      // Снимаем хук при закрытии листа
+      Hooks.once("closeActorSheet", (sheet) => {
+        if (sheet === this) Hooks.off("updateActor", _hookId);
+      });
+    }
   }
 
   async _onItemCreate(event) {
@@ -688,7 +840,7 @@ export class KK9CharacterSheet extends ActorSheet {
 // ============================================================
 // ITEM ЛИСТ
 // ============================================================
-export class KK9ItemSheet extends ItemSheet {
+export class KK9ItemSheet extends foundry.appv1.sheets.ItemSheet {
   // Если лист открыт из карточки актора — возвращаем того актора
   get contextActor() {
     if (this.item.actor) return this.item.actor;
@@ -1910,7 +2062,7 @@ async function _startChargen(actor) {
 // ============================================================
 // KK9DaemonSheet — ActorSheet для даймона
 // ============================================================
-export class KK9DaemonSheet extends ActorSheet {
+export class KK9DaemonSheet extends foundry.appv1.sheets.ActorSheet {
   // Вспомогалка — применить сдвиг грани
   _applyDieShift(die, shift) {
     const scale = [4,6,8,10,12,20,100];
@@ -1936,13 +2088,12 @@ export class KK9DaemonSheet extends ActorSheet {
 
   // Вспомогалка — применить successMod к degree
   _applySuccessMod(deg, successMod) {
-    if (!successMod || deg.cls !== "kk9-result-success") return deg;
-    const s = Math.max(0, (deg.sc ?? 1) + successMod);
-    return {
-      ...deg,
-      sc:  s,
-      lbl: s === 1 ? "1 успех" : s <= 4 ? `${s} успеха` : `${s} успехов`
-    };
+    if (!successMod) return deg;
+    if (deg.cls === "kk9-result-snake") return deg;
+    const curSc = deg.sc ?? (deg.cls === "kk9-result-success" ? 1 : 0);
+    const s = Math.max(0, curSc + successMod);
+    if (s === 0) return { cls:"kk9-result-failure", lbl:"Неудача", sc:0 };
+    return { cls:"kk9-result-success", sc:s, lbl: s===1?"1 успех":s<=4?`${s} успеха`:`${s} успехов` };
   }
 
 
@@ -1960,7 +2111,13 @@ export class KK9DaemonSheet extends ActorSheet {
     const actor   = this.actor;
     context.system = actor.system;
     context.isGM   = game.user.isGM;
-    context.isOrb  = actor.system.is_orb ?? true;
+    context.isOrb      = actor.system.is_orb ?? true;
+    context.isMajor    = actor.system.daemon_class === "major";
+    context.majorArcanaList = ['Дурак', 'Маг', 'Жрица', 'Императрица', 'Император', 'Иерофант', 'Влюблённые', 'Колесница', 'Справедливость', 'Отшельник', 'Колесо Фортуны', 'Сила', 'Повешенный', 'Смерть', 'Умеренность', 'Дьявол', 'Башня', 'Звезда', 'Луна', 'Солнце', 'Суд', 'Мир'].map(name => ({
+      value: name,
+      label: name,
+      selected: (actor.system.major_arcana ?? "Дурак") === name
+    }));
     // Статусы из embedded Items
     context.activeStatuses = actor.items
       .filter(i => i.type === "status")
@@ -2019,26 +2176,34 @@ export class KK9DaemonSheet extends ActorSheet {
       const attr    = actor.system.attributes?.[attrKey];
       if (!attr) return;
       const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
+      // Штрафы здоровья
+      const h = actor._getHealthModForAttr?.(attrKey) ?? { mod:0, halfResult:false, blocked:false, reasons:[] };
+      if (h.blocked) { ui.notifications.warn(`${actor.name}: бросок невозможен — последний пип.`); return; }
       // Статусные модификаторы
       const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
       const stMods = collectStatusModifiers(actor, { attributeKey: attrKey });
       let die = this._applyDieShift(attr.die || 6, stMods.dieMod);
-      const mod    = (attr.modifier || 0) + stMods.numericMod;
+      const mod    = (attr.modifier || 0) + h.mod + stMods.numericMod;
       const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
       const roll   = new Roll(`1d${die}x${modStr}`);
       await roll.evaluate();
       const total  = roll.total;
-      let deg;
-      if (total <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи" };
-      else if (total < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача" };
-      else { const sc = 1+Math.floor((total-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
-      const portrait = actor.img || "icons/svg/mystery-man.svg";
       const { extraTotal: attrExtra, extraReasons: attrExtraR } = await this._rollExtraDice(stMods.extraDice);
-      const finalTotal = total + attrExtra;
+      const rawTotal   = total + attrExtra;
+      // halfResult — последним
+      const finalTotal = h.halfResult ? Math.floor(rawTotal / 2) : rawTotal;
+      const allReasons = [...(h.reasons||[])];
+      if (attr.modifier) allReasons.push(`модификатор: ${attr.modifier > 0 ? "+" : ""}${attr.modifier}`);
+      allReasons.push(...stMods.reasons.filter(r=>!r.includes("доп.")), ...attrExtraR);
+      if (h.halfResult) allReasons.push("результат пополам (пип 4)");
+      let deg;
+      if (finalTotal <= 0) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи", sc:0 };
+      else if (finalTotal < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача", sc:0 };
+      else { const sc = 1+Math.floor((finalTotal-6)/4); deg = { cls:"kk9-result-success", sc, lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
       deg = this._applySuccessMod(deg, stMods.successMod);
+      const portrait = actor.img || "icons/svg/mystery-man.svg";
       const results  = roll.terms[0]?.results ?? [];
-      const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
-      const allReasons = [...stMods.reasons.filter(r=>!r.includes("доп.")), ...attrExtraR];
+      const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"!":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
       const reasonRows = allReasons.length ? `<div class="kk9-dsep"></div>${allReasons.map(r=>`<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`).join("")}` : "";
       const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">${LABELS[attrKey]||attrKey}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceRows}${reasonRows}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${finalTotal}</span></div></div></details></div>`;
       await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content, flags: { kk9: { isRoll: true } } });
@@ -2050,27 +2215,34 @@ export class KK9DaemonSheet extends ActorSheet {
       if (actor.system.is_orb) return;
       const attrs  = actor.system.attributes || {};
       const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
+      // Штрафы здоровья для инициативы — берём наихудший из agi/smt, blocked не проверяем
+      const hAg = actor._getHealthModForAttr?.("agility") ?? { mod:0, halfResult:false, blocked:false, reasons:[] };
+      const hSm = actor._getHealthModForAttr?.("smarts")  ?? { mod:0, halfResult:false, blocked:false, reasons:[] };
+      if (hAg.blocked || hSm.blocked) { ui.notifications.warn(`${actor.name}: инициатива невозможна — последний пип.`); return; }
+      const healthMod = Math.min(hAg.mod, hSm.mod);
+      const healthHalf = hAg.halfResult || hSm.halfResult;
       const stMods = collectStatusModifiers(actor, { isInitiative: true, attributeKey: null });
       const agDie  = this._applyDieShift(attrs.agility?.die || 6, stMods.dieMod);
       const smDie  = this._applyDieShift(attrs.smarts?.die  || 6, stMods.dieMod);
-      const mod    = (attrs.agility?.modifier||0) + (attrs.smarts?.modifier||0) + stMods.numericMod;
+      const mod    = (attrs.agility?.modifier||0) + (attrs.smarts?.modifier||0) + healthMod + stMods.numericMod;
       const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
       const formula = `1d${agDie}x + 1d${smDie}x${modStr}`;
       const roll    = new Roll(formula);
       await roll.evaluate();
-      const total   = roll.total;
+      const { extraTotal: initExtra, extraReasons: initExtraR } = await this._rollExtraDice(stMods.extraDice);
+      const rawTotal = roll.total + initExtra;
+      const initFinalTotal = healthHalf ? Math.floor(rawTotal / 2) : rawTotal;
+      const allInitReasons = [...(hAg.reasons||[]), ...stMods.reasons.filter(r=>!r.includes("доп.")), ...initExtraR];
+      if (healthHalf) allInitReasons.push("результат пополам (пип 4)");
       const portrait = actor.img || "icons/svg/mystery-man.svg";
       let diceRows = "";
       for (const term of roll.terms) {
         if (typeof term.faces !== "number") continue;
         const results = term.results ?? [];
-        const vals = results.map(rv => `<span class="kk9-rv dk">${rv.exploded?"💥":""}${rv.result}</span>`).join("");
+        const vals = results.map(rv => `<span class="kk9-rv dk">${rv.exploded?"!":""}${rv.result}</span>`).join("");
         const sum  = results.reduce((a, v) => a + v.result, 0);
         diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
       }
-      const { extraTotal: initExtra, extraReasons: initExtraR } = await this._rollExtraDice(stMods.extraDice);
-      const initFinalTotal = total + initExtra;
-      const allInitReasons = [...stMods.reasons.filter(r=>!r.includes("доп.")), ...initExtraR];
       if (allInitReasons.length) { diceRows += `<div class="kk9-dsep"></div>`; allInitReasons.forEach(r => { diceRows += `<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`; }); }
       diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${initFinalTotal}</span></div>`;
       const content = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">Инициатива</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-initiative"><span class="kk9-result-text">${initFinalTotal}</span></summary><div class="kk9-dice-body">${diceRows}</div></details></div>`;
@@ -2095,21 +2267,24 @@ export class KK9DaemonSheet extends ActorSheet {
       try {
         chosen = await Dialog.prompt({
           title: "Бросок Стойкости",
-          content: `<div style="padding:8px"><p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>${available.length ? `<select id="resist-skill" style="width:100%"><option value="">— только Дух —</option>${options}</select>` : "<em>Нет доступных навыков</em>"}</div>`,
+          options: { classes: ["dialog", "kk9-toughness-dialog"] },
+          content: `<style>.kk9-toughness-dialog,.kk9-toughness-dialog .window-content,.kk9-toughness-dialog .dialog-content{background:#1a1a1a!important;color:#b8b0a4!important}.kk9-toughness-dialog .window-header{background:#1a1a1a!important;border-bottom:1px solid #c4a44a!important}.kk9-toughness-dialog .dialog-button,.kk9-toughness-dialog button{background:rgba(196,164,74,0.15)!important;border:1px solid #c4a44a!important;color:#c4a44a!important;font-family:'Jost',sans-serif!important}.kk9-toughness-dialog .dialog-button:hover,.kk9-toughness-dialog button:hover{background:rgba(196,164,74,0.3)!important}</style><div style="background:var(--bg2,#1a1a1a);color:var(--text,#b8b0a4);font-family:'Jost',sans-serif;padding:12px"><p style="margin-bottom:10px;font-size:0.88em;color:var(--text-dim,#8a8278)">Дух${available.length ? " + навык сопротивления" : ""}</p>${available.length ? `<select id="resist-skill" style="width:100%;background:var(--bg3,#2a2a2a);border:1px solid var(--accent,#c4a44a);border-radius:3px;color:var(--text,#b8b0a4);padding:4px 6px;font-family:'Jost',sans-serif;font-size:0.9em"><option value="">— только Дух —</option>${options}</select>` : '<em style="color:var(--text-dim,#6a6560);font-size:0.85em">Нет доступных навыков</em>'}</div>`,
           label: "Бросить",
           callback: html => html.find("#resist-skill").val() || null
         });
       } catch(e) { return; }
       const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
       const stMods = collectStatusModifiers(actor, { isToughness: true, attributeKey: "spirit" });
-      let formula, label = "Стойкость", reasons = [...stMods.reasons];
+      // Штрафы здоровья для стойкости (spirit) — не блокируется при пипе 5
+      const hSp = actor._getHealthModForAttr?.("spirit", true) ?? { mod:0, halfResult:false, blocked:false, reasons:[] };
+      let formula, label = "Стойкость", reasons = [...(hSp.reasons||[]), ...stMods.reasons];
       if (chosen !== null && chosen !== "") {
         const sk = available[parseInt(chosen)];
         const skillDie = this._applyDieShift(sk.die || 6, stMods.dieMod);
         const skillMod = sk.modifier || 0;
-        const totalMod = spMod + skillMod + stMods.numericMod;
+        const totalMod = spMod + skillMod + hSp.mod + stMods.numericMod;
         const effSpDie = this._applyDieShift(spDie, stMods.dieMod);
-        const spModStr = spMod !== 0 ? (spMod>0?`+${spMod}`:`${spMod}`) : "";
+        const spModStr = (spMod + hSp.mod) !== 0 ? ((spMod+hSp.mod)>0?`+${spMod+hSp.mod}`:`${spMod+hSp.mod}`) : "";
         const skModStr = skillMod !== 0 ? (skillMod>0?`+${skillMod}`:`${skillMod}`) : "";
         const numStr   = stMods.numericMod !== 0 ? (stMods.numericMod>0?`+${stMods.numericMod}`:`${stMods.numericMod}`) : "";
         formula = `1d${effSpDie}x${spModStr} + 1d${skillDie}x${skModStr}${numStr}`;
@@ -2117,7 +2292,7 @@ export class KK9DaemonSheet extends ActorSheet {
         if (totalMod) reasons.push(`мод. итого: ${totalMod>0?"+"+totalMod:totalMod}`);
       } else {
         const effSpDie = this._applyDieShift(spDie, stMods.dieMod);
-        const totalMod = spMod + stMods.numericMod;
+        const totalMod = spMod + hSp.mod + stMods.numericMod;
         const modStr   = totalMod !== 0 ? (totalMod>0?`+${totalMod}`:`${totalMod}`) : "";
         formula = `1d${effSpDie}x${modStr}`;
         if (totalMod) reasons.push(`мод.: ${totalMod>0?"+"+totalMod:totalMod}`);
@@ -2135,8 +2310,10 @@ export class KK9DaemonSheet extends ActorSheet {
         diceRows += `<div class="kk9-drow kept"><span class="kk9-dlabel">d${term.faces}</span><span class="kk9-dvals">${vals}</span><span class="kk9-dsum">= ${sum}</span></div>`;
       }
       const { extraTotal: toughExtra, extraReasons: toughExtraR } = await this._rollExtraDice(stMods.extraDice);
-      const toughFinalTotal = total + toughExtra;
+      const rawToughTotal   = total + toughExtra;
+      const toughFinalTotal = hSp.halfResult ? Math.floor(rawToughTotal / 2) : rawToughTotal;
       const allToughReasons = [...reasons, ...toughExtraR];
+      if (hSp.halfResult) allToughReasons.push("результат пополам (пип 4)");
       if (allToughReasons.length) { diceRows += `<div class="kk9-dsep"></div>`; allToughReasons.forEach(r => { diceRows += `<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`; }); }
       diceRows += `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${toughFinalTotal}</span></div>`;
       let deg;
@@ -2157,26 +2334,35 @@ export class KK9DaemonSheet extends ActorSheet {
       if (!sk) return;
       const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
       const stMods = collectStatusModifiers(actor, { skillUuid: sk.uuid || "" });
+      // Штрафы здоровья через linkedAttribute навыка
+      const linkedAttr = sk.linkedAttribute || null;
+      const h = linkedAttr
+        ? (actor._getHealthModForAttr?.(linkedAttr) ?? { mod:0, halfResult:false, blocked:false, reasons:[] })
+        : { mod:0, halfResult:false, blocked:false, reasons:[] };
+      if (h.blocked) { ui.notifications.warn(`${actor.name}: бросок невозможен — последний пип.`); return; }
       const die    = this._applyDieShift(sk.die || 6, stMods.dieMod);
-      const mod    = (sk.modifier || 0) + stMods.numericMod;
+      const mod    = (sk.modifier || 0) + h.mod + stMods.numericMod;
       const modStr = mod !== 0 ? (mod>0?`+${mod}`:`${mod}`) : "";
       const roll   = new Roll(`1d${die}x${modStr}`);
       await roll.evaluate();
       const total  = roll.total;
+      const { extraTotal: skExtra, extraReasons: skExtraR } = await this._rollExtraDice(stMods.extraDice);
+      const rawSkTotal  = total + skExtra;
+      const skFinalTotal = h.halfResult ? Math.floor(rawSkTotal / 2) : rawSkTotal;
+      const allSkReasons = [...(h.reasons||[])];
+      if (sk.modifier) allSkReasons.push(`модификатор: ${sk.modifier > 0 ? "+" : ""}${sk.modifier}`);
+      allSkReasons.push(...stMods.reasons.filter(r=>!r.includes("доп.")), ...skExtraR);
+      if (h.halfResult) allSkReasons.push("результат пополам (пип 4)");
       let degree;
-      if (total <= 1) degree = { type:"snake_eyes", label:"Глаза змеи" };
-      else if (total < 6) degree = { type:"failure", label:"Неудача" };
-      else { const sc = 1+Math.floor((total-6)/4); degree = { type:"success", label: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
+      if (skFinalTotal <= 0) degree = { type:"snake_eyes", label:"Глаза змеи", successes:0 };
+      else if (skFinalTotal < 6) degree = { type:"failure", label:"Неудача", successes:0 };
+      else { const sc = 1+Math.floor((skFinalTotal-6)/4); degree = { type:"success", successes:sc, label: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
+      degree = this._applySuccessMod(degree, stMods.successMod);
       const portrait = actor.img || "icons/svg/mystery-man.svg";
       const results  = roll.terms[0]?.results ?? [];
-      const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
-      const modRow   = mod ? `<div class="kk9-dsep"></div><div class="kk9-drow kk9-dreason"><span class="kk9-dvals">→ мод.: ${modStr}</span></div>` : "";
-      const { extraTotal: skExtra, extraReasons: skExtraR } = await this._rollExtraDice(stMods.extraDice);
-      const skFinalTotal = total + skExtra;
-      degree = this._applySuccessMod(degree, stMods.successMod);
-      const allSkReasons = [...stMods.reasons.filter(r=>!r.includes("доп.")), ...skExtraR];
+      const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"!":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
       const reasonRows = allSkReasons.length ? `<div class="kk9-dsep"></div>${allSkReasons.map(r=>`<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`).join("")}` : "";
-      const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${actor.img}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">${sk.name}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-${degree.type}"><span class="kk9-result-text">${degree.lbl ?? degree.label}</span></summary><div class="kk9-dice-body">${diceRows}${reasonRows}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${skFinalTotal}</span></div></div></details></div>`;
+      const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${actor.img}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">${sk.name}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary kk9-result-${degree.type}"><span class="kk9-result-text">${degree.label}</span></summary><div class="kk9-dice-body">${diceRows}${reasonRows}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${skFinalTotal}</span></div></div></details></div>`;
       await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content, flags: { kk9: { isRoll: true } } });
       if (stMods.usedIds.length) await consumeStatusCharges(actor, stMods.usedIds);
     });
@@ -2216,7 +2402,7 @@ export class KK9DaemonSheet extends ActorSheet {
 // ============================================================
 // KK9CompanionSheet — ActorSheet для спутника
 // ============================================================
-export class KK9CompanionSheet extends ActorSheet {
+export class KK9CompanionSheet extends foundry.appv1.sheets.ActorSheet {
   // Вспомогалка — применить сдвиг грани
   _applyDieShift(die, shift) {
     const scale = [4,6,8,10,12,20,100];
@@ -2242,13 +2428,12 @@ export class KK9CompanionSheet extends ActorSheet {
 
   // Вспомогалка — применить successMod к degree
   _applySuccessMod(deg, successMod) {
-    if (!successMod || deg.cls !== "kk9-result-success") return deg;
-    const s = Math.max(0, (deg.sc ?? 1) + successMod);
-    return {
-      ...deg,
-      sc:  s,
-      lbl: s === 1 ? "1 успех" : s <= 4 ? `${s} успеха` : `${s} успехов`
-    };
+    if (!successMod) return deg;
+    if (deg.cls === "kk9-result-snake") return deg;
+    const curSc = deg.sc ?? (deg.cls === "kk9-result-success" ? 1 : 0);
+    const s = Math.max(0, curSc + successMod);
+    if (s === 0) return { cls:"kk9-result-failure", lbl:"Неудача", sc:0 };
+    return { cls:"kk9-result-success", sc:s, lbl: s===1?"1 успех":s<=4?`${s} успеха`:`${s} успехов` };
   }
 
 
@@ -2320,25 +2505,32 @@ export class KK9CompanionSheet extends ActorSheet {
       const attr    = actor.system.attributes?.[attrKey];
       if (!attr) return;
       const LABELS = { agility:"Ловкость", smarts:"Смекалка", spirit:"Дух", endurance:"Выносливость", magic:"Магия" };
+      // Штрафы здоровья
+      const h = actor._getHealthModForAttr?.(attrKey) ?? { mod:0, halfResult:false, blocked:false, reasons:[] };
+      if (h.blocked) { ui.notifications.warn(`${actor.name}: бросок невозможен — последний пип.`); return; }
       const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
       const stMods = collectStatusModifiers(actor, { attributeKey: attrKey });
       const die    = this._applyDieShift(attr.die || 6, stMods.dieMod);
-      const mod    = (attr.modifier || 0) + stMods.numericMod;
+      const mod    = (attr.modifier || 0) + h.mod + stMods.numericMod;
       const modStr = mod ? (mod>0?`+${mod}`:`${mod}`) : "";
       const roll   = new Roll(`1d${die}x${modStr}`);
       await roll.evaluate();
       const total  = roll.total;
+      const { extraTotal: cpExtra, extraReasons: cpExtraR } = await this._rollExtraDice(stMods.extraDice);
+      const rawTotal     = total + cpExtra;
+      const cpFinalTotal = h.halfResult ? Math.floor(rawTotal / 2) : rawTotal;
+      const cpAllReasons = [...(h.reasons||[])];
+      if (attr.modifier) cpAllReasons.push(`модификатор: ${attr.modifier > 0 ? "+" : ""}${attr.modifier}`);
+      cpAllReasons.push(...stMods.reasons.filter(r=>!r.includes("доп.")), ...cpExtraR);
+      if (h.halfResult) cpAllReasons.push("результат пополам (пип 4)");
       let deg;
-      if (total <= 1) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи" };
-      else if (total < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача" };
-      else { const sc = 1+Math.floor((total-6)/4); deg = { cls:"kk9-result-success", lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
+      if (cpFinalTotal <= 0) deg = { cls:"kk9-result-snake", lbl:"Глаза змеи", sc:0 };
+      else if (cpFinalTotal < 6) deg = { cls:"kk9-result-failure", lbl:"Неудача", sc:0 };
+      else { const sc = 1+Math.floor((cpFinalTotal-6)/4); deg = { cls:"kk9-result-success", sc, lbl: sc===1?"1 успех":sc<=4?`${sc} успеха`:`${sc} успехов` }; }
+      deg = this._applySuccessMod(deg, stMods.successMod);
       const portrait = actor.img || "icons/svg/mystery-man.svg";
       const results  = roll.terms[0]?.results ?? [];
-      const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"💥":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
-      const { extraTotal: cpExtra, extraReasons: cpExtraR } = await this._rollExtraDice(stMods.extraDice);
-      const cpFinalTotal = total + cpExtra;
-      deg = this._applySuccessMod(deg, stMods.successMod);
-      const cpAllReasons = [...stMods.reasons.filter(r=>!r.includes("доп.")), ...cpExtraR];
+      const diceRows = results.map(r=>`<div class="kk9-drow kept"><span class="kk9-dlabel">d${die}</span><span class="kk9-dvals"><span class="kk9-rv dk">${r.exploded?"!":""}${r.result}</span></span><span class="kk9-dsum">= ${r.result}</span></div>`).join("");
       const reasonRows = cpAllReasons.length ? `<div class="kk9-dsep"></div>${cpAllReasons.map(r=>`<div class="kk9-drow kk9-dreason"><span class="kk9-dlabel">→</span><span class="kk9-dvals">${r}</span></div>`).join("")}` : "";
       const content  = `<div class="kk9-chat-roll" style="--accent:#c4a44a"><div class="kk9-chat-header"><img class="kk9-chat-portrait" src="${portrait}" alt="${actor.name}"><div class="kk9-chat-header-text"><span class="kk9-chat-name" style="color:#c4a44a">${actor.name}</span><span class="kk9-chat-label">${LABELS[attrKey]||attrKey}</span></div></div><details class="kk9-result-details"><summary class="kk9-result-summary ${deg.cls}"><span class="kk9-result-text">${deg.lbl}</span></summary><div class="kk9-dice-body">${diceRows}${reasonRows}<div class="kk9-dsep"></div><div class="kk9-drow kk9-dtotal"><span class="kk9-dlabel">итог</span><span class="kk9-dtotal-val">${cpFinalTotal}</span></div></div></details></div>`;
       await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor }), content, flags: { kk9: { isRoll: true } } });

@@ -145,6 +145,18 @@ async function _setTokenStatus(actor, statusId, active) {
 }
 
 // ── Применить урон к актору ─────────────────────────────────
+
+// Шкала пипов лёгкого НПС: 0 → 1 → 3 → 5
+// steps = количество уровней урона (1=лёгкий, 2=тяжёлый, 3=летальный)
+function _advanceLightNpcPips(current, steps) {
+  const scale = [0, 1, 3, 5];
+  const curIdx = scale.indexOf(current);
+  // Если текущее значение не в шкале — берём ближайший индекс снизу
+  const baseIdx = curIdx >= 0 ? curIdx : scale.findLastIndex(v => v <= current);
+  const newIdx  = Math.min(scale.length - 1, (baseIdx < 0 ? 0 : baseIdx) + steps);
+  return scale[newIdx];
+}
+
 export async function applyDamageToActor(actor, damageLevel, damageType, overflow = false) {
   const levels  = DAMAGE_LEVELS[damageLevel] || 1;
   const isBoss  = actor.type === "npc-boss";
@@ -194,6 +206,26 @@ export async function applyDamageToActor(actor, damageLevel, damageType, overflo
 
   const physVal = actor.system.health?.physical?.value ?? 0;
   const mentVal = actor.system.health?.mental?.value   ?? 0;
+
+  // Лёгкий НПС — дискретная шкала [0, 1, 3, 5]
+  if (actor.type === "npc-light") {
+    const levels = DAMAGE_LEVELS[damageLevel] || 1;
+    if (isPhys) {
+      const newPhys = _advanceLightNpcPips(physVal, levels);
+      const update  = { "system.health.physical.value": newPhys };
+      // Overflow: если уже на максимуме (5) — переносим в ментал
+      if (overflow && physVal === 5) {
+        const newMent = _advanceLightNpcPips(mentVal, levels);
+        update["system.health.mental.value"] = newMent;
+      }
+      await actor.update(update);
+      return { levels, newVal: newPhys };
+    } else {
+      const newMent = _advanceLightNpcPips(mentVal, levels);
+      await actor.update({ "system.health.mental.value": newMent });
+      return { levels, newVal: newMent };
+    }
+  }
 
   if (isPhys) {
     const newPhys = Math.min(physVal + levels, 5);
@@ -264,8 +296,9 @@ export async function applyStatusToActor(actor, statusItem) {
   // 4. Чат-сообщение о наложении
   const typeLabels = types.map(t => _statusTypeLabel(t)).join(", ") || "—";
   const durText = _durationText(created.system.duration);
+  const _statusAccent = actor.system?.faculty_color || actor.system?.operative_faculty_color || "#a855f7";
   ChatMessage.create({
-    content: `<div class="kk9-chat-roll" style="--accent:#a855f7">
+    content: `<div class="kk9-chat-roll" style="--accent:${_statusAccent}">
       <div class="kk9-chat-header">
         <div class="kk9-chat-header-text" style="padding:5px 10px">
           <span class="kk9-chat-name">${created.name}</span>
@@ -321,8 +354,9 @@ export async function removeStatusFromActor(actor, itemId) {
   }
 
   // Чат-сообщение о снятии
+  const _removeAccent = actor.system?.faculty_color || actor.system?.operative_faculty_color || "#6a6560";
   ChatMessage.create({
-    content: `<div class="kk9-chat-roll" style="--accent:#6a6560">
+    content: `<div class="kk9-chat-roll" style="--accent:${_removeAccent}">
       <div class="kk9-chat-header">
         <div class="kk9-chat-header-text" style="padding:5px 10px">
           <span class="kk9-chat-name">${statusName}</span>
@@ -711,13 +745,15 @@ export async function rollWeaponAttack(weaponItem, actor) {
     // Дополняем контент кнопками атаки
     const baseContent = interceptedContent ?? "";
     const attackBlock = success ? `
-<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid var(--border,#2a2a2a);display:flex;gap:5px;flex-wrap:wrap">
+<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid #2a2a2a;display:flex;flex-direction:column;gap:4px">
   <select id="kk9-target-select-${weaponItem.id}" style="flex:1;min-width:120px;background:var(--bg3,#2a2a2a);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text,#b8b0a4);padding:2px 6px;font-size:0.8em;font-family:'Jost',sans-serif">
     <option value="">— выбери цель —</option>${targetOptions}
   </select>
-  <button class="kk9-apply-damage" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="background:rgba(160,41,30,0.2);border:1px solid rgba(160,41,30,0.4);border-radius:3px;color:#c0392b;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Засчитать урон</button>
-  <button class="kk9-resist-roll" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:3px;color:#4ade80;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Стойкость</button>
-  <button class="kk9-miss" style="background:rgba(100,100,100,0.1);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text-dim,#6a6560);padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Промах</button>
+  <button class="kk9-apply-damage" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="display:block;width:100%;box-sizing:border-box;background:rgba(196,164,74,0.1);border:1px solid #c4a44a;border-radius:3px;color:#c4a44a;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Засчитать урон</button>
+  <div style="display:flex;gap:4px">
+  <button class="kk9-resist-roll" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="flex:1;background:rgba(196,164,74,0.1);border:1px solid #c4a44a;border-radius:3px;color:#c4a44a;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Стойкость</button>
+  <button class="kk9-miss" style="flex:1;background:rgba(100,100,100,0.1);border:1px solid #3a3a3a;border-radius:3px;color:#6a6560;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Промах</button>
+  </div>
 </div>` : `<div style="font-size:0.78em;color:var(--text-dim,#6a6560);font-style:italic;padding:4px 10px;border-top:1px solid var(--border,#2a2a2a)">Атака не прошла.</div>`;
 
     // Вставляем перед закрывающим </div> kk9-chat-roll
@@ -807,11 +843,15 @@ export async function rollWeaponAttack(weaponItem, actor) {
     <summary class="kk9-result-summary ${resultClass}"><span class="kk9-result-text">${degree.label}</span></summary>
     ${diceHtml}
   </details>
-  ${success ? `<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid var(--border,#2a2a2a);display:flex;gap:5px;flex-wrap:wrap">
+  ${success ? `<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid #2a2a2a;display:flex;flex-direction:column;gap:4px">
     <select id="kk9-target-select-${weaponItem.id}" style="flex:1;min-width:120px;background:var(--bg3,#2a2a2a);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text,#b8b0a4);padding:2px 6px;font-size:0.8em;font-family:'Jost',sans-serif"><option value="">— выбери цель —</option>${targetOptions}</select>
-    <button class="kk9-apply-damage" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="background:rgba(160,41,30,0.2);border:1px solid rgba(160,41,30,0.4);border-radius:3px;color:#c0392b;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Засчитать урон</button>
-    <button class="kk9-resist-roll" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:3px;color:#4ade80;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Стойкость</button>
-    <button class="kk9-miss" style="background:rgba(100,100,100,0.1);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text-dim,#6a6560);padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Промах</button>
+    <button class="kk9-apply-damage" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="display:block;width:100%;box-sizing:border-box;background:rgba(196,164,74,0.1);border:1px solid #c4a44a;border-radius:3px;color:#c4a44a;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Засчитать урон</button>
+    <div style="display:flex;gap:6px;margin-top:4px">
+    <div style="display:flex;gap:4px">
+    <button class="kk9-resist-roll" data-weapon-id="${weaponItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${weapon.damage_level}" data-damage-type="${weapon.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${weapon.status_uuid||""}" style="flex:1;background:rgba(196,164,74,0.1);border:1px solid #c4a44a;border-radius:3px;color:#c4a44a;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Стойкость</button>
+    <button class="kk9-miss" style="flex:1;background:rgba(100,100,100,0.1);border:1px solid #3a3a3a;border-radius:3px;color:#6a6560;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Промах</button>
+    </div>
+    </div>
   </div>` : `<div style="font-size:0.78em;color:var(--text-dim,#6a6560);font-style:italic;padding:4px 10px;border-top:1px solid var(--border,#2a2a2a)">Атака не прошла.</div>`}
 </div>`;
 
@@ -1025,17 +1065,19 @@ export async function rollSpellAttack(spellItem, actor) {
     const { level: damageLevel, extraPips } = calcSpellDamage(cost, isAoe);
 
     const attackBlock = success ? (isAoe ? `
-<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid var(--border,#2a2a2a);display:flex;gap:5px;flex-wrap:wrap">
-  <button class="kk9-apply-damage" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${damageLevel}" data-damage-type="${spell.damage_type}" data-extra-pip="${extraPips}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" data-is-gear="1" data-is-spell="1" style="background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.4);border-radius:3px;color:#a855f7;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Засчитать урон (все цели)</button>
-  <button class="kk9-miss" style="background:rgba(100,100,100,0.1);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text-dim,#6a6560);padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Промах</button>
+<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid #2a2a2a;display:flex;flex-direction:column;gap:4px">
+  <button class="kk9-apply-damage" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${damageLevel}" data-damage-type="${spell.damage_type}" data-extra-pip="${extraPips}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" data-is-gear="1" data-is-spell="1" style="display:block;width:100%;box-sizing:border-box;background:rgba(196,164,74,0.1);border:1px solid #c4a44a;border-radius:3px;color:#c4a44a;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Засчитать урон (все цели)</button>
+  <button class="kk9-miss" style="display:block;width:100%;box-sizing:border-box;background:rgba(100,100,100,0.1);border:1px solid #3a3a3a;border-radius:3px;color:#6a6560;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Промах</button>
 </div>` : `
-<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid var(--border,#2a2a2a);display:flex;gap:5px;flex-wrap:wrap">
+<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid #2a2a2a;display:flex;flex-direction:column;gap:4px">
   <select id="kk9-target-select-${spellItem.id}" style="flex:1;min-width:120px;background:var(--bg3,#2a2a2a);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text,#b8b0a4);padding:2px 6px;font-size:0.8em;font-family:'Jost',sans-serif">
     <option value="">— выбери цель —</option>${targetOptions}
   </select>
-  <button class="kk9-apply-damage" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${damageLevel}" data-damage-type="${spell.damage_type}" data-extra-pip="${extraPips}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" data-is-spell="1" style="background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.4);border-radius:3px;color:#a855f7;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Засчитать урон${extraPips ? ` +${extraPips} пип` : ""}</button>
-  <button class="kk9-resist-roll" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${damageLevel}" data-damage-type="${spell.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:3px;color:#4ade80;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Стойкость</button>
-  <button class="kk9-miss" style="background:rgba(100,100,100,0.1);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text-dim,#6a6560);padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Промах</button>
+  <button class="kk9-apply-damage" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${damageLevel}" data-damage-type="${spell.damage_type}" data-extra-pip="${extraPips}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" data-is-spell="1" style="display:block;width:100%;box-sizing:border-box;background:rgba(196,164,74,0.1);border:1px solid #c4a44a;border-radius:3px;color:#c4a44a;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Засчитать урон${extraPips ? ` +${extraPips} пип` : ""}</button>
+  <div style="display:flex;gap:4px">
+  <button class="kk9-resist-roll" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${damageLevel}" data-damage-type="${spell.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" style="flex:1;background:rgba(196,164,74,0.1);border:1px solid #c4a44a;border-radius:3px;color:#c4a44a;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Стойкость</button>
+  <button class="kk9-miss" style="flex:1;background:rgba(100,100,100,0.1);border:1px solid #3a3a3a;border-radius:3px;color:#6a6560;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Промах</button>
+  </div>
 </div>`) : `<div style="font-size:0.78em;color:var(--text-dim,#6a6560);font-style:italic;padding:4px 10px;border-top:1px solid var(--border,#2a2a2a)">Заклинание не попало. Энергия потрачена.</div>`;
 
     const baseContent  = interceptedContent ?? "";
@@ -1118,11 +1160,15 @@ export async function rollSpellAttack(spellItem, actor) {
     <summary class="kk9-result-summary ${resultClass}"><span class="kk9-result-text">${degree.label}</span></summary>
     ${diceHtml}
   </details>
-  ${success ? `<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid var(--border,#2a2a2a);display:flex;gap:5px;flex-wrap:wrap">
+  ${success ? `<div class="kk9-attack-actions" style="padding:6px 10px;border-top:1px solid #2a2a2a;display:flex;flex-direction:column;gap:4px">
     <select id="kk9-target-select-${spellItem.id}" style="flex:1;min-width:120px;background:var(--bg3,#2a2a2a);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text,#b8b0a4);padding:2px 6px;font-size:0.8em;font-family:'Jost',sans-serif"><option value="">— выбери цель —</option>${targetOptions}</select>
-    <button class="kk9-apply-damage" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${spell.damage_level}" data-damage-type="${spell.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" style="background:rgba(160,41,30,0.2);border:1px solid rgba(160,41,30,0.4);border-radius:3px;color:#c0392b;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Засчитать урон</button>
-    <button class="kk9-resist-roll" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${spell.damage_level}" data-damage-type="${spell.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:3px;color:#4ade80;padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Стойкость</button>
-    <button class="kk9-miss" style="background:rgba(100,100,100,0.1);border:1px solid var(--border,#3a3a3a);border-radius:3px;color:var(--text-dim,#6a6560);padding:3px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer">Промах</button>
+    <button class="kk9-apply-damage" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${spell.damage_level}" data-damage-type="${spell.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" style="display:block;width:100%;box-sizing:border-box;background:rgba(196,164,74,0.1);border:1px solid #c4a44a;border-radius:3px;color:#c4a44a;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Засчитать урон</button>
+    <div style="display:flex;gap:6px;margin-top:4px">
+    <div style="display:flex;gap:4px">
+    <button class="kk9-resist-roll" data-weapon-id="${spellItem.id}" data-actor-id="${actor?.id??""}" data-damage-level="${spell.damage_level}" data-damage-type="${spell.damage_type}" data-has-status="${hasStatus?"1":"0"}" data-status-uuid="${spell.status_uuid||""}" style="flex:1;background:rgba(196,164,74,0.1);border:1px solid #c4a44a;border-radius:3px;color:#c4a44a;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Стойкость</button>
+    <button class="kk9-miss" style="flex:1;background:rgba(100,100,100,0.1);border:1px solid #3a3a3a;border-radius:3px;color:#6a6560;padding:4px 10px;font-family:'Jost',sans-serif;font-size:0.78em;cursor:pointer;text-align:center">Промах</button>
+    </div>
+    </div>
   </div>` : `<div style="font-size:0.78em;color:var(--text-dim,#6a6560);font-style:italic;padding:4px 10px;border-top:1px solid var(--border,#2a2a2a)">Заклинание не попало. Энергия потрачена.</div>`}
 </div>`;
 
@@ -1316,6 +1362,86 @@ async function _getTargetActor(btn) {
   return game.actors.get(targetId);
 }
 
+// Если цель — контейнер, показываем диалог выбора даймона/спутника.
+// Возвращает актора-получателя или null (отмена / нет кандидатов).
+async function _resolveContainerTarget(target) {
+  if (target.type !== "container") return target;
+
+  // Собираем всех подходящих: daemon (не is_orb) и companion
+  const candidates = [];
+  for (const uuid of [...(target.system.daemon_refs || []), ...(target.system.companion_refs || [])]) {
+    const doc = await fromUuid(uuid);
+    if (!doc) continue;
+    if (doc.type === "daemon" && doc.system.is_orb === true) continue;
+    candidates.push(doc);
+  }
+
+  if (!candidates.length) {
+    ui.notifications.warn(`У контейнера «${target.name}» нет подходящих даймонов или спутников.`);
+    return null;
+  }
+
+  // Один кандидат — без диалога
+  if (candidates.length === 1) return candidates[0];
+
+  // Несколько — диалог выбора
+  return new Promise(resolve => {
+    const rows = candidates.map(c => `
+      <div class="kk9-aoe-row" style="
+        display:flex;align-items:center;gap:10px;padding:7px 10px;
+        background:#2a2a2a;border:1px solid #3a3a3a;border-radius:4px;
+        cursor:pointer;user-select:none;margin-bottom:4px;transition:border-color 0.1s">
+        <input type="radio" name="container-target" value="${c.id}" style="display:none">
+        <img src="${c.img || 'icons/svg/mystery-man.svg'}" style="width:24px;height:24px;object-fit:cover;border-radius:3px;flex-shrink:0">
+        <span style="font-size:0.85em;color:#b8b0a4">${c.name}</span>
+        <span style="font-size:0.72em;color:#6a6560;margin-left:auto">${c.type === "daemon" ? "Даймон" : "Спутник"}</span>
+      </div>`).join("");
+
+    new Dialog({
+      title: `Цель в контейнере «${target.name}»`,
+      content: `<div style="font-family:'Jost',sans-serif;padding:4px 2px">
+        <div style="font-size:0.78em;color:#6a6560;margin-bottom:10px;padding:4px 8px;background:#1e1e1e;border-radius:3px">
+          Выбери кому засчитать урон
+        </div>
+        <div style="display:flex;flex-direction:column;max-height:280px;overflow-y:auto">
+          ${rows}
+        </div>
+      </div>`,
+      buttons: {
+        apply: {
+          label: "Выбрать",
+          callback: (html) => {
+            const checked = html[0].querySelector("input[name=container-target]:checked");
+            if (!checked) { ui.notifications.warn("Не выбрана цель."); resolve(null); return; }
+            const actor = game.actors.get(checked.value);
+            resolve(actor ?? null);
+          }
+        },
+        cancel: { label: "Отмена", callback: () => resolve(null) }
+      },
+      default: "apply",
+      render: (html) => {
+        const $dialog = html.closest(".app.dialog");
+        $dialog.css("background", "#1c1c1c");
+        $dialog.find(".window-content").css("background", "#1c1c1c");
+        $dialog.find(".dialog-button").css({
+          background:"#2a2a2a", border:"1px solid #3a3a3a",
+          "border-radius":"4px", color:"#b8b0a4",
+          "font-family":"'Jost',sans-serif", "font-size":"0.85em",
+          padding:"6px 14px", cursor:"pointer"
+        });
+        $dialog.find(".dialog-button[data-button='apply']").css({ "border-color":"#c4a44a", color:"#c4a44a" });
+        // Клик по строке — выбор радио
+        html.find(".kk9-aoe-row").on("click", function() {
+          html.find(".kk9-aoe-row").css("border-color", "#3a3a3a");
+          $(this).find("input[type=radio]").prop("checked", true);
+          $(this).css("border-color", "#c4a44a");
+        });
+      }
+    }, { width: 340, classes: ["dialog", "kk9-dialog"] }).render(true);
+  });
+}
+
 async function _handleApplyDamage(btn) {
   const damageLevel = btn.data("damage-level");
   const damageType  = btn.data("damage-type");
@@ -1331,7 +1457,9 @@ async function _handleApplyDamage(btn) {
     return;
   }
 
-  const target = await _getTargetActor(btn);
+  const rawTarget = await _getTargetActor(btn);
+  if (!rawTarget) return;
+  const target = await _resolveContainerTarget(rawTarget);
   if (!target) return;
 
   const result = await applyDamageToActor(target, damageLevel, damageType, false);
@@ -1360,7 +1488,9 @@ async function _handleApplyDamage(btn) {
 }
 
 async function _handleResistRoll(btn) {
-  const target = await _getTargetActor(btn);
+  const rawTarget = await _getTargetActor(btn);
+  if (!rawTarget) return;
+  const target = await _resolveContainerTarget(rawTarget);
   if (!target) return;
 
   const spiritDie = target.system.attributes?.spirit?.die || 4;

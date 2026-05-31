@@ -251,8 +251,8 @@ export class KK9Actor extends Actor {
   }
 
   _getSuccessDegreeFromTotal(total, halfResult = false, roll = null) {
-    if (halfResult) total = Math.floor(total / 2);
-
+    // halfResult применяется ПОСЛЕДНИМ — после всех числовых модификаторов и extraDice
+    // Здесь total уже включает все моды, делим в самом конце
     const diceTerms     = roll?.terms?.filter(t => Array.isArray(t.results)) ?? [];
     const activeResults = diceTerms.flatMap(t => t.results.filter(r => r.active !== false));
 
@@ -261,6 +261,10 @@ export class KK9Actor extends Actor {
 
     if (allOnes || negativeTotal)
       return { type: "snake_eyes", label: "Глаза змеи", successes: 0 };
+
+    // Применяем half ПОСЛЕ проверки snake_eyes/negative, но ДО подсчёта успехов
+    if (halfResult) total = Math.floor(total / 2);
+
     if (total < 6)
       return { type: "failure", label: "Неудача", successes: 0 };
 
@@ -481,11 +485,19 @@ export class KK9Actor extends Actor {
     const baseTotal  = rollTotal;
     const degree     = this._getSuccessDegreeFromTotal(baseTotal, halfResult, roll);
 
-    // successMod — модификатор к числу успехов, применяем после вычисления
-    if (successMod !== 0 && degree.type === "success") {
-      degree.successes = Math.max(0, degree.successes + successMod);
-      const s = degree.successes;
-      degree.label = s === 1 ? "1 успех" : s <= 4 ? `${s} успеха` : `${s} успехов`;
+    // successMod — при успехе и неудаче, но не при глазах змеи
+    if (successMod !== 0 && degree.type !== "snake_eyes") {
+      const curSc = degree.successes ?? 0;
+      const s = Math.max(0, curSc + successMod);
+      if (s === 0) {
+        degree.type     = "failure";
+        degree.label    = "Неудача";
+        degree.successes = 0;
+      } else {
+        degree.type     = "success";
+        degree.successes = s;
+        degree.label    = s === 1 ? "1 успех" : s <= 4 ? `${s} успеха` : `${s} успехов`;
+      }
     }
 
     const finalTotal = baseTotal;
@@ -978,13 +990,14 @@ export class KK9Actor extends Actor {
     try {
       result = await Dialog.prompt({
         title: "Бросок Стойкости",
-        content: `<div style="padding:8px">
-          <p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>
+        options: { classes: ["dialog", "kk9-toughness-dialog"] },
+        content: `<style>.kk9-toughness-dialog,.kk9-toughness-dialog .window-content,.kk9-toughness-dialog .dialog-content{background:#1a1a1a!important;color:#b8b0a4!important}.kk9-toughness-dialog .window-header{background:#1a1a1a!important;border-bottom:1px solid #c4a44a!important}.kk9-toughness-dialog .dialog-button,.kk9-toughness-dialog button{background:rgba(196,164,74,0.15)!important;border:1px solid #c4a44a!important;color:#c4a44a!important;font-family:'Jost',sans-serif!important}.kk9-toughness-dialog .dialog-button:hover,.kk9-toughness-dialog button:hover{background:rgba(196,164,74,0.3)!important}</style><div style="background:var(--bg2,#1a1a1a);color:var(--text,#b8b0a4);font-family:'Jost',sans-serif;padding:12px">
+          <p style="margin-bottom:10px;font-size:0.88em;color:var(--text-dim,#8a8278)">Дух${available.length ? " + навык сопротивления" : ""}</p>
           ${available.length
-            ? `<select id="resist-skill" style="width:100%">
+            ? `<select id="resist-skill" style="width:100%;background:var(--bg3,#2a2a2a);border:1px solid var(--accent,#c4a44a);border-radius:3px;color:var(--text,#b8b0a4);padding:4px 6px;font-family:'Jost',sans-serif;font-size:0.9em">
                  <option value="">— только Дух —</option>${options}
                </select>`
-            : "<em>Нет доступных навыков сопротивления</em>"}
+            : '<em style="color:var(--text-dim,#6a6560);font-size:0.85em">Нет доступных навыков сопротивления</em>'}
         </div>`,
         label: "Бросить",
         callback: html => html.find("#resist-skill").val() || null
@@ -1060,10 +1073,11 @@ export class KK9Actor extends Actor {
     // successMod + extraDie применяем к итогу
     const finalTotal = roll.total + extraDieTotal;
     const degree     = this._getSuccessDegreeFromTotal(finalTotal, h.halfResult);
-    if (stMods.successMod !== 0 && degree.type === "success") {
-      degree.successes = Math.max(0, degree.successes + stMods.successMod);
-      const s = degree.successes;
-      degree.label = s === 1 ? "1 успех" : s <= 4 ? `${s} успеха` : `${s} успехов`;
+    if (stMods.successMod !== 0 && degree.type !== "snake_eyes") {
+      const curSc = degree.successes ?? 0;
+      const s = Math.max(0, curSc + stMods.successMod);
+      if (s === 0) { degree.type = "failure"; degree.label = "Неудача"; degree.successes = 0; }
+      else { degree.type = "success"; degree.successes = s; degree.label = s===1?"1 успех":s<=4?`${s} успеха`:`${s} успехов`; }
     }
     const diceHtml   = this._buildDiceHtml(roll, reasons, finalTotal);
     const content    = this._buildRollMessage(`Стойкость${labelExtra}`, degree, diceHtml, reasons);
@@ -1190,6 +1204,19 @@ export class KK9Actor extends Actor {
     const modSmarts = this.system.attributes?.smarts?.modifier   || 0;
     let mTotal      = modAgi + modSmarts;
 
+    // ── Штрафы здоровья (light/hard — не босс) ──────────────
+    const reasons = [];
+    if (!isBoss) {
+      const hAg = this._getHealthModForAttr("agility");
+      const hSm = this._getHealthModForAttr("smarts");
+      if (hAg.blocked || hSm.blocked) {
+        ui.notifications.warn(`${this.name}: инициатива невозможна — последний пип.`);
+        return;
+      }
+      mTotal += Math.min(hAg.mod, hSm.mod); // берём наихудший
+      if (hAg.reasons.length) reasons.push(...hAg.reasons);
+    }
+
     // ── Статусные модификаторы для инициативы ──
     const { collectStatusModifiers, consumeStatusCharges } = await import("./weapon-combat.mjs");
     const stMods = collectStatusModifiers(this, { isInitiative: true, attributeKey: null });
@@ -1198,7 +1225,7 @@ export class KK9Actor extends Actor {
       dieAgi    = parseInt(this._applyDieChange(`d${dieAgi}`,    stMods.dieMod).replace("d",""));
       dieSmarts = parseInt(this._applyDieChange(`d${dieSmarts}`, stMods.dieMod).replace("d",""));
     }
-    const reasons = [...stMods.reasons.filter(r => !r.includes("усп."))];
+    reasons.push(...stMods.reasons.filter(r => !r.includes("усп.")));
 
     const modStr = mTotal !== 0 ? (mTotal > 0 ? `+${mTotal}` : `${mTotal}`) : "";
     const formula = isWC
@@ -1244,13 +1271,14 @@ export class KK9Actor extends Actor {
     try {
       result = await Dialog.prompt({
         title: "Бросок Стойкости",
-        content: `<div style="padding:8px">
-          <p style="margin-bottom:8px">Дух${available.length ? " + навык сопротивления" : ""}</p>
+        options: { classes: ["dialog", "kk9-toughness-dialog"] },
+        content: `<style>.kk9-toughness-dialog,.kk9-toughness-dialog .window-content,.kk9-toughness-dialog .dialog-content{background:#1a1a1a!important;color:#b8b0a4!important}.kk9-toughness-dialog .window-header{background:#1a1a1a!important;border-bottom:1px solid #c4a44a!important}.kk9-toughness-dialog .dialog-button,.kk9-toughness-dialog button{background:rgba(196,164,74,0.15)!important;border:1px solid #c4a44a!important;color:#c4a44a!important;font-family:'Jost',sans-serif!important}.kk9-toughness-dialog .dialog-button:hover,.kk9-toughness-dialog button:hover{background:rgba(196,164,74,0.3)!important}</style><div style="background:var(--bg2,#1a1a1a);color:var(--text,#b8b0a4);font-family:'Jost',sans-serif;padding:12px">
+          <p style="margin-bottom:10px;font-size:0.88em;color:var(--text-dim,#8a8278)">Дух${available.length ? " + навык сопротивления" : ""}</p>
           ${available.length
-            ? `<select id="resist-skill" style="width:100%">
+            ? `<select id="resist-skill" style="width:100%;background:var(--bg3,#2a2a2a);border:1px solid var(--accent,#c4a44a);border-radius:3px;color:var(--text,#b8b0a4);padding:4px 6px;font-family:'Jost',sans-serif;font-size:0.9em">
                  <option value="">— только Дух —</option>${options}
                </select>`
-            : "<em>Нет доступных навыков сопротивления</em>"}
+            : '<em style="color:var(--text-dim,#6a6560);font-size:0.85em">Нет доступных навыков сопротивления</em>'}
         </div>`,
         label: "Бросить",
         callback: html => html.find("#resist-skill").val() || null
